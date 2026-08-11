@@ -120,6 +120,8 @@ export type Device = {
   capabilities: string;
   firmware: string;
   notes?: string;
+  /** Generert og redigerbar dokumentasjon for bygg, kode og kobling. */
+  documentation?: string;
   /** valgfri posisjon for kartvisning */
   lat?: number;
   lon?: number;
@@ -152,7 +154,7 @@ export const defaultMqtt: MqttConfig = {
 /** Handling som kjøres når en regel utløses. */
 export type RuleAction =
   | { id: string; kind: "mqtt"; topic: string; payload: string }
-  | { id: string; kind: "telegram"; text: string }
+  | { id: string; kind: "telegram"; text: string; chatId?: string }
   | { id: string; kind: "notify"; text: string };
 
 export function newAction(kind: RuleAction["kind"] = "mqtt"): RuleAction {
@@ -235,6 +237,19 @@ export function newModule(kind: DashModule["kind"] = "mqtt-graph"): DashModule {
 
 export type TelegramConfig = { chatId: string; enabled: boolean };
 
+export type WorldViewConfig = {
+  activeLayers: string[];
+  query: string;
+  deviceQuery: string;
+  range: 24 | 72 | 168 | 720;
+  group: LayerGroupName;
+  showDevices: boolean;
+};
+
+type LayerGroupName = "natur" | "sikkerhet" | "infrastruktur" | "signal" | "bevegelse" | "samfunn";
+
+export type SmartHomeViewConfig = { tab: "enheter" | "grafer" | "varsler" | "oppdagelse" | "diagnose" };
+
 export type HudConfig = {
   nodes: ModelNode[];
   collaboration: boolean;
@@ -251,6 +266,8 @@ export type HudConfig = {
   rules: AlertRule[];
   modules: DashModule[];
   telegram: TelegramConfig;
+  worldView?: WorldViewConfig;
+  smartHomeView?: SmartHomeViewConfig;
   /** krev bekreftelse før Jarvis publiserer MQTT-kommandoer */
   confirmCommands: boolean;
 };
@@ -315,6 +332,7 @@ export const defaultConfig: HudConfig = {
   rules: [],
   modules: [],
   telegram: { chatId: "", enabled: false },
+  smartHomeView: { tab: "enheter" },
   confirmCommands: true,
 
   plugins: [
