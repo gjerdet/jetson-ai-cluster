@@ -250,6 +250,21 @@ type LayerGroupName = "natur" | "sikkerhet" | "infrastruktur" | "signal" | "beve
 
 export type SmartHomeViewConfig = { tab: "enheter" | "grafer" | "varsler" | "oppdagelse" | "diagnose" };
 
+export type EvalCriterion = { id: string; label: string; weight: number; enabled: boolean };
+
+export type EvaluatorConfig = {
+  /** poengkriterier evaluatoren skal vurdere etter */
+  criteria: EvalCriterion[];
+  /** under denne poengsummen skrives svaret om til ENDELIG SVAR (0-10) */
+  threshold: number;
+  /** aldri = behold alltid primærsvaret, alltid = slå alltid sammen */
+  mergeMode: "auto" | "alltid" | "aldri";
+  /** maks antall evaluatornoder som brukes samtidig, 0 = alle */
+  maxWorkers: number;
+  /** kjør evaluatorene parallelt fordelt over noder */
+  parallel: boolean;
+};
+
 export type HudConfig = {
   nodes: ModelNode[];
   collaboration: boolean;
@@ -270,6 +285,25 @@ export type HudConfig = {
   smartHomeView?: SmartHomeViewConfig;
   /** krev bekreftelse før Jarvis publiserer MQTT-kommandoer */
   confirmCommands: boolean;
+  /** automatisk lastbalansering mellom aktive noder */
+  loadBalance: boolean;
+  /** husk samtalen mellom omstart av nettleseren (lokalt) */
+  keepHistory: boolean;
+  evaluator: EvaluatorConfig;
+};
+
+export const defaultEvaluator: EvaluatorConfig = {
+  criteria: [
+    { id: "c-korrekt", label: "Faktisk korrekthet", weight: 3, enabled: true },
+    { id: "c-relevans", label: "Svarer på spørsmålet", weight: 3, enabled: true },
+    { id: "c-konkret", label: "Konkret og handlingsrettet", weight: 2, enabled: true },
+    { id: "c-kort", label: "Kortfattet uten fyll", weight: 1, enabled: true },
+    { id: "c-sprak", label: "Riktig norsk bokmål", weight: 1, enabled: true },
+  ],
+  threshold: 8,
+  mergeMode: "auto",
+  maxWorkers: 0,
+  parallel: true,
 };
 
 const STORAGE_KEY = "hud.config.v1";
@@ -334,6 +368,9 @@ export const defaultConfig: HudConfig = {
   telegram: { chatId: "", enabled: false },
   smartHomeView: { tab: "enheter" },
   confirmCommands: true,
+  loadBalance: true,
+  keepHistory: true,
+  evaluator: defaultEvaluator,
 
   plugins: [
     {
