@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { Minus, Square, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = {
