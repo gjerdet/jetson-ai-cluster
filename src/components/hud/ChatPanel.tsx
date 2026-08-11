@@ -97,30 +97,46 @@ export function ChatPanel({
 
       const out: ChatMsg[] = [...next];
       let answer = "";
+      let answeredBy = primary.name;
+      const runs: ToolRun[] = [];
 
       // verktøykall-loop: modellen kan hente ekte data før den svarer
       for (let round = 0; round < 4; round++) {
-        const raw = await callNode(primary, thread);
+        const call = config.loadBalance !== false
+          ? await callBalanced(active, thread, { prefer: primary })
+          : { text: await callTracked(primary, thread), node: primary };
+        const raw = call.text;
+        answeredBy = call.node.name;
         const calls = parseToolCalls(raw);
         if (!calls.length) {
           answer = raw.trim();
           break;
         }
         const visible = stripToolCalls(raw);
-        if (visible) out.push({ role: "assistant", content: visible, node: primary.name });
+        if (visible) out.push({ role: "assistant", content: visible, node: call.node.name });
         thread.push({ role: "assistant", content: raw });
         const results: string[] = [];
         for (const c of calls) {
           setStage(`verktøy: ${c.name}`);
+          const t0 = performance.now();
           let res: string;
+          let ok = true;
           try {
             res = await runTool(c, { config, ...(update ? { update } : {}), topics: mqtt.topics });
           } catch (e) {
+            ok = false;
             res = `Feil: ${e instanceof Error ? e.message : "ukjent"}`;
             logSelfEvent("warn", `Verktøy ${c.name} feilet`);
           }
+          runs.push({
+            name: c.name,
+            args: c.args,
+            result: res,
+            ms: Math.round(performance.now() - t0),
+            time: Date.now(),
+            ok,
+          });
           results.push(`[${c.name}]\n${res}`);
-          out.push({ role: "assistant", content: `${c.name} → ${res.slice(0, 600)}`, node: "VERKTØY" });
         }
         thread.push({
           role: "user",
@@ -131,7 +147,14 @@ export function ChatPanel({
       }
       if (!answer) answer = "(fikk ikke ferdig svar innen verktøygrensen)";
 
-      out.push({ role: "assistant", content: answer, node: primary.name });
+      out.push({
+        role: "assistant",
+        content: answer,
+        node: answeredBy,
+        time: Date.now(),
+        ...(runs.length ? { runs } : {}),
+      });
+
 
       // lar modellen styre smarthuset direkte via MQTT-linjer i svaret
       const cmds = parseAiCommands(answer);
