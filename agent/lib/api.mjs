@@ -41,6 +41,16 @@ const currentSettings = () => ({ ...SETTINGS_DEFAULTS, ...(doc("settings", {}) |
 import { corsBlocked, corsHeaders, rateLimit } from "./security.mjs";
 import { decryptSecret, encryptSecret, maskSecret } from "./secrets.mjs";
 import { listBackups, runBackup } from "./backup.mjs";
+import {
+  addDocument,
+  deleteDocument,
+  listDocuments,
+  ragConfig,
+  ragStats,
+  reindex,
+  saveRagConfig,
+  search,
+} from "./rag.mjs";
 
 const json = (req, res, status, body) => {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", ...corsHeaders(req) });
@@ -296,6 +306,53 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
     if (path === "/regler/logg" && method === "GET")
       return json(req, res, 200, { hendelser: logDoc().list.slice(0, 200) });
+
+    // ---- kunnskapsbase (RAG) ---------------------------------------------
+    if (path === "/kunnskap" && method === "GET")
+      return json(req, res, 200, { dokumenter: listDocuments(), statistikk: ragStats() });
+
+    if (path === "/kunnskap" && method === "POST") {
+      const b = await readBody(req);
+      const r = await addDocument({
+        tittel: str(b.tittel, "Tittel", { maks: 300, min: 1 }),
+        kilde: b.kilde ? str(b.kilde, "Kilde", { maks: 500 }) : "",
+        type: b.type ? str(b.type, "Type", { maks: 40 }) : "tekst",
+        tekst: String(b.tekst ?? ""),
+      });
+      return json(req, res, 200, r);
+    }
+
+    if (path.startsWith("/kunnskap/dok/") && method === "DELETE") {
+      const id = decodeURIComponent(path.slice("/kunnskap/dok/".length));
+      return json(req, res, 200, { ok: deleteDocument(id) });
+    }
+
+    if (path === "/kunnskap/sok" && method === "POST") {
+      const b = await readBody(req);
+      const r = await search(str(b.sporsmal ?? b.q, "Spørsmål", { maks: 2000, min: 1 }), {
+        topK: b.topK,
+        minPoeng: b.minPoeng,
+      });
+      return json(req, res, 200, r);
+    }
+
+    if (path === "/kunnskap/config") {
+      if (method === "GET") {
+        const c = ragConfig();
+        return json(req, res, 200, { config: { ...c, apiKey: c.apiKey ? "***lagret***" : "" }, statistikk: ragStats() });
+      }
+      if (method === "PUT") {
+        if (!admin) return json(req, res, 403, { error: "Kun admin" });
+        const b = await readBody(req);
+        const inn = { ...b };
+        if (inn.apiKey === "***lagret***") delete inn.apiKey;
+        const c = saveRagConfig(inn);
+        return json(req, res, 200, { config: { ...c, apiKey: c.apiKey ? "***lagret***" : "" } });
+      }
+    }
+
+    if (path === "/kunnskap/reindekser" && method === "POST")
+      return json(req, res, 200, await reindex());
 
     // ---- MQTT ------------------------------------------------------------
     if (path === "/mqtt" ) {

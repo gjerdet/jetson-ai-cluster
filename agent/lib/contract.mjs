@@ -49,6 +49,10 @@ export const ROUTES = {
   telegram: "/telegram",
   telegramTest: "/telegram/test",
   backup: "/backup",
+  knowledge: "/kunnskap",
+  knowledgeSearch: "/kunnskap/sok",
+  knowledgeConfig: "/kunnskap/config",
+  knowledgeReindex: "/kunnskap/reindekser",
 };
 
 
