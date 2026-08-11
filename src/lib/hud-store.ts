@@ -416,6 +416,65 @@ export function useHudConfig() {
   return { config, update, loaded };
 }
 
+export type CloudProvider = "openai" | "google" | "openrouter" | "anthropic" | "custom";
+
+export const CLOUD_PROVIDER_PRESETS: {
+  id: CloudProvider;
+  name: string;
+  baseUrl: string;
+  model: string;
+  hint: string;
+}[] = [
+  {
+    id: "openai",
+    name: "OpenAI / ChatGPT",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+    hint: "API-nøkkel fra platform.openai.com. gpt-4o, gpt-4o-mini, o3-mini ...",
+  },
+  {
+    id: "google",
+    name: "Google Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    model: "gemini-2.0-flash-lite",
+    hint: "API-nøkkel fra Google AI Studio. OpenAI-kompatibel endpoint.",
+  },
+  {
+    id: "openrouter",
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    model: "google/gemini-3.6-flash",
+    hint: "API-nøkkel fra openrouter.ai. Bruk vendor/modell-id.",
+  },
+  {
+    id: "anthropic",
+    name: "Anthropic (proxy)",
+    baseUrl: "https://api.anthropic.com/v1",
+    model: "claude-3-5-haiku-latest",
+    hint: "Krever en OpenAI-til-Anthropic-proxy eller lite-llm-gateway. API-nøkkel fra console.anthropic.com.",
+  },
+  {
+    id: "custom",
+    name: "OpenAI-kompatibel",
+    baseUrl: "https://openai.example.com/v1",
+    model: "model-name",
+    hint: "Hvilken som helst tjeneste som tilbyr /v1/chat/completions.",
+  },
+];
+
+export function newCloudNode(provider: CloudProvider = "openai", role: ModelNode["role"] = "worker"): ModelNode {
+  const preset = CLOUD_PROVIDER_PRESETS.find((p) => p.id === provider)!;
+  return {
+    id: `node-${Math.random().toString(36).slice(2, 8)}`,
+    name: preset.name.toUpperCase(),
+    baseUrl: preset.baseUrl,
+    model: preset.model,
+    role,
+    enabled: true,
+    apiKey: "",
+  };
+}
+
 export function newNode(): ModelNode {
   return {
     id: `node-${Math.random().toString(36).slice(2, 8)}`,
@@ -426,6 +485,7 @@ export function newNode(): ModelNode {
     enabled: true,
   };
 }
+
 
 export function newTalent(): Talent {
   return {
