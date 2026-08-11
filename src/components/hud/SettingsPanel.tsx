@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import {
   defaultConfig,
+  defaultEvaluator,
+  type EvalCriterion,
   newNode,
   newIntegration,
   newMemory,
