@@ -64,8 +64,11 @@ export function SettingsPanel({
       integrations: integrations.map((x) => (x.id === id ? { ...x, ...p } : x)),
     });
   const memories = config.memories ?? [];
+  const devices = config.devices ?? [];
   const patchMemory = (id: string, p: Partial<MemoryItem>) =>
     update({ ...config, memories: memories.map((m) => (m.id === id ? { ...m, ...p } : m)) });
+  const patchDevice = (id: string, p: Partial<Device>) =>
+    update({ ...config, devices: devices.map((d) => (d.id === id ? { ...d, ...p } : d)) });
   const patchPlugin = (id: string, p: Partial<Plugin>) =>
     update({ ...config, plugins: config.plugins.map((x) => (x.id === id ? { ...x, ...p } : x)) });
 
