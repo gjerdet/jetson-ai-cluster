@@ -35,6 +35,18 @@ import {
   validateSettings,
 } from "./contract.mjs";
 import { kjorBalansert, poolFor, poolStatus } from "./balancer.mjs";
+import {
+  addClip,
+  clipDir,
+  clipStats,
+  deleteClip,
+  listClips,
+  piperStemmer,
+  saveTtsConfig,
+  syntetiser,
+  trainingManifest,
+  ttsConfig,
+} from "./tts.mjs";
 
 /** Gjeldende innstillinger = standardverdier overstyrt av lagrede verdier. */
 const currentSettings = () => ({ ...SETTINGS_DEFAULTS, ...(doc("settings", {}) || {}) });
@@ -77,12 +89,12 @@ const num = (v, felt, { min = -Infinity, maks = Infinity, standard } = {}) => {
   return n;
 };
 
-async function readBody(req) {
+async function readBody(req, maks = 5_000_000) {
   const chunks = [];
   let size = 0;
   for await (const c of req) {
     size += c.length;
-    if (size > 5_000_000) throw new Error("For stor forespørsel");
+    if (size > maks) throw new Error("For stor forespørsel");
     chunks.push(c);
   }
   if (!chunks.length) return {};
