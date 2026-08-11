@@ -308,7 +308,16 @@ const requestHandler = async (req, res) => {
   } catch (e) {
     return json(res, 400, { error: String(e?.message || e) });
   }
-});
+};
+
+const server = TLS_OPTIONS
+  ? https.createServer(TLS_OPTIONS, requestHandler)
+  : http.createServer(requestHandler);
+
+// Uventede feil skal aldri drepe agenten – den skal kjøre døgnet rundt.
+process.on("uncaughtException", (e) => console.error("[jarvis-agent] uventet feil:", e?.stack || e));
+process.on("unhandledRejection", (e) => console.error("[jarvis-agent] ubehandlet løfte:", e));
+
 
 // ---------------------------------------------------------------------------
 // Backend: lagring, MQTT-lytter, regelmotor og Telegram
