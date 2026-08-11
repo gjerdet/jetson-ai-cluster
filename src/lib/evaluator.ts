@@ -1,11 +1,15 @@
-import { callNode, type ChatMsg } from "./hud-client";
-import type { ModelNode } from "./hud-store";
+import { type ChatMsg } from "./hud-client";
+import { callTracked, mapOverPool } from "./balancer";
+import { defaultEvaluator, type EvaluatorConfig, type ModelNode } from "./hud-store";
+
+export type CriterionScore = { label: string; score: number };
 
 export type Review = {
   node: string;
   score: number;
   critique: string;
   improved: string;
+  criteria: CriterionScore[];
 };
 
 export type Evaluation = {
@@ -15,92 +19,153 @@ export type Evaluation = {
   /** navnet på noden som leverte det endelige svaret */
   source: string;
   bestScore: number;
+  /** ble svaret skrevet om? */
+  rewritten: boolean;
 };
 
-const REVIEW_PROMPT = `Du er evaluator. Du får et spørsmål og et utkast til svar fra en annen modell.
+function reviewPrompt(cfg: EvaluatorConfig): string {
+  const active = cfg.criteria.filter((c) => c.enabled);
+  const lines = active.map((c) => `- ${c.label} (vekt ${c.weight})`).join("\n");
+  const fields = active.map((c) => `${c.label.toUpperCase()}: <0-10>`).join("\n");
+  return `Du er evaluator. Du får et spørsmål og et utkast til svar fra en annen modell.
+Vurder utkastet etter disse kriteriene:
+${lines || "- Generell kvalitet"}
+
 Svar NØYAKTIG i dette formatet, uten annen tekst:
 
-POENG: <heltall 0-10 for hvor godt utkastet besvarer spørsmålet>
+${fields}
+POENG: <heltall 0-10, samlet vurdering>
 KRITIKK: <maks to setninger om hva som mangler eller er feil>
 FORBEDRET:
 <ditt forbedrede svar i sin helhet, på norsk bokmål>`;
+}
 
-function parseReview(text: string, node: string): Review {
-  const score = Number(/POENG\s*:\s*(\d{1,2})/i.exec(text)?.[1] ?? NaN);
+function parseReview(text: string, node: string, cfg: EvaluatorConfig): Review {
+  const active = cfg.criteria.filter((c) => c.enabled);
+  const criteria: CriterionScore[] = [];
+  for (const c of active) {
+    const re = new RegExp(`${c.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:\\s*(\\d{1,2})`, "i");
+    const v = Number(re.exec(text)?.[1] ?? NaN);
+    if (Number.isFinite(v)) criteria.push({ label: c.label, score: Math.max(0, Math.min(10, v)) });
+  }
+  const declared = Number(/POENG\s*:\s*(\d{1,2})/i.exec(text)?.[1] ?? NaN);
+  // vektet snitt av kriteriene har forrang, ellers modellens egen samlede poengsum
+  let score = Number.isFinite(declared) ? declared : 5;
+  if (criteria.length) {
+    let sum = 0;
+    let w = 0;
+    for (const c of criteria) {
+      const weight = active.find((a) => a.label === c.label)?.weight ?? 1;
+      sum += c.score * weight;
+      w += weight;
+    }
+    if (w > 0) score = Math.round(sum / w);
+  }
   const critique = (/KRITIKK\s*:\s*([\s\S]*?)(?=\nFORBEDRET\s*:|$)/i.exec(text)?.[1] ?? "").trim();
   const improved = (/FORBEDRET\s*:\s*([\s\S]*)$/i.exec(text)?.[1] ?? "").trim();
   return {
     node,
-    score: Number.isFinite(score) ? Math.max(0, Math.min(10, score)) : 5,
+    score: Math.max(0, Math.min(10, score)),
     critique: critique || "(ingen kritikk oppgitt)",
     improved: improved || text.trim(),
+    criteria,
   };
 }
 
 /**
- * Kjører alle arbeidernoder som evaluatorer av primærsvaret, og velger/slår sammen
- * til ett endelig svar. Returnerer både delresultatene og konklusjonen.
+ * Kjører arbeidernodene som evaluatorer av primærsvaret og velger/slår sammen
+ * til ett endelig svar etter brukerens kriterier og terskel.
  */
 export async function evaluate(opts: {
   question: string;
   answer: string;
   primary: ModelNode;
   workers: ModelNode[];
-  /** slå sammen til ett endelig svar via primærnoden når kritikken er vesentlig */
-  merge?: boolean;
+  settings?: EvaluatorConfig;
 }): Promise<Evaluation> {
-  const { question, answer, primary, workers } = opts;
-  const reviews: Review[] = [];
+  const { question, answer, primary } = opts;
+  const cfg = { ...defaultEvaluator, ...(opts.settings ?? {}) };
+  const limit = cfg.maxWorkers > 0 ? cfg.maxWorkers : opts.workers.length;
+  const workers = opts.workers.slice(0, limit);
+  const sys = reviewPrompt(cfg);
+  const user = `SPØRSMÅL:\n${question}\n\nUTKAST FRA ${primary.name}:\n${answer}`;
 
-  for (const w of workers) {
+  const runOne = async (w: ModelNode): Promise<Review> => {
     try {
-      const raw = await callNode(w, [
-        { role: "system", content: REVIEW_PROMPT },
-        { role: "user", content: `SPØRSMÅL:\n${question}\n\nUTKAST FRA ${primary.name}:\n${answer}` },
+      const raw = await callTracked(w, [
+        { role: "system", content: sys },
+        { role: "user", content: user },
       ] as ChatMsg[]);
-      reviews.push(parseReview(raw, w.name));
+      return parseReview(raw, w.name, cfg);
     } catch (e) {
-      reviews.push({
+      return {
         node: w.name,
         score: 0,
         critique: e instanceof Error ? e.message : "Noden svarte ikke",
         improved: "",
-      });
+        criteria: [],
+      };
     }
-  }
+  };
+
+  const reviews: Review[] = cfg.parallel
+    ? await mapOverPool(workers, workers, (w) => runOne(w))
+    : await (async () => {
+        const out: Review[] = [];
+        for (const w of workers) out.push(await runOne(w));
+        return out;
+      })();
 
   const usable = reviews.filter((r) => r.improved.trim());
   const best = usable.slice().sort((a, b) => b.score - a.score)[0];
   const bestScore = best?.score ?? 10;
 
-  // Enig og fornøyd → behold primærsvaret.
-  if (!best || bestScore >= 8) {
-    return { reviews, final: answer, source: primary.name, bestScore };
+  const shouldMerge =
+    cfg.mergeMode === "alltid"
+      ? usable.length > 0
+      : cfg.mergeMode === "aldri"
+        ? false
+        : Boolean(best) && bestScore < cfg.threshold;
+
+  if (!shouldMerge) {
+    return { reviews, final: answer, source: primary.name, bestScore, rewritten: false };
   }
 
-  if (opts.merge !== false && usable.length) {
-    try {
-      const merged = await callNode(primary, [
-        {
-          role: "system",
-          content:
-            "Du er redaktør. Du får ditt eget utkast og andre modellers kritikk og forbedringer. " +
-            "Skriv ETT endelig svar på norsk bokmål som tar med det beste fra alle. Ingen metatekst.",
-        },
-        {
-          role: "user",
-          content: [
-            `SPØRSMÅL:\n${question}`,
-            `DITT UTKAST:\n${answer}`,
-            ...usable.map((r) => `FRA ${r.node} (${r.score}/10):\nKritikk: ${r.critique}\nForslag:\n${r.improved}`),
-          ].join("\n\n"),
-        },
-      ] as ChatMsg[]);
-      return { reviews, final: merged.trim() || answer, source: `${primary.name} + evaluator`, bestScore };
-    } catch {
-      /* faller tilbake til beste forbedring */
-    }
+  try {
+    const merged = await callTracked(primary, [
+      {
+        role: "system",
+        content:
+          "Du er redaktør. Du får ditt eget utkast og andre modellers kritikk og forbedringer. " +
+          "Skriv ETT endelig svar på norsk bokmål som tar med det beste fra alle. Ingen metatekst.",
+      },
+      {
+        role: "user",
+        content: [
+          `SPØRSMÅL:\n${question}`,
+          `DITT UTKAST:\n${answer}`,
+          ...usable.map(
+            (r) => `FRA ${r.node} (${r.score}/10):\nKritikk: ${r.critique}\nForslag:\n${r.improved}`,
+          ),
+        ].join("\n\n"),
+      },
+    ] as ChatMsg[]);
+    return {
+      reviews,
+      final: merged.trim() || answer,
+      source: `${primary.name} + evaluator`,
+      bestScore,
+      rewritten: true,
+    };
+  } catch {
+    /* faller tilbake til beste forbedring */
   }
 
-  return { reviews, final: best.improved, source: best.node, bestScore };
+  return {
+    reviews,
+    final: best?.improved ?? answer,
+    source: best?.node ?? primary.name,
+    bestScore,
+    rewritten: Boolean(best),
+  };
 }

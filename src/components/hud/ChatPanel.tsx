@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { SendHorizonal, Loader2, Radar, Cpu } from "lucide-react";
-import { callNode, type ChatMsg } from "@/lib/hud-client";
+import { SendHorizonal, Loader2, Radar, Cpu, Eraser, Wrench } from "lucide-react";
+import { type ChatMsg, type ToolRun } from "@/lib/hud-client";
+import { callBalanced, callTracked } from "@/lib/balancer";
+import { clearChat, loadChat, saveChat } from "@/lib/chat-store";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
 import {
   parseAiCommands,
@@ -36,6 +38,18 @@ export function ChatPanel({
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const mqtt = useMqtt();
+
+  // henter forrige samtale fra maskinen din, slik at omstart av nettleseren ikke nullstiller noe
+  useEffect(() => {
+    if (config.keepHistory === false) return;
+    const prev = loadChat();
+    if (prev.length) setMessages(prev);
+  }, [config.keepHistory]);
+
+  useEffect(() => {
+    if (config.keepHistory === false) return;
+    saveChat(messages);
+  }, [messages, config.keepHistory]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -97,30 +111,46 @@ export function ChatPanel({
 
       const out: ChatMsg[] = [...next];
       let answer = "";
+      let answeredBy = primary.name;
+      const runs: ToolRun[] = [];
 
       // verktøykall-loop: modellen kan hente ekte data før den svarer
       for (let round = 0; round < 4; round++) {
-        const raw = await callNode(primary, thread);
+        const call = config.loadBalance !== false
+          ? await callBalanced(active, thread, { prefer: primary })
+          : { text: await callTracked(primary, thread), node: primary };
+        const raw = call.text;
+        answeredBy = call.node.name;
         const calls = parseToolCalls(raw);
         if (!calls.length) {
           answer = raw.trim();
           break;
         }
         const visible = stripToolCalls(raw);
-        if (visible) out.push({ role: "assistant", content: visible, node: primary.name });
+        if (visible) out.push({ role: "assistant", content: visible, node: call.node.name });
         thread.push({ role: "assistant", content: raw });
         const results: string[] = [];
         for (const c of calls) {
           setStage(`verktøy: ${c.name}`);
+          const t0 = performance.now();
           let res: string;
+          let ok = true;
           try {
             res = await runTool(c, { config, ...(update ? { update } : {}), topics: mqtt.topics });
           } catch (e) {
+            ok = false;
             res = `Feil: ${e instanceof Error ? e.message : "ukjent"}`;
             logSelfEvent("warn", `Verktøy ${c.name} feilet`);
           }
+          runs.push({
+            name: c.name,
+            args: c.args,
+            result: res,
+            ms: Math.round(performance.now() - t0),
+            time: Date.now(),
+            ok,
+          });
           results.push(`[${c.name}]\n${res}`);
-          out.push({ role: "assistant", content: `${c.name} → ${res.slice(0, 600)}`, node: "VERKTØY" });
         }
         thread.push({
           role: "user",
@@ -131,7 +161,14 @@ export function ChatPanel({
       }
       if (!answer) answer = "(fikk ikke ferdig svar innen verktøygrensen)";
 
-      out.push({ role: "assistant", content: answer, node: primary.name });
+      out.push({
+        role: "assistant",
+        content: answer,
+        node: answeredBy,
+        time: Date.now(),
+        ...(runs.length ? { runs } : {}),
+      });
+
 
       // lar modellen styre smarthuset direkte via MQTT-linjer i svaret
       const cmds = parseAiCommands(answer);
@@ -156,20 +193,29 @@ export function ChatPanel({
 
       if (config.collaboration && workers.length > 0) {
         setStage("evaluerer");
-        const ev = await evaluate({ question: text, answer, primary, workers });
+        const ev = await evaluate({
+          question: text,
+          answer,
+          primary,
+          workers,
+          settings: config.evaluator,
+        });
         for (const r of ev.reviews)
           out.push({
             role: "assistant",
             content: `Poeng ${r.score}/10 – ${r.critique}`,
             node: `${r.node} (evaluator)`,
+            ...(r.criteria.length ? { scores: r.criteria } : {}),
           });
-        if (ev.final.trim() && ev.final.trim() !== answer.trim())
+        if (ev.rewritten && ev.final.trim() && ev.final.trim() !== answer.trim())
           out.push({
             role: "assistant",
             content: ev.final,
             node: `ENDELIG SVAR · ${ev.source} · beste poeng ${ev.bestScore}/10`,
+            time: Date.now(),
           });
       }
+
       setMessages(out);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ukjent feil");
@@ -186,6 +232,7 @@ export function ChatPanel({
         {messages.length === 0 ? (
           <p className="hud-title text-[10px] text-muted-foreground">
             System klart. Primærnode: {primary?.name ?? "ingen"}
+            {config.keepHistory === false ? " · historikk av" : " · husker samtalen lokalt"}
           </p>
         ) : null}
         {messages.map((m, i) => (
@@ -202,6 +249,43 @@ export function ChatPanel({
             >
               {m.content}
             </div>
+            {m.scores?.length ? (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {m.scores.map((sc) => (
+                  <span
+                    key={sc.label}
+                    className="hud-title rounded-full border border-primary/25 px-2 py-0.5 text-[8px] text-primary/70"
+                  >
+                    {sc.label} {sc.score}/10
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {m.runs?.length ? (
+              <details className="mt-1 rounded border border-primary/20 bg-primary/[0.03] px-2 py-1 text-left">
+                <summary className="hud-title flex cursor-pointer items-center gap-1 text-[9px] text-primary/70">
+                  <Wrench className="size-3" /> {m.runs.length} verktøykjøring
+                  {m.runs.length > 1 ? "er" : ""} ·{" "}
+                  {m.runs.reduce((a, r) => a + r.ms, 0)} ms
+                </summary>
+                <div className="mt-1 space-y-2">
+                  {m.runs.map((r, ri) => (
+                    <div key={`${r.name}-${ri}`} className="space-y-0.5">
+                      <p className="hud-title text-[9px] text-primary/80">
+                        {r.ok ? "✓" : "✕"} {r.name} · {r.ms} ms ·{" "}
+                        {new Date(r.time).toLocaleTimeString("nb-NO")}
+                      </p>
+                      <p className="text-[10px] break-all text-muted-foreground">
+                        inn: {Object.keys(r.args).length ? JSON.stringify(r.args) : "{}"}
+                      </p>
+                      <pre className="max-h-40 overflow-auto text-[10px] whitespace-pre-wrap text-foreground/70">
+                        {r.result}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </div>
         ))}
         {busy ? (
@@ -262,6 +346,20 @@ export function ChatPanel({
           placeholder="Snakk til systemet…"
           className="hud-input flex-1"
         />
+        <button
+          onClick={() => {
+            setMessages([]);
+            clearChat();
+            setPending([]);
+            setError(null);
+          }}
+          disabled={busy}
+          aria-label="Ny samtale"
+          title="Ny samtale (tømmer lokal historikk)"
+          className="rounded border border-primary/30 p-2 text-primary/80 transition-colors hover:bg-primary/10 disabled:opacity-40"
+        >
+          <Eraser className="size-4" />
+        </button>
         <button
           onClick={() =>
             void send(
