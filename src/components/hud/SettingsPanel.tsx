@@ -26,6 +26,9 @@ import {
   newDevice,
   newPlugin,
   newTalent,
+  newCustomTool,
+  sanitizeToolName,
+  type CustomTool,
   INTEGRATION_PRESETS,
   DEVICE_KIND_LABEL,
   type HudConfig,
@@ -86,6 +89,12 @@ export function SettingsPanel({
   const patchTalent = (id: string, p: Partial<Talent>) =>
     update({ ...config, talents: config.talents.map((t) => (t.id === id ? { ...t, ...p } : t)) });
   const integrations = config.integrations ?? [];
+  const customTools = config.customTools ?? [];
+  const patchTool = (id: string, p: Partial<CustomTool>) =>
+    update({
+      ...config,
+      customTools: customTools.map((t) => (t.id === id ? { ...t, ...p } : t)),
+    });
   const patchIntegration = (id: string, p: Partial<Integration>) =>
     update({
       ...config,
