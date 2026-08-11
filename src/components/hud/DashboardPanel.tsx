@@ -114,7 +114,43 @@ function IntegrationModule({ mod, config }: { mod: DashModule; config: HudConfig
   );
 }
 
+/**
+ * Graf som henter varig historikk fra backend-ruten /maalinger, og faller
+ * tilbake til nettleserens MQTT-minne hvis ruten feiler eller er tom.
+ */
+function BackedSparkline({ topic, height }: { topic: string; height: number }) {
+  const [serie, setSerie] = useState(() => historyFor(topic));
+  const [kilde, setKilde] = useState<Kilde>("lokal");
+  const lokal = useMqtt();
+
+  useEffect(() => {
+    let avbrutt = false;
+    const last = async () => {
+      const r = await hentSerie(topic, () => historyFor(topic));
+      if (avbrutt) return;
+      setSerie(r.data);
+      setKilde(r.kilde);
+    };
+    void last();
+    const t = setInterval(() => void last(), 60_000);
+    return () => {
+      avbrutt = true;
+      clearInterval(t);
+    };
+  }, [topic, lokal.status]);
+
+  return (
+    <>
+      <Sparkline data={serie} height={height} />
+      <p className="hud-title text-[8px] text-muted-foreground">
+        {kilde === "backend" ? "BACKEND · 90 DAGER" : "LOKALT MINNE"}
+      </p>
+    </>
+  );
+}
+
 export function DashboardPanel({
+
   config,
   update,
 }: {
