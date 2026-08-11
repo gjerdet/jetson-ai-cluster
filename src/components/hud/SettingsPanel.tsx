@@ -17,6 +17,8 @@ import {
   defaultEvaluator,
   type EvalCriterion,
   newNode,
+  newCloudNode,
+  CLOUD_PROVIDER_PRESETS,
   newIntegration,
   newMemory,
   newDevice,
@@ -34,6 +36,7 @@ import {
   type Integration,
   type IntegrationKind,
 } from "@/lib/hud-store";
+
 import { EspWizard } from "./EspWizard";
 
 type Tab =
