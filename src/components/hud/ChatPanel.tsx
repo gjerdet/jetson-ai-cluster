@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { SendHorizonal, Loader2, Radar, Cpu, Eraser, Wrench, BookOpen } from "lucide-react";
 import { type ChatMsg, type ToolRun } from "@/lib/hud-client";
 import { callBalanced, callTracked } from "@/lib/balancer";
+import { logRouting } from "@/lib/routing-log";
 import { backend, backendToken } from "@/lib/backend";
 import { clearChat, loadChat, loadChatRemote, saveChat, saveChatRemote } from "@/lib/chat-store";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
@@ -174,6 +175,14 @@ export function ChatPanel({
                 ...(config.loadBalance === false && config.aiNodeId ? { nodeId: config.aiNodeId } : {}),
               })
               .then((r) => {
+                logRouting({
+                  oppgave: round === 0 ? "chat" : "verktoy",
+                  nodeId: r.nodeId,
+                  nodeNavn: r.nodeNavn || r.model || "backend",
+                  model: r.model,
+                  ms: r.ms,
+                  hoppetOver: r.hoppetOver,
+                });
                 if (r.hoppetOver?.length)
                   logSelfEvent("warn", `Backend hoppet over ${r.hoppetOver.map((h) => h.node).join(", ")}`);
                 return {
