@@ -19,6 +19,8 @@ export function WorldMonitor() {
   const [active, setActive] = useState<LayerId[]>(ALL);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState<Date | null>(null);
+  const [query, setQuery] = useState("");
+  const [range, setRange] = useState<24 | 72 | 168>(168);
 
   const load = () => {
     setLoading(true);
@@ -42,7 +44,14 @@ export function WorldMonitor() {
   const toggle = (id: LayerId) =>
     setActive((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
 
-  const shown = events.filter((e) => active.includes(e.layer));
+  const cutoff = Date.now() - range * 3600 * 1000;
+  const q = query.trim().toLowerCase();
+  const shown = events.filter(
+    (e) =>
+      active.includes(e.layer) &&
+      new Date(e.time).getTime() >= cutoff &&
+      (!q || e.title.toLowerCase().includes(q)),
+  );
   const count = (id: LayerId) => events.filter((e) => e.layer === id).length;
 
   return (
@@ -87,6 +96,30 @@ export function WorldMonitor() {
         </div>
       </div>
 
+      <div className="flex items-center gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="søk i hendelser…"
+          className="hud-input min-w-0 flex-1"
+        />
+        <div className="hud-title flex gap-1 text-[9px]">
+          {([24, 72, 168] as const).map((h) => (
+            <button
+              key={h}
+              onClick={() => setRange(h)}
+              className={`rounded border px-1.5 py-1 transition-colors ${
+                range === h
+                  ? "border-primary/60 bg-primary/10 text-primary"
+                  : "border-primary/20 text-muted-foreground hover:text-primary"
+              }`}
+            >
+              {h === 168 ? "7d" : `${h}t`}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <WorldMap events={shown} />
 
       <div className="flex items-center justify-between text-[10px] text-muted-foreground">
@@ -96,7 +129,7 @@ export function WorldMonitor() {
               <Loader2 className="size-3 animate-spin" /> henter…
             </span>
           ) : (
-            `${shown.length} hendelser siste 7 døgn`
+            `${shown.length} hendelser · ${range === 168 ? "7 døgn" : `${range} timer`}`
           )}
         </span>
         <span className="font-mono">
