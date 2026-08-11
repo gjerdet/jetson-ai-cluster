@@ -324,9 +324,37 @@ const requestHandler = async (req, res) => {
   }
 };
 
+/**
+ * HSTS når trafikken faktisk er kryptert – enten i agenten selv, eller bak en
+ * proxy som setter `x-forwarded-proto: https` (Caddy/Nginx gjør det).
+ */
+const securedHandler = (req, res) => {
+  const proxiedHttps = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim() === "https";
+  if (TLS_OPTIONS || proxiedHttps)
+    res.setHeader("strict-transport-security", "max-age=31536000; includeSubDomains");
+  return requestHandler(req, res);
+};
+
 const server = TLS_OPTIONS
-  ? https.createServer(TLS_OPTIONS, requestHandler)
-  : http.createServer(requestHandler);
+  ? https.createServer(TLS_OPTIONS, securedHandler)
+  : http.createServer(securedHandler);
+
+/**
+ * Valgfri lytter som kun sender folk videre til HTTPS.
+ * AGENT_HTTP_REDIRECT_PORT=8786 → http://vert:8786/... ⇒ https://vert:PORT/...
+ */
+const REDIRECT_PORT = Number(process.env.AGENT_HTTP_REDIRECT_PORT || 0);
+let redirectServer = null;
+if (TLS_OPTIONS && REDIRECT_PORT > 0) {
+  redirectServer = http.createServer((req, res) => {
+    const vert = String(req.headers.host || "").replace(/:\d+$/, "");
+    res.writeHead(308, { location: `https://${vert}:${PORT}${req.url}` });
+    res.end();
+  });
+  redirectServer.listen(REDIRECT_PORT, HOST, () =>
+    console.log(`[jarvis-agent] omdirigerer http://${HOST}:${REDIRECT_PORT} → https://${HOST}:${PORT}`),
+  );
+}
 
 // Uventede feil skal aldri drepe agenten – den skal kjøre døgnet rundt.
 process.on("uncaughtException", (e) => console.error("[jarvis-agent] uventet feil:", e?.stack || e));
@@ -423,6 +451,7 @@ for (const sig of ["SIGINT", "SIGTERM"]) {
     } catch {
       /* ignorert */
     }
+    redirectServer?.close();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 3000).unref();
   });
