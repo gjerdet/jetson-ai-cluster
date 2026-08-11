@@ -58,6 +58,12 @@ export function WorldMonitor() {
     });
   }, [events, active, range, query]);
 
+  // nyhets-/live-hendelser først, statiske markører krøller ikke listen
+  const feedList = useMemo(() => {
+    const live = shown.filter((e) => LAYERS.find((l) => l.id === e.layer)?.kind === "live");
+    return (live.length ? live : shown).slice(0, 200);
+  }, [shown]);
+
   const count = (id: LayerId) => events.filter((e) => e.layer === id).length;
   const groupLayers = LAYERS.filter((l) => l.group === group);
   const top = topEvents(10);
