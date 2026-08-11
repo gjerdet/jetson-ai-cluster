@@ -98,6 +98,31 @@ export type MemoryItem = {
   created: string;
 };
 
+export type DeviceKind = "esp32" | "esp8266" | "esp32-cam" | "raspberrypi" | "sensor" | "annet";
+
+export const DEVICE_KIND_LABEL: Record<DeviceKind, string> = {
+  esp32: "ESP32",
+  esp8266: "ESP8266",
+  "esp32-cam": "ESP32-CAM",
+  raspberrypi: "Raspberry Pi",
+  sensor: "Sensor",
+  annet: "Annet",
+};
+
+export type Device = {
+  id: string;
+  name: string;
+  kind: DeviceKind;
+  room: string;
+  host: string;
+  protocol: "http" | "mqtt" | "websocket";
+  topic?: string;
+  capabilities: string;
+  firmware: string;
+  notes?: string;
+  enabled: boolean;
+};
+
 export type HudConfig = {
   nodes: ModelNode[];
   collaboration: boolean;
@@ -109,6 +134,7 @@ export type HudConfig = {
   plugins: Plugin[];
   integrations: Integration[];
   memories: MemoryItem[];
+  devices: Device[];
 };
 
 const STORAGE_KEY = "hud.config.v1";
@@ -166,6 +192,7 @@ export const defaultConfig: HudConfig = {
   ],
   integrations: [],
   memories: [],
+  devices: [],
   plugins: [
     {
       id: "p-telegram",
@@ -255,10 +282,38 @@ export function newMemory(text = ""): MemoryItem {
   };
 }
 
+export function newDevice(kind: DeviceKind = "esp32"): Device {
+  return {
+    id: `d-${Math.random().toString(36).slice(2, 8)}`,
+    name: "NY ENHET",
+    kind,
+    room: "",
+    host: kind === "raspberrypi" ? "raspberrypi.local" : "esp32.local",
+    protocol: kind === "raspberrypi" ? "http" : "mqtt",
+    topic: kind === "raspberrypi" ? "" : "hjem/ny-enhet",
+    capabilities: "",
+    firmware: kind === "raspberrypi" ? "" : "ESPHome",
+    enabled: true,
+  };
+}
+
+/** Kompakt enhetsoversikt til systemprompten. */
+export function deviceBrief(config: HudConfig): string {
+  const devices = (config.devices ?? []).filter((d) => d.enabled);
+  if (!devices.length) return "";
+  return devices
+    .map(
+      (d) =>
+        `- ${d.name} (${DEVICE_KIND_LABEL[d.kind]})${d.room ? ` i ${d.room}` : ""} · ${d.protocol} @ ${d.host}${d.topic ? ` · emne ${d.topic}` : ""}${d.firmware ? ` · ${d.firmware}` : ""}${d.capabilities ? ` · kan: ${d.capabilities}` : ""}`,
+    )
+    .join("\n");
+}
+
 export function systemPrompt(config: HudConfig): string {
   const talents = config.talents.filter((t) => t.enabled && t.prompt.trim());
   const integrations = (config.integrations ?? []).filter((i) => i.enabled);
   const memories = (config.memories ?? []).filter((m) => m.text.trim());
+  const devices = deviceBrief(config);
   return [
     config.persona,
     ...talents.map((t) => `Evne – ${t.name}: ${t.prompt}`),
@@ -272,6 +327,9 @@ export function systemPrompt(config: HudConfig): string {
           .map((i) => `${i.name} (${i.kind} @ ${i.baseUrl})`)
           .join(", ")}.`
       : "",
+    devices
+      ? `Smarthus-enheter registrert i systemet:\n${devices}\nDu er også oppsettassistent for nye ESP32/ESP8266/Raspberry Pi-enheter: når brukeren vil sette opp en ny enhet, still korte spørsmål om rom, sensorer/aktuatorer og protokoll, og lever deretter komplett, kjørbar konfigurasjon (ESPHome YAML eller Arduino/PlatformIO-kode) med MQTT-emner som følger samme navnemønster som eksisterende enheter.`
+      : "Du er også oppsettassistent for ESP32/ESP8266/Raspberry Pi i smarthuset: lever komplett ESPHome YAML eller Arduino-kode med tydelige MQTT-emner når brukeren ber om ny enhet.",
     "Du har tilgang til et World Monitor-situasjonsbilde. Når brukeren spør om nyheter, hendelser eller «topp 10», får du et datauttrekk i meldingen – bruk kun det, og ranger etter alvorlighet med kilde og tidspunkt.",
   ]
     .filter(Boolean)

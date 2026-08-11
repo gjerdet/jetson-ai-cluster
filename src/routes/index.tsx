@@ -34,7 +34,7 @@ export const Route = createFileRoute("/")({
 const LAYOUT: Record<WinId, { x: number; y: number; w: number; h: number }> = {
   chat: { x: 40, y: 100, w: 420, h: 460 },
   nodes: { x: 500, y: 80, w: 400, h: 500 },
-  world: { x: 620, y: 200, w: 460, h: 520 },
+  world: { x: 420, y: 110, w: 780, h: 640 },
   settings: { x: 0, y: 0, w: 0, h: 0 },
 };
 

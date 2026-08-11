@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { SendHorizonal, Loader2, Radar } from "lucide-react";
+import { SendHorizonal, Loader2, Radar, Cpu } from "lucide-react";
 import { callNode, type ChatMsg } from "@/lib/hud-client";
-import { newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
+import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
 import { briefingText, refreshFeed, snapshot } from "@/lib/world-feed";
 
 const BRIEF_TRIGGERS =
@@ -135,6 +135,19 @@ export function ChatPanel({
           placeholder="Snakk til systemet…"
           className="hud-input flex-1"
         />
+        <button
+          onClick={() =>
+            void send(
+              `Jeg vil sette opp en ny ESP-enhet i smarthuset. Still meg korte spørsmål om rom, sensorer/aktuatorer og protokoll, foreslå navn og MQTT-emne som passer oppsettet mitt, og lever komplett konfigurasjon til slutt.\n\n[EKSISTERENDE ENHETER]\n${deviceBrief(config) || "ingen registrert ennå"}`,
+            )
+          }
+          disabled={busy}
+          aria-label="Sett opp ny enhet"
+          title="Sett opp ny ESP32 / Raspberry Pi"
+          className="rounded border border-primary/30 p-2 text-primary/80 transition-colors hover:bg-primary/10 disabled:opacity-40"
+        >
+          <Cpu className="size-4" />
+        </button>
         <button
           onClick={() => void send("Gi meg topp 10 hendelser fra world monitor akkurat nå.")}
           disabled={busy}

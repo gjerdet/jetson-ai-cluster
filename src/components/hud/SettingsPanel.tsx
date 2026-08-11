@@ -1,15 +1,30 @@
 import { useState } from "react";
-import { Plus, Trash2, Sparkles, Puzzle, Sliders, Cpu, Network, Brain, Pin } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Sparkles,
+  Puzzle,
+  Sliders,
+  Cpu,
+  Network,
+  Brain,
+  Pin,
+  HardDrive,
+} from "lucide-react";
 import {
   defaultConfig,
   newNode,
   newIntegration,
   newMemory,
+  newDevice,
   newPlugin,
   newTalent,
   INTEGRATION_PRESETS,
+  DEVICE_KIND_LABEL,
   type HudConfig,
   type MemoryItem,
+  type Device,
+  type DeviceKind,
   type ModelNode,
   type Plugin,
   type Talent,
@@ -17,11 +32,12 @@ import {
   type IntegrationKind,
 } from "@/lib/hud-store";
 
-type Tab = "system" | "modeller" | "minne" | "evner" | "koblinger" | "plugins";
+type Tab = "system" | "modeller" | "enheter" | "minne" | "evner" | "koblinger" | "plugins";
 
 const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "system", label: "SYSTEM", icon: Sliders },
   { id: "modeller", label: "MODELLER", icon: Cpu },
+  { id: "enheter", label: "ENHETER", icon: HardDrive },
   { id: "minne", label: "MINNE", icon: Brain },
   { id: "evner", label: "EVNER", icon: Sparkles },
   { id: "koblinger", label: "KOBLINGER", icon: Network },
@@ -48,8 +64,11 @@ export function SettingsPanel({
       integrations: integrations.map((x) => (x.id === id ? { ...x, ...p } : x)),
     });
   const memories = config.memories ?? [];
+  const devices = config.devices ?? [];
   const patchMemory = (id: string, p: Partial<MemoryItem>) =>
     update({ ...config, memories: memories.map((m) => (m.id === id ? { ...m, ...p } : m)) });
+  const patchDevice = (id: string, p: Partial<Device>) =>
+    update({ ...config, devices: devices.map((d) => (d.id === id ? { ...d, ...p } : d)) });
   const patchPlugin = (id: string, p: Partial<Plugin>) =>
     update({ ...config, plugins: config.plugins.map((x) => (x.id === id ? { ...x, ...p } : x)) });
 
@@ -203,6 +222,127 @@ export function SettingsPanel({
             </button>
           </>
         ) : null}
+
+        {tab === "enheter" ? (
+          <>
+            <p className="text-[10px] text-muted-foreground">
+              Registeret over smarthus-enheter (ESP32, ESP8266, Raspberry Pi, sensorer). Aktive
+              enheter legges inn i systemprompten, slik at {config.callsign} kjenner navn, rom,
+              protokoll og MQTT-emner – og kan generere oppsett for nye enheter i samme mønster.
+            </p>
+            {devices.length === 0 ? (
+              <p className="hud-title text-[10px] text-primary/60">Ingen enheter registrert.</p>
+            ) : null}
+            {devices.map((d) => (
+              <div key={d.id} className="rounded border border-primary/25 bg-primary/[0.04] p-2">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <input
+                    value={d.name}
+                    onChange={(e) => patchDevice(d.id, { name: e.target.value })}
+                    className="hud-input hud-title flex-1 text-[11px] text-primary"
+                  />
+                  <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={d.enabled}
+                      onChange={(e) => patchDevice(d.id, { enabled: e.target.checked })}
+                      className="accent-[oklch(0.8_0.13_200)]"
+                    />
+                    aktiv
+                  </label>
+                  <button
+                    onClick={() =>
+                      update({ ...config, devices: devices.filter((x) => x.id !== d.id) })
+                    }
+                    aria-label="Fjern enhet"
+                    className="rounded p-1 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <select
+                    value={d.kind}
+                    onChange={(e) => patchDevice(d.id, { kind: e.target.value as DeviceKind })}
+                    className="hud-input text-[11px]"
+                  >
+                    {(Object.keys(DEVICE_KIND_LABEL) as DeviceKind[]).map((k) => (
+                      <option key={k} value={k} className="bg-background">
+                        {DEVICE_KIND_LABEL[k]}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={d.room}
+                    onChange={(e) => patchDevice(d.id, { room: e.target.value })}
+                    placeholder="rom / plassering"
+                    className="hud-input text-[11px]"
+                  />
+                  <input
+                    value={d.host}
+                    onChange={(e) => patchDevice(d.id, { host: e.target.value })}
+                    placeholder="vertsnavn eller IP"
+                    className="hud-input text-[11px]"
+                  />
+                  <select
+                    value={d.protocol}
+                    onChange={(e) =>
+                      patchDevice(d.id, { protocol: e.target.value as Device["protocol"] })
+                    }
+                    className="hud-input text-[11px]"
+                  >
+                    <option value="mqtt" className="bg-background">
+                      MQTT
+                    </option>
+                    <option value="http" className="bg-background">
+                      HTTP
+                    </option>
+                    <option value="websocket" className="bg-background">
+                      WebSocket
+                    </option>
+                  </select>
+                  <input
+                    value={d.topic ?? ""}
+                    onChange={(e) => patchDevice(d.id, { topic: e.target.value })}
+                    placeholder="mqtt-emne, f.eks. hjem/stue/lys"
+                    className="hud-input text-[11px]"
+                  />
+                  <input
+                    value={d.firmware}
+                    onChange={(e) => patchDevice(d.id, { firmware: e.target.value })}
+                    placeholder="firmware (ESPHome, Arduino…)"
+                    className="hud-input text-[11px]"
+                  />
+                </div>
+                <input
+                  value={d.capabilities}
+                  onChange={(e) => patchDevice(d.id, { capabilities: e.target.value })}
+                  placeholder="kapabiliteter: temperatur, relé, bevegelse…"
+                  className="hud-input mt-1.5 w-full text-[11px]"
+                />
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-2">
+              {(["esp32", "esp32-cam", "esp8266", "raspberrypi", "sensor"] as DeviceKind[]).map(
+                (k) => (
+                  <button
+                    key={k}
+                    onClick={() => update({ ...config, devices: [...devices, newDevice(k)] })}
+                    className="flex items-center gap-1.5 rounded border border-dashed border-primary/40 px-3 py-1.5 text-[11px] text-primary hover:bg-primary/10"
+                  >
+                    <Plus className="size-3.5" /> {DEVICE_KIND_LABEL[k]}
+                  </button>
+                ),
+              )}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Tips: bruk enhet-knappen i KOMMANDO-vinduet for å be {config.callsign} sette opp en ny
+              ESP – du får ferdig ESPHome-YAML eller Arduino-kode tilpasset enhetene du allerede
+              har.
+            </p>
+          </>
+        ) : null}
+
 
         {tab === "minne" ? (
           <>

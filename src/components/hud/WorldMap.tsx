@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { geoEquirectangular, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import type { FeatureCollection, Geometry } from "geojson";
-import { Minus, Plus, Maximize } from "lucide-react";
+import { Minus, Plus, Maximize, Expand, Shrink } from "lucide-react";
 import { LAYER_COLOR, type WorldEvent } from "@/lib/world-events";
 
 const W = 720;
 const H = 360;
 const MIN_Z = 1;
-const MAX_Z = 12;
+const MAX_Z = 24;
 
 let cache: FeatureCollection<Geometry> | null = null;
 
@@ -38,14 +38,18 @@ export function WorldMap({
   events,
   onSelect,
   dayNight = false,
+  fill = false,
 }: {
   events: WorldEvent[];
   onSelect?: (e: WorldEvent) => void;
   dayNight?: boolean;
+  /** fyller tilgjengelig høyde i stedet for fast 2:1-forhold */
+  fill?: boolean;
 }) {
 
   const [land, setLand] = useState<FeatureCollection<Geometry> | null>(cache);
   const [zoom, setZoom] = useState(1);
+  const [expanded, setExpanded] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const boxRef = useRef<HTMLDivElement>(null);
   const pan = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
@@ -131,10 +135,15 @@ export function WorldMap({
   return (
     <div
       ref={boxRef}
-      className="relative w-full touch-none overflow-hidden rounded border border-primary/20 bg-primary/[0.02]"
+      className={
+        expanded
+          ? "hud-panel fixed inset-3 z-[200] touch-none overflow-hidden rounded-lg border border-primary/25 md:inset-8"
+          : `relative w-full touch-none overflow-hidden rounded border border-primary/20 bg-primary/[0.02] ${fill ? "min-h-0 flex-1" : ""}`
+      }
     >
       <svg
         viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio={fill || expanded ? "xMidYMid slice" : "xMidYMid meet"}
         className="block size-full cursor-grab active:cursor-grabbing"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -187,6 +196,18 @@ export function WorldMap({
                     repeatCount="indefinite"
                   />
                 </circle>
+                {zoom >= 3 ? (
+                  <text
+                    x={4}
+                    y={2.5}
+                    fontSize={4}
+                    fill={color}
+                    opacity={0.9}
+                    className="hud-title pointer-events-none"
+                  >
+                    {e.title.length > 42 ? `${e.title.slice(0, 42)}…` : e.title}
+                  </text>
+                ) : null}
                 <title>{e.title}</title>
               </g>
             );
@@ -195,6 +216,13 @@ export function WorldMap({
       </svg>
       <div className="hud-radar-sweep pointer-events-none absolute inset-0" />
       <div className="absolute bottom-2 right-2 flex flex-col gap-1">
+        <button
+          className={btn}
+          aria-label={expanded ? "Lukk stort kart" : "Vis stort kart"}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? <Shrink className="size-3" /> : <Expand className="size-3" />}
+        </button>
         <button className={btn} aria-label="Zoom inn" onClick={() => zoomAt(W / 2, H / 2, zoom * 1.5)}>
           <Plus className="size-3" />
         </button>
