@@ -94,6 +94,11 @@ export const ROUTES: {
   knowledgeSearch: string;
   knowledgeConfig: string;
   knowledgeReindex: string;
+  tts: string;
+  ttsConfig: string;
+  ttsVoices: string;
+  ttsClips: string;
+  ttsManifest: string;
 };
 export const ERROR_CODES: {
   UNAUTHORIZED: ErrorCode;
