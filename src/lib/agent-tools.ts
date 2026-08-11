@@ -157,7 +157,30 @@ export const TOOL_CATALOG: ToolSpec[] = [
     args: '{"navn": "test.py"}',
     builtin: true,
   },
+  {
+    name: "mal_liste",
+    category: "os",
+    summary: "Lister innebygde skriptmaler (service-start, docker healthcheck, logg-innhenting m.fl.).",
+    args: "{}",
+    builtin: true,
+  },
+  {
+    name: "mal_test",
+    category: "os",
+    summary:
+      "Kjører malens innebygde selvtest i sandkassen og verifiserer grunnleggende forventninger før kjøring.",
+    args: '{"mal": "docker-health", "parametre": {"container": "ollama"}}',
+    builtin: true,
+  },
+  {
+    name: "mal_installer",
+    category: "os",
+    summary: "Tester malen og lagrer den i sandkassen kun hvis alle forventninger holder.",
+    args: '{"mal": "service-start", "parametre": {"tjeneste": "ollama"}}',
+    builtin: true,
+  },
 ];
+
 
 
 export const TOOL_NAMES = TOOL_CATALOG.map((t) => t.name);
