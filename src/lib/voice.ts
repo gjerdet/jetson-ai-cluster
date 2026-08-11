@@ -4,20 +4,29 @@
 
 const NØKKEL = "jarvis.voice";
 
+export type VoiceEngine = "browser" | "piper";
+
 export type VoiceConfig = {
   på: boolean;
+  engine: VoiceEngine;
   rate: number; // 0.5 – 2
   pitch: number; // 0 – 2
   volume: number; // 0 – 1
-  voiceURI?: string; // overstyr automatisk valg
+  voiceURI?: string; // overstyr automatisk valg (nettleser)
+  piperUrl?: string; // f.eks. http://jetson.local:5000/api/tts
+  piperVoice?: string; // modellnavn, f.eks. en_GB-alan-medium
 };
 
 export const STANDARD_VOICE: VoiceConfig = {
   på: false,
+  engine: "browser",
   rate: 0.94,
   pitch: 0.82,
   volume: 1,
+  piperUrl: "http://localhost:5000/api/tts",
+  piperVoice: "en_GB-alan-medium",
 };
+
 
 export function loadVoiceConfig(): VoiceConfig {
   if (typeof localStorage === "undefined") return STANDARD_VOICE;
@@ -94,17 +103,39 @@ export function tekstForTale(t: string, maks = 700): string {
   return ren.length > maks ? `${ren.slice(0, maks)}…` : ren;
 }
 
+let piperAudio: HTMLAudioElement | null = null;
+
 export function stopSpeak() {
-  if (!voiceSupported()) return;
-  window.speechSynthesis.cancel();
+  if (voiceSupported()) window.speechSynthesis.cancel();
+  if (piperAudio) {
+    piperAudio.pause();
+    piperAudio.src = "";
+    piperAudio = null;
+  }
 }
 
-export function speak(text: string, cfg: VoiceConfig = loadVoiceConfig()) {
-  if (!voiceSupported() || !cfg.på) return;
-  const ren = tekstForTale(text);
-  if (!ren) return;
+// Piper kjører lokalt på Jetson (piper-http / wyoming-piper med HTTP-fasade)
+export async function speakPiper(text: string, cfg: VoiceConfig) {
+  const url = (cfg.piperUrl ?? "").trim();
+  if (!url) throw new Error("Mangler piper-URL");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, voice: cfg.piperVoice, speaker_id: 0, length_scale: 1 / cfg.rate }),
+  });
+  if (!res.ok) throw new Error(`Piper svarte ${res.status}`);
+  const blob = await res.blob();
   stopSpeak();
-  const ytring = new SpeechSynthesisUtterance(ren);
+  const lyd = new Audio(URL.createObjectURL(blob));
+  lyd.volume = cfg.volume;
+  piperAudio = lyd;
+  await lyd.play();
+}
+
+export function speakBrowser(text: string, cfg: VoiceConfig) {
+  if (!voiceSupported()) return;
+  stopSpeak();
+  const ytring = new SpeechSynthesisUtterance(text);
   const stemme = pickJarvisVoice(listVoices(), cfg.voiceURI);
   if (stemme) {
     ytring.voice = stemme;
@@ -115,6 +146,18 @@ export function speak(text: string, cfg: VoiceConfig = loadVoiceConfig()) {
   ytring.volume = cfg.volume;
   window.speechSynthesis.speak(ytring);
 }
+
+export function speak(text: string, cfg: VoiceConfig = loadVoiceConfig()) {
+  if (!cfg.på) return;
+  const ren = tekstForTale(text);
+  if (!ren) return;
+  if (cfg.engine === "piper") {
+    void speakPiper(ren, cfg).catch(() => speakBrowser(ren, cfg));
+    return;
+  }
+  speakBrowser(ren, cfg);
+}
+
 
 // Noen nettlesere laster stemmelista asynkront
 export function onVoicesReady(cb: () => void) {
