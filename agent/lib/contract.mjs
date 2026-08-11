@@ -55,6 +55,11 @@ export const ROUTES = {
   knowledgeSearch: "/kunnskap/sok",
   knowledgeConfig: "/kunnskap/config",
   knowledgeReindex: "/kunnskap/reindekser",
+  tts: "/tts/tale",
+  ttsConfig: "/tts/config",
+  ttsVoices: "/tts/stemmer",
+  ttsClips: "/tts/klipp",
+  ttsManifest: "/tts/treningssett",
 };
 
 

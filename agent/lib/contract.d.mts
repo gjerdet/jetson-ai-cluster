@@ -94,6 +94,11 @@ export const ROUTES: {
   knowledgeSearch: string;
   knowledgeConfig: string;
   knowledgeReindex: string;
+  tts: string;
+  ttsConfig: string;
+  ttsVoices: string;
+  ttsClips: string;
+  ttsManifest: string;
 };
 export const ERROR_CODES: {
   UNAUTHORIZED: ErrorCode;
@@ -334,4 +339,23 @@ export interface KnowledgeHit {
   type: string;
   tekst: string;
   poeng: number;
+}
+
+export interface TtsConfig {
+  piperUrl: string;
+  voicesUrl: string;
+  modell: string;
+  lengthScale: number;
+  noiseScale: number;
+}
+
+export interface VoiceClip {
+  id: string;
+  navn: string;
+  tekst: string;
+  fil: string;
+  mime: string;
+  bytes: number;
+  sekunder: number;
+  opprettet: string;
 }

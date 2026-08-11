@@ -38,6 +38,8 @@ export type {
   ErrorCode,
   KnowledgeDoc,
   KnowledgeHit,
+  TtsConfig,
+  VoiceClip,
   RagConfig,
   MqttConfig,
   MqttStatus,

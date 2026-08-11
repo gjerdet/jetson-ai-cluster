@@ -35,6 +35,18 @@ import {
   validateSettings,
 } from "./contract.mjs";
 import { kjorBalansert, poolFor, poolStatus } from "./balancer.mjs";
+import {
+  addClip,
+  clipDir,
+  clipStats,
+  deleteClip,
+  listClips,
+  piperStemmer,
+  saveTtsConfig,
+  syntetiser,
+  trainingManifest,
+  ttsConfig,
+} from "./tts.mjs";
 
 /** Gjeldende innstillinger = standardverdier overstyrt av lagrede verdier. */
 const currentSettings = () => ({ ...SETTINGS_DEFAULTS, ...(doc("settings", {}) || {}) });
@@ -77,12 +89,12 @@ const num = (v, felt, { min = -Infinity, maks = Infinity, standard } = {}) => {
   return n;
 };
 
-async function readBody(req) {
+async function readBody(req, maks = 5_000_000) {
   const chunks = [];
   let size = 0;
   for await (const c of req) {
     size += c.length;
-    if (size > 5_000_000) throw new Error("For stor forespørsel");
+    if (size > maks) throw new Error("For stor forespørsel");
     chunks.push(c);
   }
   if (!chunks.length) return {};
@@ -436,7 +448,55 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path === "/kunnskap/reindekser" && method === "POST")
       return json(req, res, 200, await reindex());
 
+    // ---- tale (TTS) og treningsklipp -------------------------------------
+    if (path === "/tts/tale" && method === "POST") {
+      const b = await readBody(req);
+      const r = await syntetiser(str(b.tekst, "Tekst", { maks: 4000, min: 1 }), {
+        modell: b.modell,
+        lengthScale: b.lengthScale,
+        noiseScale: b.noiseScale,
+      });
+      res.writeHead(200, { "content-type": r.mime, "content-length": r.lyd.length, ...corsHeaders(req) });
+      res.end(r.lyd);
+      return true;
+    }
+
+    if (path === "/tts/config") {
+      if (method === "GET") return json(req, res, 200, { config: ttsConfig() });
+      if (method === "PUT") {
+        if (!admin) return json(req, res, 403, { error: "Kun admin" });
+        return json(req, res, 200, { config: saveTtsConfig(await readBody(req)) });
+      }
+    }
+
+    if (path === "/tts/stemmer" && method === "GET")
+      return json(req, res, 200, { stemmer: await piperStemmer() });
+
+    if (path === "/tts/klipp") {
+      if (method === "GET") return json(req, res, 200, { klipp: listClips(), statistikk: clipStats() });
+      if (method === "POST") {
+        const b = await readBody(req, 40_000_000);
+        const k = await addClip({
+          navn: b.navn,
+          tekst: b.tekst,
+          lydBase64: b.lydBase64,
+          mime: b.mime,
+          sekunder: b.sekunder,
+        });
+        return json(req, res, 200, { klipp: k, statistikk: clipStats() });
+      }
+    }
+
+    if (path.startsWith("/tts/klipp/") && method === "DELETE") {
+      const id = decodeURIComponent(path.slice("/tts/klipp/".length));
+      return json(req, res, 200, { ok: await deleteClip(id), statistikk: clipStats() });
+    }
+
+    if (path === "/tts/treningssett" && method === "GET")
+      return json(req, res, 200, { manifest: trainingManifest(), mappe: clipDir(), statistikk: clipStats() });
+
     // ---- MQTT ------------------------------------------------------------
+
     if (path === "/mqtt" ) {
       if (method === "GET")
         return json(req, res, 200, { ...doc("mqtt", { url: "mqtt://127.0.0.1:1883", topics: ["#"], enabled: false }), status: deps.mqttStatus?.() });

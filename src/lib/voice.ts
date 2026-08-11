@@ -2,9 +2,11 @@
 // Velger automatisk den mest «Jarvis-aktige» stemmen: britisk engelsk mann,
 // litt lav tonehøyde og rolig tempo (Iron Man-butler).
 
+import { ROUTES } from "@/lib/contract";
+
 const NØKKEL = "jarvis.voice";
 
-export type VoiceEngine = "browser" | "piper";
+export type VoiceEngine = "browser" | "piper" | "backend";
 
 export type VoiceConfig = {
   på: boolean;
@@ -132,6 +134,27 @@ export async function speakPiper(text: string, cfg: VoiceConfig) {
   await lyd.play();
 }
 
+// Går via den lokale Jarvis-agenten (/api/tts/tale), som snakker med Piper.
+export async function speakBackend(text: string, cfg: VoiceConfig) {
+  const { backendUrl, backendToken } = await import("@/lib/backend");
+  const token = backendToken();
+  const res = await fetch(`${backendUrl()}/api${ROUTES.tts}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ tekst: text, modell: cfg.piperVoice, lengthScale: 1 / cfg.rate }),
+  });
+  if (!res.ok) throw new Error(`Backend svarte ${res.status}`);
+  const blob = await res.blob();
+  stopSpeak();
+  const lyd = new Audio(URL.createObjectURL(blob));
+  lyd.volume = cfg.volume;
+  piperAudio = lyd;
+  await lyd.play();
+}
+
 export function speakBrowser(text: string, cfg: VoiceConfig) {
   if (!voiceSupported()) return;
   stopSpeak();
@@ -153,6 +176,10 @@ export function speak(text: string, cfg: VoiceConfig = loadVoiceConfig()) {
   if (!ren) return;
   if (cfg.engine === "piper") {
     void speakPiper(ren, cfg).catch(() => speakBrowser(ren, cfg));
+    return;
+  }
+  if (cfg.engine === "backend") {
+    void speakBackend(ren, cfg).catch(() => speakBrowser(ren, cfg));
     return;
   }
   speakBrowser(ren, cfg);

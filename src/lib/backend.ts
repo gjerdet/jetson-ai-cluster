@@ -33,6 +33,8 @@ import {
   type ThreadSummary,
   type AiChatReply,
   type PoolStatus,
+  type TtsConfig,
+  type VoiceClip,
 } from "@/lib/contract";
 
 export type {
@@ -58,6 +60,8 @@ export type {
   ThreadSummary,
   AiChatReply,
   PoolStatus,
+  TtsConfig,
+  VoiceClip,
 };
 
 const LS_URL = "jarvis.backend.url";
@@ -384,6 +388,22 @@ export const backend = {
       { method: "POST" },
       { timeoutMs: 300_000, retries: 0 },
     ),
+
+  // ---- tale (TTS) ----
+  hentTtsConfig: () => call<{ config: TtsConfig }>(ROUTES.ttsConfig!).then((r) => r.config),
+  lagreTtsConfig: (v: Partial<TtsConfig>) =>
+    call<{ config: TtsConfig }>(ROUTES.ttsConfig!, { method: "PUT", body: JSON.stringify(v) }, { retries: 0 }).then(
+      (r) => r.config,
+    ),
+  hentTtsStemmer: () => call<{ stemmer: string[] }>(ROUTES.ttsVoices!).then((r) => r.stemmer),
+  hentKlipp: () =>
+    call<{ klipp: VoiceClip[]; statistikk: { antall: number; sekunder: number; bytes: number } }>(ROUTES.ttsClips!),
+  leggTilKlipp: (k: { navn: string; tekst: string; lydBase64: string; mime: string; sekunder?: number }) =>
+    call<{ klipp: VoiceClip }>(ROUTES.ttsClips!, { method: "POST", body: JSON.stringify(k) }, { timeoutMs: 120_000, retries: 0 }),
+  slettKlipp: (id: string) =>
+    call<{ ok: boolean }>(`${ROUTES.ttsClips}/${encodeURIComponent(id)}`, { method: "DELETE" }, { retries: 0 }),
+  hentTreningssett: () =>
+    call<{ manifest: string; mappe: string; statistikk: { antall: number; sekunder: number } }>(ROUTES.ttsManifest!),
 
   samtaler: () => call<{ samtaler: ThreadSummary[] }>(ROUTES.threads!).then((r) => r.samtaler),
   lagreSamtale: (t: { id?: string; tittel: string; meldinger: unknown[] }) =>

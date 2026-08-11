@@ -382,3 +382,24 @@ Jarvis kan lese dine egne dokumenter og bruke dem som kontekst i chatten.
 
 Uten embedding-modell fungerer basen fortsatt – da faller søket tilbake på
 nøkkelord. Kjør «Reindekser alt» etter at modellen er på plass.
+
+## Stemme: Piper via agenten + trening av egen stemme
+
+1. Kjør en Piper HTTP-server på Jetson (f.eks. `piper-http` på port 5000).
+2. I HUD: **SYSTEM → STEMME** → motor **AGENT (Jetson)**. Da går talen via
+   `POST /api/tts/tale` på agenten (autentisert, ingen CORS-trøbbel).
+3. Treningsklipp lastes opp i samme fane. Agenten lagrer dem i
+   `AGENT_DATA/stemmeklipp` og lager et LJSpeech-manifest (`metadata.csv`).
+4. Finetune en eksisterende modell:
+   ```bash
+   python3 -m piper_train.preprocess --input-dir data/stemmeklipp \
+     --output-dir data/piper-train --language en --sample-rate 22050 \
+     --dataset-format ljspeech
+   python3 -m piper_train --dataset-dir data/piper-train \
+     --resume_from_checkpoint en_GB-alan-medium.ckpt --max_epochs 2000
+   python3 -m piper_train.export_onnx <ckpt> min-jarvis.onnx
+   ```
+5. Legg `.onnx` + `.onnx.json` i piper-serverens modellmappe og skriv
+   modellnavnet i feltet «Piper-modell».
+
+10–20 min ren tale holder til finetuning; 30–60 min gir best resultat.
