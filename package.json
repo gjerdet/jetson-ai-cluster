@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
+    "test:backend-sync": "vitest run src/lib/backend-sync.test.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

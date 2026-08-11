@@ -103,7 +103,12 @@ export function ChatPanel({
       return;
     }
 
-    if (!primary) {
+    const viaBackend = config.chatViaBackend === true;
+    if (viaBackend && !backendToken()) {
+      setError("Backend-chat er aktiv, men du er ikke innlogget. Logg inn under SYSTEM → BACKEND.");
+      return;
+    }
+    if (!viaBackend && !primary) {
       setError("Ingen aktiv node. Åpne NODER og aktiver minst én.");
       return;
     }
@@ -147,34 +152,30 @@ export function ChatPanel({
 
       const out: ChatMsg[] = [...next];
       let answer = "";
-      let answeredBy = primary.name;
+      let answeredBy = viaBackend ? "BACKEND" : (primary?.name ?? "AI");
       const runs: ToolRun[] = [];
 
       // verktøykall-loop: modellen kan hente ekte data før den svarer
-      const direkte = (round: number) =>
-        config.loadBalance !== false
+      const direkte = (round: number) => {
+        if (!primary) throw new Error("Ingen aktiv AI-node er tilgjengelig.");
+        return config.loadBalance !== false
           ? callBalanced(active, thread, { prefer: primary, duty: round === 0 ? "chat" : "verktoy" })
-          : callTracked(primary, thread).then((text) => ({ text, node: primary }));
+          : callTracked(primary, thread).then((result) => ({ text: result, node: primary }));
+      };
 
       for (let round = 0; round < 4; round++) {
-        // via backend-en (agenten) når det er valgt og du er innlogget – ellers rett til noden
-        const viaBackend = config.chatViaBackend === true && !!backendToken();
+        // Når backend-chat er valgt går hver runde kun via POST /ai/chat.
+        // Vi faller ikke stille tilbake til callNode: det ville omgått backend-bryteren.
         const call = viaBackend
-          ? await (async () => {
-              try {
-                const r = await backend.aiChat(
-                  thread.map((m) => ({ role: m.role, content: m.content })),
-                );
-                // alle svar via backend merkes tydelig med BACKEND-prefiks
-                return { text: r.svar, node: { ...primary, name: `BACKEND · ${r.model || primary.model}` } };
-              } catch (e) {
-                // reserve: går rett til noden hvis backend-ruten feiler
-                const feil = e instanceof Error ? e.message : "ukjent feil";
-                logSelfEvent("warn", `Backend-chat feilet (${feil}) – falt tilbake til direkte node`);
-                const d = await direkte(round);
-                return { text: d.text, node: { ...d.node, name: `${d.node.name} · BACKEND NEDE` } };
-              }
-            })()
+          ? await backend
+              .aiChat(thread.map((m) => ({ role: m.role, content: m.content })))
+              .then((r) => ({
+                text: r.svar,
+                node: {
+                  ...(primary ?? active[0]),
+                  name: `BACKEND · ${r.model || primary?.model || "AI"}`,
+                },
+              }))
           : await direkte(round);
 
         const raw = call.text;
@@ -250,7 +251,7 @@ export function ChatPanel({
           node: "MQTT",
         });
 
-      if (config.collaboration && workers.length > 0) {
+      if (!viaBackend && primary && config.collaboration && workers.length > 0) {
         setStage("evaluerer");
         const ev = await evaluate({
           question: text,

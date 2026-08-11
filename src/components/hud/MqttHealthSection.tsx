@@ -9,7 +9,7 @@ const btn =
 const klokke = (t?: number | null) => (t ? new Date(t).toLocaleTimeString("nb-NO") : "–");
 
 /** Sanntids helsebilde for MQTT: status, årsak, flapping og oppetid. */
-export function MqttHealthSection() {
+export function MqttHealthSection({ onHealth }: { onHealth?: (health: MqttHealth) => void }) {
   const [h, setH] = useState<MqttHealth | null>(null);
   const [feil, setFeil] = useState<string | null>(null);
 
@@ -19,8 +19,9 @@ export function MqttHealthSection() {
     else {
       setFeil(null);
       setH(r.data);
+      onHealth?.(r.data);
     }
-  }, []);
+  }, [onHealth]);
 
   useEffect(() => {
     void last();

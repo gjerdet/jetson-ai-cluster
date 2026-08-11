@@ -5,7 +5,13 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "agent/**/*.test.mjs"],
+    // Eksplisitt liste gjør at både frontend-, synk- og agenttestene kjøres
+    // likt med `npm test` og `bun run test`.
+    include: [
+      "src/lib/**/*.test.ts",
+      "src/components/**/*.test.tsx",
+      "agent/**/*.test.mjs",
+    ],
     globals: false,
     restoreMocks: true,
   },

@@ -3,11 +3,12 @@
 #  sudo caddy run --config /opt/jarvis/agent/proxy/Caddyfile
 #  (eller: sudo cp Caddyfile /etc/caddy/Caddyfile && sudo systemctl restart caddy)
 #
-# Caddy fornyer sertifikatet selv. Velg ETT av alternativene under.
+# Caddy fornyer sertifikatet selv. Vertnavn og Node2-adresse kan settes som
+# miljøvariabler i /etc/caddy/.env uten å endre denne filen.
 
 # --- A) Eget domene med gyldig Let's Encrypt-sertifikat -----------------------
 # Krever at domenet peker på maskinen og at port 80/443 er åpne utenfra.
-jarvis.dittdomene.no {
+{$JARVIS_NODE1_HOST:jarvis.dittdomene.no} {
 	encode zstd gzip
 
 	# Send videre til agenten. x-forwarded-proto gjør at agenten setter HSTS.
@@ -25,6 +26,29 @@ jarvis.dittdomene.no {
 
 	log {
 		output file /var/log/caddy/jarvis.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}
+
+# --- Node2 -------------------------------------------------------------------
+# Kjør denne blokken på Node1 som felles TLS-proxy, eller kopier filen til
+# Node2 og sett JARVIS_NODE2_UPSTREAM=127.0.0.1:8787 der.
+{$JARVIS_NODE2_HOST:node2.jarvis.dittdomene.no} {
+	encode zstd gzip
+	reverse_proxy {$JARVIS_NODE2_UPSTREAM:192.168.1.51:8787} {
+		header_up X-Forwarded-Proto https
+		header_up X-Real-IP {remote_host}
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+	log {
+		output file /var/log/caddy/jarvis-node2.log {
 			roll_size 10MiB
 			roll_keep 5
 		}

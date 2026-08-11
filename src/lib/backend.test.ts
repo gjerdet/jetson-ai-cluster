@@ -92,4 +92,18 @@ describe("backend-klient", () => {
     expect(cfg.apiKey).toBeUndefined();
     expect(kall[0]!.url).toContain("/api/ai");
   });
+
+  it("sender faktisk chat til POST /api/ai/chat", async () => {
+    setBackendToken("tok");
+    const kall = mockFetch([
+      { status: 200, body: { svar: "Hei", model: "hermes3:8b", node: "http://node2:11434/v1" } },
+    ]);
+    const svar = await backend.aiChat([{ role: "user", content: "Hei" }]);
+    expect(svar.svar).toBe("Hei");
+    expect(kall[0]!.url).toBe("http://127.0.0.1:8787/api/ai/chat");
+    expect(kall[0]!.init.method).toBe("POST");
+    expect(JSON.parse(String(kall[0]!.init.body))).toEqual({
+      meldinger: [{ role: "user", content: "Hei" }],
+    });
+  });
 });
