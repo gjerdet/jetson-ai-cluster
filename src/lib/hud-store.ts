@@ -544,6 +544,13 @@ export const CLOUD_PROVIDER_PRESETS: {
     hint: "API-nøkkel fra portal.nousresearch.com. OpenAI-kompatibelt endepunkt – Hermes-modellene kan samarbeide med de lokale nodene.",
   },
   {
+    id: "hermes-agent",
+    name: "Hermes Agent",
+    baseUrl: "https://hermes-agent.nousresearch.com/v1",
+    model: "Hermes-4-70B",
+    hint: "Hermes-agenten. Bytt adressen til din egen Hermes-URL om du kjører den selv. Sett noden som AI-node for at den skal ta oppgavene.",
+  },
+  {
     id: "hermes-lokal",
     name: "Hermes på egen node",
     baseUrl: "http://192.168.1.61:11434/v1",
