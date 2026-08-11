@@ -73,13 +73,20 @@ export function HudWindow({
     <div
       onMouseDown={onFocus}
       style={
-        fullscreen
-          ? { zIndex: z }
-          : { left: pos.x, top: pos.y, width: size.w, height: size.h, zIndex: z }
+        min
+          ? {
+              left: Math.max(pos.x, 24),
+              top: Math.max(pos.y, 72),
+              width: fullscreen ? 320 : size.w,
+              zIndex: z,
+            }
+          : fullscreen
+            ? { zIndex: z }
+            : { left: pos.x, top: pos.y, width: size.w, height: size.h, zIndex: z }
       }
       className={cn(
         "hud-panel flex flex-col overflow-hidden rounded-lg animate-hud-in",
-        fullscreen ? "fixed inset-3 md:inset-8" : "absolute",
+        !min && fullscreen ? "fixed inset-3 md:inset-8" : "absolute",
         className,
       )}
     >
@@ -89,25 +96,34 @@ export function HudWindow({
         onPointerUp={onPointerUp}
         className={cn(
           "flex items-center justify-between gap-3 border-b border-primary/25 bg-primary/5 px-3 py-2",
-          fullscreen ? "" : "cursor-grab active:cursor-grabbing",
+          fullscreen && !min ? "" : "cursor-grab active:cursor-grabbing",
         )}
       >
         <div className="min-w-0">
           <p className="hud-title truncate text-[11px] text-primary">{title}</p>
-          {subtitle ? (
+          {subtitle && !min ? (
             <p className="truncate text-[10px] text-muted-foreground">{subtitle}</p>
           ) : null}
         </div>
-        <button
-          onClick={onClose}
-          aria-label={`Lukk ${title}`}
-          className="hud-btn hud-btn-hoverable size-7 !p-0 hover:!border-destructive/60 hover:!text-destructive"
-        >
-          <X className="size-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setMin((v) => !v)}
+            aria-label={min ? `Gjenopprett ${title}` : `Minimer ${title}`}
+            className="hud-btn hud-btn-hoverable size-7 !p-0"
+          >
+            {min ? <Square className="size-3" /> : <Minus className="size-3.5" />}
+          </button>
+          <button
+            onClick={onClose}
+            aria-label={`Lukk ${title}`}
+            className="hud-btn hud-btn-hoverable size-7 !p-0 hover:!border-destructive/60 hover:!text-destructive"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto p-3">{children}</div>
-      {!fullscreen ? (
+      {min ? null : <div className="min-h-0 flex-1 overflow-auto p-3">{children}</div>}
+      {!fullscreen && !min ? (
         <div
           role="separator"
           aria-label={`Endre størrelse på ${title}`}
