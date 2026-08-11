@@ -34,9 +34,14 @@ import {
   validateNode,
   validateSettings,
 } from "./contract.mjs";
+import { kjorBalansert, poolFor, poolStatus } from "./balancer.mjs";
 
 /** Gjeldende innstillinger = standardverdier overstyrt av lagrede verdier. */
 const currentSettings = () => ({ ...SETTINGS_DEFAULTS, ...(doc("settings", {}) || {}) });
+
+/** Noder som kan ta AI-oppgaver (aktive og med gyldig adresse). */
+const chatNoder = (liste) => poolFor(liste, "chat");
+
 
 import { corsBlocked, corsHeaders, rateLimit } from "./security.mjs";
 import { decryptSecret, encryptSecret, maskSecret } from "./secrets.mjs";
