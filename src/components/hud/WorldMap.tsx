@@ -45,6 +45,8 @@ export function WorldMap({
   fill = false,
   markers = [],
   highlightId = null,
+  onMarkerSelect,
+  onRouteSelect,
 }: {
   events: WorldEvent[];
   onSelect?: (e: WorldEvent) => void;
@@ -54,6 +56,8 @@ export function WorldMap({
   /** egne markører, f.eks. smarthus-enheter */
   markers?: MapMarker[];
   highlightId?: string | null;
+  onMarkerSelect?: (id: string) => void;
+  onRouteSelect?: (name: string) => void;
 }) {
   const [land, setLand] = useState<FeatureCollection<Geometry> | null>(cache);
   const [zoom, setZoom] = useState(1);
@@ -61,6 +65,7 @@ export function WorldMap({
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const boxRef = useRef<HTMLDivElement>(null);
   const pan = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const moved = useRef(false);
   const stateRef = useRef({ zoom, offset });
   stateRef.current = { zoom, offset };
   const slice = fill || expanded;
@@ -149,6 +154,7 @@ export function WorldMap({
   const onPointerDown = (e: React.PointerEvent) => {
     const { offset: o } = stateRef.current;
     pan.current = { x: e.clientX, y: e.clientY, ox: o.x, oy: o.y };
+    moved.current = false;
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
@@ -159,6 +165,7 @@ export function WorldMap({
     const z = stateRef.current.zoom;
     const dx = (e.clientX - p.x) / s / z;
     const dy = (e.clientY - p.y) / s / z;
+    if (Math.abs(e.clientX - p.x) + Math.abs(e.clientY - p.y) > 5) moved.current = true;
     setOffset(clampOffset({ x: p.ox + dx, y: p.oy + dy }, z));
   };
   const onPointerUp = () => {
@@ -232,6 +239,9 @@ export function WorldMap({
                 strokeWidth={1.1 / zoom}
                 strokeLinecap="round"
                 opacity={0.75}
+                className="cursor-pointer"
+                pointerEvents="stroke"
+                onClick={(event) => { event.stopPropagation(); if (!moved.current) onRouteSelect?.(r.name); }}
                 strokeDasharray={r.layer === "trade" ? `${4 / zoom} ${3 / zoom}` : undefined}
               >
                 <title>{r.name}</title>
@@ -249,8 +259,10 @@ export function WorldMap({
                 key={e.id}
                 transform={`translate(${pt[0]}, ${pt[1]}) scale(${1 / zoom})`}
                 className="cursor-pointer"
-                onClick={() => onSelect?.(e)}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => { event.stopPropagation(); onSelect?.(e); }}
               >
+                <circle r={8} fill="transparent" />
                 <circle r={2.2} fill={color} />
                 <circle r={3} fill="none" stroke={color} strokeWidth={0.6} opacity={0.7}>
                   <animate attributeName="r" values="2.5;9;2.5" dur="3.4s" repeatCount="indefinite" />
@@ -284,7 +296,8 @@ export function WorldMap({
             const on = highlightId === m.id;
             const color = on ? "oklch(0.85 0.18 90)" : "oklch(0.82 0.14 165)";
             return (
-              <g key={m.id} transform={`translate(${pt[0]}, ${pt[1]}) scale(${1 / zoom})`}>
+              <g key={m.id} transform={`translate(${pt[0]}, ${pt[1]}) scale(${1 / zoom})`} className="cursor-pointer" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onMarkerSelect?.(m.id); }}>
+                <circle r={9} fill="transparent" />
                 <rect x={-2.2} y={-2.2} width={4.4} height={4.4} fill={color} opacity={0.9} />
                 <rect
                   x={-4}

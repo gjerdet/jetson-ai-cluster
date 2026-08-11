@@ -126,7 +126,7 @@ function Index() {
             >
               {id === "chat" ? <ChatPanel config={config} update={update} /> : null}
               {id === "nodes" ? <NodesPanel config={config} update={update} /> : null}
-              {id === "world" ? <WorldMonitor config={config} /> : null}
+              {id === "world" ? <WorldMonitor config={config} update={update} /> : null}
               {id === "home" ? <SmartHomePanel config={config} update={update} /> : null}
               {id === "dash" ? <DashboardPanel config={config} update={update} /> : null}
               {id === "settings" ? <SettingsPanel config={config} update={update} /> : null}
