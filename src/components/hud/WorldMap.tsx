@@ -38,14 +38,18 @@ export function WorldMap({
   events,
   onSelect,
   dayNight = false,
+  fill = false,
 }: {
   events: WorldEvent[];
   onSelect?: (e: WorldEvent) => void;
   dayNight?: boolean;
+  /** fyller tilgjengelig høyde i stedet for fast 2:1-forhold */
+  fill?: boolean;
 }) {
 
   const [land, setLand] = useState<FeatureCollection<Geometry> | null>(cache);
   const [zoom, setZoom] = useState(1);
+  const [expanded, setExpanded] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const boxRef = useRef<HTMLDivElement>(null);
   const pan = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
