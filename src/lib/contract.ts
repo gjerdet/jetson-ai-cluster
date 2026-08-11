@@ -41,6 +41,8 @@ export type {
   RagConfig,
   MqttConfig,
   MqttStatus,
+  PoolNode,
+  PoolStatus,
   RuleAction,
   RuleActionType,
   RuleEvent,

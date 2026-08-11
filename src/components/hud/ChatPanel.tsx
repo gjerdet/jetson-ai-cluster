@@ -165,18 +165,27 @@ export function ChatPanel({
 
       for (let round = 0; round < 4; round++) {
         // Når backend-chat er valgt går hver runde kun via POST /ai/chat.
-        // Vi faller ikke stille tilbake til callNode: det ville omgått backend-bryteren.
+        // Backend-en lastbalanserer selv mellom Jetson-nodene; er en node låst
+        // i innstillingene, sendes den med som ønsket node.
         const call = viaBackend
           ? await backend
-              .aiChat(thread.map((m) => ({ role: m.role, content: m.content })))
-              .then((r) => ({
-                text: r.svar,
-                node: {
-                  ...(primary ?? active[0]),
-                  name: `BACKEND · ${r.model || primary?.model || "AI"}`,
-                },
-              }))
+              .aiChat(thread.map((m) => ({ role: m.role, content: m.content })), {
+                oppgave: round === 0 ? "chat" : "verktoy",
+                ...(config.loadBalance === false && config.aiNodeId ? { nodeId: config.aiNodeId } : {}),
+              })
+              .then((r) => {
+                if (r.hoppetOver?.length)
+                  logSelfEvent("warn", `Backend hoppet over ${r.hoppetOver.map((h) => h.node).join(", ")}`);
+                return {
+                  text: r.svar,
+                  node: {
+                    ...(primary ?? active[0]),
+                    name: `BACKEND · ${r.nodeNavn || r.model || primary?.model || "AI"}`,
+                  },
+                };
+              })
           : await direkte(round);
+
 
         const raw = call.text;
         answeredBy = call.node.name;
