@@ -15,6 +15,14 @@ import {
   agentWriteScript,
   formatResult,
 } from "./local-agent";
+import {
+  SCRIPT_TEMPLATES,
+  formatTemplateTest,
+  installTemplate,
+  templateById,
+  testTemplate,
+} from "./script-templates";
+
 
 
 export type ToolCall = { name: string; args: Record<string, unknown>; raw: string };
