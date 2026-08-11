@@ -101,8 +101,10 @@ export function topEvents(limit = 10): WorldEvent[] {
     .filter((e) => weight[e.layer] !== undefined)
     .map((e) => {
       const ageH = Math.max(0, (now - new Date(e.time).getTime()) / 3600000);
-      const mag = e.magnitude ? e.magnitude * 1.5 : 0;
-      return { e, score: (weight[e.layer] ?? 1) + mag - ageH * 0.05 };
+      // demp skjelv-dominans: bare uvanlig kraftige skjelv får bonus
+      const mag = e.magnitude && e.magnitude > 5.5 ? (e.magnitude - 5.5) * 1.5 : 0;
+      const news = e.url ? 1.5 : 0;
+      return { e, score: (weight[e.layer] ?? 1) + mag + news - ageH * 0.05 };
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
