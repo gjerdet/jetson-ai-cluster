@@ -10,6 +10,7 @@ import { SmartHomePanel } from "@/components/hud/SmartHomePanel";
 import { SettingsPanel } from "@/components/hud/SettingsPanel";
 import { DashboardPanel } from "@/components/hud/DashboardPanel";
 import { HealthPanel } from "@/components/hud/HealthPanel";
+import { BackendStatusBadge } from "@/components/hud/BackendStatusBadge";
 import { useHudConfig } from "@/lib/hud-store";
 import { setRules, setTelegramChat } from "@/lib/mqtt-bridge";
 
@@ -95,6 +96,7 @@ function Index() {
           </p>
         </div>
         <div className="hud-title flex items-center gap-4 text-[10px] text-muted-foreground">
+          <BackendStatusBadge />
           <span>
             NODER <span className="text-primary">{activeNodes}</span>/{config.nodes.length}
           </span>

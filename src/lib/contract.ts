@@ -21,6 +21,7 @@ export type {
   BackendRule,
   BackendStatus,
   BackendUser,
+  BackupFile,
   ErrorCode,
   MqttConfig,
   MqttStatus,

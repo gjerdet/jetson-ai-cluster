@@ -1,0 +1,44 @@
+# Caddy foran Jarvis-agenten – enkleste vei til HTTPS.
+#
+#  sudo caddy run --config /opt/jarvis/agent/proxy/Caddyfile
+#  (eller: sudo cp Caddyfile /etc/caddy/Caddyfile && sudo systemctl restart caddy)
+#
+# Caddy fornyer sertifikatet selv. Velg ETT av alternativene under.
+
+# --- A) Eget domene med gyldig Let's Encrypt-sertifikat -----------------------
+# Krever at domenet peker på maskinen og at port 80/443 er åpne utenfra.
+jarvis.dittdomene.no {
+	encode zstd gzip
+
+	# Send videre til agenten. x-forwarded-proto gjør at agenten setter HSTS.
+	reverse_proxy 127.0.0.1:8787 {
+		header_up X-Forwarded-Proto https
+		header_up X-Real-IP {remote_host}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/jarvis.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}
+
+# --- B) Bare LAN, uten domene: internt sertifikat ----------------------------
+# Caddy lager sin egen CA. Importer rot-sertifikatet fra
+# /var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt på maskinene
+# som skal bruke HUD-en, så slipper du nettleseradvarsler.
+#
+# https://jarvis.local:8443 {
+# 	tls internal
+# 	reverse_proxy 127.0.0.1:8787 {
+# 		header_up X-Forwarded-Proto https
+# 	}
+# }

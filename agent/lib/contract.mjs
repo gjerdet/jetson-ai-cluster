@@ -32,6 +32,7 @@ export const ROUTES = {
   threads: "/samtaler",
   telegram: "/telegram",
   telegramTest: "/telegram/test",
+  backup: "/backup",
 };
 
 /** Maskinlesbare feilkoder – frontend kan gi brukeren en presis melding. */
@@ -41,6 +42,7 @@ export const ERROR_CODES = {
   NOT_FOUND: "not_found",
   VALIDATION: "validation",
   UNAVAILABLE: "unavailable",
+  RATE_LIMIT: "rate_limit",
   NETWORK: "network",
   TIMEOUT: "timeout",
   TLS: "tls",
@@ -54,6 +56,7 @@ export const ERROR_TEXTS = {
   not_found: "Fant ikke ressursen på backend-en.",
   validation: "Ugyldige verdier ble sendt til backend-en.",
   unavailable: "Tjenesten er ikke tilgjengelig akkurat nå (f.eks. MQTT nede).",
+  rate_limit: "For mange forespørsler mot backend-en. Vent litt og prøv igjen.",
   network: "Får ikke kontakt med backend-en. Sjekk at agenten kjører og at adressen stemmer.",
   timeout: "Backend-en svarte ikke i tide.",
   tls: "TLS-feil. Godkjenn sertifikatet i nettleseren ved å åpne backend-adressen direkte.",
@@ -117,6 +120,7 @@ export function codeFromStatus(status) {
   if (status === 403) return ERROR_CODES.FORBIDDEN;
   if (status === 404) return ERROR_CODES.NOT_FOUND;
   if (status === 400 || status === 422) return ERROR_CODES.VALIDATION;
+  if (status === 429) return ERROR_CODES.RATE_LIMIT;
   if (status === 503) return ERROR_CODES.UNAVAILABLE;
   return ERROR_CODES.SERVER;
 }
