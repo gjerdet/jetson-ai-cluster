@@ -1,6 +1,25 @@
 import type { ModelNode } from "./hud-store";
 
-export type ChatMsg = { role: "system" | "user" | "assistant"; content: string; node?: string };
+/** logg for ett verktøykall Jarvis gjorde underveis */
+export type ToolRun = {
+  name: string;
+  args: Record<string, unknown>;
+  result: string;
+  ms: number;
+  time: number;
+  ok: boolean;
+};
+
+export type ChatMsg = {
+  role: "system" | "user" | "assistant";
+  content: string;
+  node?: string;
+  /** verktøy som ble kjørt for å produsere dette svaret */
+  runs?: ToolRun[];
+  /** poeng fra evaluatoren, når svaret er vurdert */
+  scores?: { label: string; score: number }[];
+  time?: number;
+};
 
 export async function callNode(
   node: ModelNode,
