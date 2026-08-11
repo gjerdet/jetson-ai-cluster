@@ -4,6 +4,8 @@ import { feature } from "topojson-client";
 import type { FeatureCollection, Geometry } from "geojson";
 import { Minus, Plus, Maximize, Expand, Shrink } from "lucide-react";
 import { LAYER_COLOR, type WorldEvent } from "@/lib/world-events";
+import { ROUTES } from "@/lib/world-static";
+
 
 const W = 720;
 const H = 360;
