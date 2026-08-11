@@ -79,7 +79,7 @@ export function VoiceSection() {
           <Row label="Stemme">
             <select
               value={cfg.voiceURI ?? ""}
-              onChange={(e) => patch({ voiceURI: e.target.value || undefined })}
+              onChange={(e) => patch({ voiceURI: e.target.value })}
               className="hud-input w-full"
             >
               <option value="">Auto ({auto ? auto.name : "ingen funnet"})</option>
