@@ -19,6 +19,9 @@ import crypto from "node:crypto";
 import { handleApi } from "./lib/api.mjs";
 import { addSample, doc, flushNow, initStore, latest, pruneSamples, warmLatest } from "./lib/store.mjs";
 import { MqttClient, parseMqttUrl } from "./lib/mqtt.mjs";
+import { createMqttHealth } from "./lib/mqtt-health.mjs";
+import { SETTINGS_DEFAULTS } from "./lib/contract.mjs";
+
 import { evaluate, rulesStatus } from "./lib/rules.mjs";
 import { notifyAll, startTelegram } from "./lib/telegram.mjs";
 import { corsBlocked, corsHeaders, rateLimit, validateEnv, withRequestLog, allowedOrigins, logDir } from "./lib/security.mjs";
@@ -368,6 +371,11 @@ let mqtt = null;
 let mqttConnected = false;
 const previousValues = new Map();
 
+/** Innstillinger fra /api/innstillinger – leses ferskt hver gang (ingen omstart). */
+const settings = () => ({ ...SETTINGS_DEFAULTS, ...(doc("settings", {}) || {}) });
+
+const mqttHealth = createMqttHealth({ settings, notify: (t) => notifyAll(t) });
+
 function mqttStatus() {
   const cfg = doc("mqtt", { url: "", enabled: false, topics: ["#"] });
   return {
@@ -380,6 +388,8 @@ function mqttStatus() {
   };
 }
 
+const mqttHelse = () => mqttHealth.snapshot(mqttStatus());
+
 async function publish(topic, payload) {
   if (!mqtt || !mqttConnected) throw new Error("MQTT er ikke tilkoblet");
   mqtt.publish(topic, payload);
@@ -390,22 +400,34 @@ function startMqtt() {
   mqtt?.stop();
   mqtt = null;
   mqttConnected = false;
-  const cfg = doc("mqtt", { url: "mqtt://127.0.0.1:1883", topics: ["#"], enabled: false });
+  mqttHealth.reset();
+  const s = settings();
+  const cfg = doc("mqtt", { url: s.mqttUrl, topics: ["#"], enabled: false });
   if (!cfg.enabled) return;
   mqtt = new MqttClient({ ...parseMqttUrl(cfg.url), clientId: `jarvis-agent-${process.pid}` });
+  let lastError = null;
   mqtt.on("connect", () => {
     mqttConnected = true;
+    lastError = null;
     mqtt.subscribe(cfg.topics?.length ? cfg.topics : ["#"]);
+    mqttHealth.onConnect();
     console.log("[jarvis-agent] MQTT tilkoblet", cfg.url);
   });
   mqtt.on("close", () => {
+    const var_ = mqttConnected;
     mqttConnected = false;
+    // Bare tell én frakobling per fall, ikke per mislykket gjenforsøk.
+    if (var_) mqttHealth.onDisconnect(lastError || "forbindelsen ble lukket");
   });
-  mqtt.on("error", (e) => console.error("[jarvis-agent] MQTT-feil:", e?.message));
+  mqtt.on("error", (e) => {
+    lastError = e?.message || String(e);
+    console.error("[jarvis-agent] MQTT-feil:", lastError);
+  });
   mqtt.on("reconnect", ({ forsok, ventMs }) =>
     console.warn(`[jarvis-agent] MQTT frakoblet – nytt forsøk #${forsok} om ${Math.round(ventMs / 1000)} s`),
   );
   mqtt.on("message", async (topic, message) => {
+    mqttHealth.onMessage();
     const row = addSample({ topic, value: message, time: Date.now() });
     const previous = previousValues.get(topic);
     previousValues.set(topic, row.v ?? row.s);
@@ -418,7 +440,15 @@ function startMqtt() {
   mqtt.connect();
 }
 
-const apiDeps = { publish, mqttStatus, restartMqtt: startMqtt, rulesStatus, tls: !!TLS_OPTIONS };
+const apiDeps = {
+  publish,
+  mqttStatus,
+  mqttHelse,
+  restartMqtt: startMqtt,
+  rulesStatus,
+  tls: !!TLS_OPTIONS,
+};
+
 
 validateEnv({ token: TOKEN, dataDir: path.resolve(process.env.AGENT_DATA || "./data"), sandbox: SANDBOX });
 

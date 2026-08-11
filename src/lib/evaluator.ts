@@ -1,5 +1,5 @@
 import { type ChatMsg } from "./hud-client";
-import { callTracked, mapOverPool } from "./balancer";
+import { callTracked, dutyPool, mapOverPool } from "./balancer";
 import { defaultEvaluator, type EvaluatorConfig, type ModelNode } from "./hud-store";
 
 export type CriterionScore = { label: string; score: number };
@@ -85,8 +85,10 @@ export async function evaluate(opts: {
 }): Promise<Evaluation> {
   const { question, answer, primary } = opts;
   const cfg = { ...defaultEvaluator, ...(opts.settings ?? {}) };
-  const limit = cfg.maxWorkers > 0 ? cfg.maxWorkers : opts.workers.length;
-  const workers = opts.workers.slice(0, limit);
+  // Bare noder som har fått evaluator-ansvar deltar i vurderingen.
+  const kandidater = dutyPool(opts.workers, "evaluator");
+  const limit = cfg.maxWorkers > 0 ? cfg.maxWorkers : kandidater.length;
+  const workers = kandidater.slice(0, limit);
   const sys = reviewPrompt(cfg);
   const user = `SPØRSMÅL:\n${question}\n\nUTKAST FRA ${primary.name}:\n${answer}`;
 

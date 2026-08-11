@@ -17,8 +17,12 @@ import {
   type BackendStatus,
   type BackendUser,
   type ErrorCode,
+  type BackendSettings,
+  type ClusterNode,
   type MqttConfig,
+  type MqttHealth,
   type MqttStatus,
+  type SettingsGroup,
   type RuleEvent,
   type Sample,
   type SampleSummary,
@@ -28,6 +32,10 @@ import {
 
 export type {
   AiConfig,
+  BackendSettings,
+  ClusterNode,
+  MqttHealth,
+  SettingsGroup,
   BackendRule,
   BackupFile,
   BackendStatus,
@@ -291,6 +299,27 @@ export const backend = {
   lagreMqtt: (v: Partial<MqttConfig>) => call(ROUTES.mqtt!, { method: "PUT", body: JSON.stringify(v) }, { retries: 0 }),
   publiser: (emne: string, payload: string) =>
     call(ROUTES.mqttPublish!, { method: "POST", body: JSON.stringify({ emne, payload }) }, { retries: 0 }),
+
+  hentMqttHelse: () => call<MqttHealth>(ROUTES.mqttHealth!),
+
+  hentNoder: () =>
+    call<{ noder: ClusterNode[]; innstillinger: BackendSettings }>(ROUTES.nodes!),
+  lagreNoder: (noder: ClusterNode[]) =>
+    call<{ noder: ClusterNode[] }>(ROUTES.nodes!, { method: "PUT", body: JSON.stringify({ noder }) }, { retries: 0 }),
+  lagreNode: (node: ClusterNode) =>
+    call<{ node: ClusterNode; noder: ClusterNode[] }>(ROUTES.nodes!, { method: "POST", body: JSON.stringify({ node }) }, { retries: 0 }),
+  slettNode: (id: string) =>
+    call<{ noder: ClusterNode[] }>(`${ROUTES.nodes}/${encodeURIComponent(id)}`, { method: "DELETE" }, { retries: 0 }),
+
+  hentSkjema: () =>
+    call<{ skjema: SettingsGroup[]; verdier: BackendSettings }>(ROUTES.settingsSchema!),
+  hentInnstillinger: () => call<{ verdier: BackendSettings }>(ROUTES.settings!),
+  lagreInnstillinger: (verdier: BackendSettings) =>
+    call<{ verdier: BackendSettings; mqttOmstartet: boolean }>(
+      ROUTES.settings!,
+      { method: "PUT", body: JSON.stringify({ verdier }) },
+      { retries: 0 },
+    ),
 
   hentTelegram: () => call<TelegramConfig>(ROUTES.telegram!),
   lagreTelegram: (v: Partial<TelegramConfig> & { chatIds?: unknown }) =>

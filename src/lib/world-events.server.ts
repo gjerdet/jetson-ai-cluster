@@ -1,6 +1,8 @@
 import type { DefconReading, LayerId, WorldEvent } from "./world-events";
 import { staticEvents } from "./world-static";
 
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
 async function json(url: string, retries = 2): Promise<unknown | null> {
   for (let i = 0; i <= retries; i++) {
     try {
@@ -10,10 +12,52 @@ async function json(url: string, retries = 2): Promise<unknown | null> {
     } catch {
       /* nettverksfeil */
     }
-    await new Promise((res) => setTimeout(res, 5200));
+    await sleep(1500 * (i + 1));
   }
   return null;
 }
+
+/**
+ * GDELT tåler globalt ca. ett kall hvert 5. sekund – uansett hvem som spør.
+ * Alle GDELT-kall (nyhetslag + DEFCON) går derfor gjennom én felles kø
+ * som holder minst 6 sekunder mellom hvert kall. Uten dette svarte API-et
+ * 429 på nesten alt, og kartet fikk ingen nyhetslag.
+ */
+const GDELT_GAP = 6000;
+let gdeltChain: Promise<unknown> = Promise.resolve();
+let gdeltLast = 0;
+
+async function gdeltJson(url: string, retries = 2): Promise<unknown | null> {
+  const run = async (): Promise<unknown | null> => {
+    for (let i = 0; i <= retries; i++) {
+      const wait = gdeltLast + GDELT_GAP - Date.now();
+      if (wait > 0) await sleep(wait);
+      gdeltLast = Date.now();
+      try {
+        const r = await fetch(url, {
+          headers: { "user-agent": "hud-world-monitor/1.0 (contact: hud)" },
+        });
+        if (r.ok) {
+          const text = await r.text();
+          try {
+            return JSON.parse(text);
+          } catch {
+            return null; // GDELT svarer av og til med ren tekst ved struping
+          }
+        }
+        if (r.status !== 429 && r.status < 500) return null;
+      } catch {
+        /* nettverksfeil */
+      }
+      await sleep(GDELT_GAP);
+    }
+    return null;
+  };
+  const next = gdeltChain.then(run, run);
+  gdeltChain = next.catch(() => undefined);
+  return next as Promise<unknown | null>;
+}
+
 
 /* ---------------------------------- natur --------------------------------- */
 
@@ -294,7 +338,7 @@ const NEWS_QUERIES: Record<NewsLayer, string> = {
 export const NEWS_LAYERS = Object.keys(NEWS_QUERIES) as NewsLayer[];
 
 const newsCache = new Map<NewsLayer, { at: number; data: WorldEvent[] }>();
-const NEWS_TTL = 15 * 60 * 1000;
+const NEWS_TTL = 30 * 60 * 1000;
 
 async function fetchNews(layer: NewsLayer): Promise<WorldEvent[]> {
   const hit = newsCache.get(layer);
@@ -303,7 +347,7 @@ async function fetchNews(layer: NewsLayer): Promise<WorldEvent[]> {
   const url =
     "https://api.gdeltproject.org/api/v2/doc/doc?format=json&mode=artlist&maxrecords=60&timespan=7d&sort=datedesc&query=" +
     encodeURIComponent(`${NEWS_QUERIES[layer]} sourcelang:eng`);
-  const d = (await json(url)) as { articles?: unknown[] } | null;
+  const d = (await gdeltJson(url)) as { articles?: unknown[] } | null;
   const out: WorldEvent[] = [];
   for (const raw of d?.articles ?? []) {
     const a = raw as { url: string; title: string; seendate: string; sourcecountry?: string };
@@ -332,8 +376,30 @@ async function fetchNews(layer: NewsLayer): Promise<WorldEvent[]> {
 
 const baseCache = { at: 0, data: [] as WorldEvent[] };
 
+/**
+ * Bakgrunnsoppvarming: henter alle nyhetslag i kø så neste puljekall
+ * kan svare fra cache med én gang i stedet for å vente på GDELT.
+ */
+let warming = false;
+function warmNews() {
+  if (warming) return;
+  warming = true;
+  void (async () => {
+    try {
+      for (const layer of NEWS_LAYERS) {
+        await fetchNews(layer);
+      }
+    } catch {
+      /* ignorer */
+    } finally {
+      warming = false;
+    }
+  })();
+}
+
 /** Raske kilder + kuraterte lag. */
 export async function loadBaseEvents(): Promise<WorldEvent[]> {
+  warmNews();
   if (baseCache.data.length && Date.now() - baseCache.at < 5 * 60 * 1000) return baseCache.data;
   const parts = await Promise.all([fetchQuakes(), fetchEonet(), fetchNws(), fetchIss()]);
   const data = [...parts.flat(), ...staticEvents()];
@@ -344,30 +410,30 @@ export async function loadBaseEvents(): Promise<WorldEvent[]> {
   return baseCache.data;
 }
 
-/** Én pulje nyhetslag (GDELT tåler ~1 kall / 5 sek). */
+/** Én pulje nyhetslag. Køen i gdeltJson holder takten mot GDELT. */
 export async function loadNewsBatch(index: number, size = 3): Promise<WorldEvent[]> {
   const layers = NEWS_LAYERS.slice(index * size, index * size + size);
   const out: WorldEvent[] = [];
-  for (let i = 0; i < layers.length; i++) {
-    const layer = layers[i];
+  for (const layer of layers) {
     if (!layer) continue;
     out.push(...(await fetchNews(layer)));
-    if (i < layers.length - 1) await new Promise((r) => setTimeout(r, 5200));
   }
   return out;
 }
+
 
 /* --------------------------- Pentagon Pizza Index ------------------------- */
 
 const defconCache = { at: 0, data: null as DefconReading | null };
 
 async function gdeltVolume(query: string): Promise<number[]> {
-  const d = (await json(
+  const d = (await gdeltJson(
     "https://api.gdeltproject.org/api/v2/doc/doc?format=json&mode=timelinevol&timespan=14d&query=" +
       encodeURIComponent(query),
   )) as { timeline?: { data?: { value: number }[] }[] } | null;
   return (d?.timeline?.[0]?.data ?? []).map((p) => p.value);
 }
+
 
 function level(score: number): DefconReading["level"] {
   if (score >= 85) return 1;
@@ -395,8 +461,8 @@ export async function loadDefcon(): Promise<DefconReading> {
   if (defconCache.data && Date.now() - defconCache.at < 10 * 60 * 1000) return defconCache.data;
 
   const pentagon = await gdeltVolume('(Pentagon OR "Department of Defense" OR "White House situation room")');
-  await new Promise((r) => setTimeout(r, 5200));
   const conflict = await gdeltVolume('("military strike" OR "emergency meeting" OR "national security council")');
+
 
   const stat = (series: number[]) => {
     if (series.length < 4) return { ratio: 1, last: 0 };

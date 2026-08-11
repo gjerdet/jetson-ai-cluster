@@ -126,7 +126,7 @@ export function ChatPanel({
       // verktøykall-loop: modellen kan hente ekte data før den svarer
       for (let round = 0; round < 4; round++) {
         const call = config.loadBalance !== false
-          ? await callBalanced(active, thread, { prefer: primary })
+          ? await callBalanced(active, thread, { prefer: primary, duty: round === 0 ? "chat" : "verktoy" })
           : { text: await callTracked(primary, thread), node: primary };
         const raw = call.text;
         answeredBy = call.node.name;
