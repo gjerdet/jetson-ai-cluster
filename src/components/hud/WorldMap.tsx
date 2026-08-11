@@ -46,7 +46,6 @@ export function WorldMap({
   /** fyller tilgjengelig høyde i stedet for fast 2:1-forhold */
   fill?: boolean;
 }) {
-
   const [land, setLand] = useState<FeatureCollection<Geometry> | null>(cache);
   const [zoom, setZoom] = useState(1);
   const [expanded, setExpanded] = useState(false);
@@ -55,6 +54,9 @@ export function WorldMap({
   const pan = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const stateRef = useRef({ zoom, offset });
   stateRef.current = { zoom, offset };
+  const slice = fill || expanded;
+  const sliceRef = useRef(slice);
+  sliceRef.current = slice;
 
   useEffect(() => {
     if (cache) return;
@@ -75,10 +77,26 @@ export function WorldMap({
     };
   }, []);
 
-  // begrens panorering slik at kartet ikke forsvinner
+  /** Faktisk synlig utsnitt av viewBox, gitt preserveAspectRatio-modus. */
+  const view = () => {
+    const rect = boxRef.current?.getBoundingClientRect();
+    if (!rect || !rect.width || !rect.height)
+      return { rect: null as DOMRect | null, s: 1, vw: W, vh: H, x0: 0, y0: 0 };
+    const s = sliceRef.current
+      ? Math.max(rect.width / W, rect.height / H)
+      : Math.min(rect.width / W, rect.height / H);
+    const vw = rect.width / s;
+    const vh = rect.height / s;
+    return { rect, s, vw, vh, x0: (W - vw) / 2, y0: (H - vh) / 2 };
+  };
+
+  // begrens panorering slik at kartet fyller det synlige utsnittet
   const clampOffset = (o: { x: number; y: number }, z: number) => {
-    const mx = (W * (z - 1)) / z;
-    const my = (H * (z - 1)) / z;
+    const { vw, vh } = view();
+    const visW = Math.min(vw / z, W);
+    const visH = Math.min(vh / z, H);
+    const mx = Math.max(0, W - visW);
+    const my = Math.max(0, H - visH);
     return { x: clamp(o.x, -mx, 0), y: clamp(o.y, -my, 0) };
   };
 
@@ -86,7 +104,6 @@ export function WorldMap({
     const { zoom: z, offset: o } = stateRef.current;
     const nz = clamp(next, MIN_Z, MAX_Z);
     if (nz === z) return;
-    // punkt i kartkoordinater
     const wx = px / z - o.x;
     const wy = py / z - o.y;
     setZoom(nz);
@@ -98,9 +115,10 @@ export function WorldMap({
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const px = ((e.clientX - rect.left) / rect.width) * W;
-      const py = ((e.clientY - rect.top) / rect.height) * H;
+      const { rect, s, x0, y0 } = view();
+      if (!rect) return;
+      const px = x0 + (e.clientX - rect.left) / s;
+      const py = y0 + (e.clientY - rect.top) / s;
       const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
       zoomAt(px, py, stateRef.current.zoom * Math.exp(-dy * 0.0015));
     };
@@ -114,23 +132,29 @@ export function WorldMap({
   }, []);
 
   const onPointerDown = (e: React.PointerEvent) => {
-    pan.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    const { offset: o } = stateRef.current;
+    pan.current = { x: e.clientX, y: e.clientY, ox: o.x, oy: o.y };
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const p = pan.current;
     if (!p) return;
-    const rect = boxRef.current?.getBoundingClientRect();
+    const { rect, s } = view();
     if (!rect) return;
-    const sx = ((e.clientX - p.x) / rect.width) * W;
-    const sy = ((e.clientY - p.y) / rect.height) * H;
-    setOffset(clampOffset({ x: p.ox + sx / zoom, y: p.oy + sy / zoom }, zoom));
+    const z = stateRef.current.zoom;
+    const dx = (e.clientX - p.x) / s / z;
+    const dy = (e.clientY - p.y) / s / z;
+    setOffset(clampOffset({ x: p.ox + dx, y: p.oy + dy }, z));
   };
   const onPointerUp = () => {
     pan.current = null;
   };
 
   const btn = "hud-btn hud-btn-hoverable size-6 !p-0";
+  const center = () => {
+    const { x0, y0, vw, vh } = view();
+    return [x0 + vw / 2, y0 + vh / 2] as const;
+  };
 
   return (
     <div
@@ -143,14 +167,14 @@ export function WorldMap({
     >
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio={fill || expanded ? "xMidYMid slice" : "xMidYMid meet"}
-        className="block size-full cursor-grab active:cursor-grabbing"
+        preserveAspectRatio={slice ? "xMidYMid slice" : "xMidYMid meet"}
+        className="block size-full cursor-grab touch-none active:cursor-grabbing"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <rect width={W} height={H} fill="oklch(0.2 0.04 235 / 0.25)" />
+        <rect x={-W} y={-H} width={W * 3} height={H * 3} fill="oklch(0.2 0.04 235 / 0.25)" />
         <g transform={`scale(${zoom}) translate(${offset.x}, ${offset.y})`}>
           {land?.features.map((f, i) => (
             <path
@@ -223,10 +247,24 @@ export function WorldMap({
         >
           {expanded ? <Shrink className="size-3" /> : <Expand className="size-3" />}
         </button>
-        <button className={btn} aria-label="Zoom inn" onClick={() => zoomAt(W / 2, H / 2, zoom * 1.5)}>
+        <button
+          className={btn}
+          aria-label="Zoom inn"
+          onClick={() => {
+            const [cx, cy] = center();
+            zoomAt(cx, cy, zoom * 1.5);
+          }}
+        >
           <Plus className="size-3" />
         </button>
-        <button className={btn} aria-label="Zoom ut" onClick={() => zoomAt(W / 2, H / 2, zoom / 1.5)}>
+        <button
+          className={btn}
+          aria-label="Zoom ut"
+          onClick={() => {
+            const [cx, cy] = center();
+            zoomAt(cx, cy, zoom / 1.5);
+          }}
+        >
           <Minus className="size-3" />
         </button>
         <button
