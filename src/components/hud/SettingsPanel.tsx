@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Bot,
   Plus,
   Trash2,
   Sparkles,
