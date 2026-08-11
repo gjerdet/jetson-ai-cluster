@@ -604,16 +604,34 @@ Bruk kun emner som finnes i enhetslisten eller sanntidsdataene, sett /set (eller
 
 const CMD_LINE = /^\s*MQTT:\s*([^\s=]+)\s*=\s*(.+?)\s*$/gim;
 
-/** Finner og utfører MQTT-kommandoer i et AI-svar. */
-export function executeAiCommands(text: string): { topic: string; payload: string; ok: boolean }[] {
-  const out: { topic: string; payload: string; ok: boolean }[] = [];
+export type PendingCommand = { topic: string; payload: string; risky: boolean };
+
+/** Kommandoer som endrer sanntidstilstand og bør bekreftes. */
+export function isRisky(topic: string) {
+  return /\/(set|brightness\/set|speed\/set|threshold\/set|cmd|command)$/i.test(topic.trim());
+}
+
+/** Finner MQTT-kommandoer i et AI-svar uten å publisere dem («dry run»). */
+export function parseAiCommands(text: string): PendingCommand[] {
+  const out: PendingCommand[] = [];
   CMD_LINE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = CMD_LINE.exec(text))) {
     const topic = (m[1] ?? "").trim();
     const payload = (m[2] ?? "").trim();
     if (!topic) continue;
-    out.push({ topic, payload, ok: publishMqtt(topic, payload) });
+    out.push({ topic, payload, risky: isRisky(topic) });
   }
   return out;
+}
+
+export function runCommands(
+  cmds: { topic: string; payload: string }[],
+): { topic: string; payload: string; ok: boolean }[] {
+  return cmds.map((c) => ({ ...c, ok: publishMqtt(c.topic, c.payload) }));
+}
+
+/** Finner og utfører MQTT-kommandoer i et AI-svar. */
+export function executeAiCommands(text: string): { topic: string; payload: string; ok: boolean }[] {
+  return runCommands(parseAiCommands(text));
 }
