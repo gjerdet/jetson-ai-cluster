@@ -390,7 +390,14 @@ export function useHudConfig() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setConfig({ ...defaultConfig, ...(JSON.parse(raw) as HudConfig) });
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<HudConfig>;
+        setConfig({
+          ...defaultConfig,
+          ...parsed,
+          evaluator: { ...defaultEvaluator, ...(parsed.evaluator ?? {}) },
+        });
+      }
     } catch {
       /* ignore */
     }
