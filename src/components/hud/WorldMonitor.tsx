@@ -58,6 +58,12 @@ export function WorldMonitor() {
     });
   }, [events, active, range, query]);
 
+  // nyhets-/live-hendelser først, statiske markører krøller ikke listen
+  const feedList = useMemo(() => {
+    const live = shown.filter((e) => LAYERS.find((l) => l.id === e.layer)?.kind === "live");
+    return (live.length ? live : shown).slice(0, 200);
+  }, [shown]);
+
   const count = (id: LayerId) => events.filter((e) => e.layer === id).length;
   const groupLayers = LAYERS.filter((l) => l.group === group);
   const top = topEvents(10);
@@ -186,7 +192,7 @@ export function WorldMonitor() {
 
       <WorldMap events={shown} dayNight={dayNight} />
 
-      <div className="min-h-0 flex-1 overflow-auto pr-1">
+      <div className="min-h-0 flex-1 overflow-auto pr-1" style={{ minHeight: 120 }}>
         {showTop ? (
           <ol className="space-y-1">
             {top.map((e, i) => (
@@ -213,7 +219,7 @@ export function WorldMonitor() {
           </ol>
         ) : (
           <ul className="space-y-1">
-            {shown.slice(0, 120).map((e) => (
+            {feedList.map((e) => (
               <li key={e.id} className="flex gap-2 text-[11px]">
                 <span
                   className="mt-1 size-1.5 shrink-0 rounded-full"

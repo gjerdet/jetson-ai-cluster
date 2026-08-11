@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Plus, Trash2, Sparkles, Puzzle, Sliders, Cpu, Network } from "lucide-react";
+import { Plus, Trash2, Sparkles, Puzzle, Sliders, Cpu, Network, Brain, Pin } from "lucide-react";
 import {
   defaultConfig,
   newNode,
   newIntegration,
+  newMemory,
   newPlugin,
   newTalent,
   INTEGRATION_PRESETS,
   type HudConfig,
+  type MemoryItem,
   type ModelNode,
   type Plugin,
   type Talent,
@@ -15,11 +17,12 @@ import {
   type IntegrationKind,
 } from "@/lib/hud-store";
 
-type Tab = "system" | "modeller" | "evner" | "koblinger" | "plugins";
+type Tab = "system" | "modeller" | "minne" | "evner" | "koblinger" | "plugins";
 
 const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "system", label: "SYSTEM", icon: Sliders },
   { id: "modeller", label: "MODELLER", icon: Cpu },
+  { id: "minne", label: "MINNE", icon: Brain },
   { id: "evner", label: "EVNER", icon: Sparkles },
   { id: "koblinger", label: "KOBLINGER", icon: Network },
   { id: "plugins", label: "PLUGINS", icon: Puzzle },
@@ -44,6 +47,9 @@ export function SettingsPanel({
       ...config,
       integrations: integrations.map((x) => (x.id === id ? { ...x, ...p } : x)),
     });
+  const memories = config.memories ?? [];
+  const patchMemory = (id: string, p: Partial<MemoryItem>) =>
+    update({ ...config, memories: memories.map((m) => (m.id === id ? { ...m, ...p } : m)) });
   const patchPlugin = (id: string, p: Partial<Plugin>) =>
     update({ ...config, plugins: config.plugins.map((x) => (x.id === id ? { ...x, ...p } : x)) });
 
@@ -195,6 +201,70 @@ export function SettingsPanel({
             >
               <Plus className="size-3.5" /> legg til modell
             </button>
+          </>
+        ) : null}
+
+        {tab === "minne" ? (
+          <>
+            <p className="text-[10px] text-muted-foreground">
+              Langtidsminne lagres lokalt i nettleseren og legges inn i systemprompten ved hver
+              melding. Du kan skrive «husk: …» i chatten for å legge til automatisk.
+            </p>
+            {memories.length === 0 ? (
+              <p className="hud-title text-[10px] text-primary/60">Minnet er tomt.</p>
+            ) : null}
+            {memories.map((m) => (
+              <div key={m.id} className="rounded border border-primary/25 bg-primary/[0.04] p-2">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <input
+                    value={m.tag}
+                    onChange={(e) => patchMemory(m.id, { tag: e.target.value })}
+                    placeholder="merkelapp"
+                    className="hud-input hud-title w-32 text-[10px] text-primary"
+                  />
+                  <span className="flex-1 text-[9px] text-muted-foreground">
+                    {new Date(m.created).toLocaleString("nb-NO")}
+                  </span>
+                  <button
+                    onClick={() => patchMemory(m.id, { pinned: !m.pinned })}
+                    aria-label="Marker som viktig"
+                    className={`rounded p-1 ${m.pinned ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
+                  >
+                    <Pin className="size-3.5" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      update({ ...config, memories: memories.filter((x) => x.id !== m.id) })
+                    }
+                    aria-label="Slett minne"
+                    className="rounded p-1 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+                <textarea
+                  value={m.text}
+                  onChange={(e) => patchMemory(m.id, { text: e.target.value })}
+                  rows={2}
+                  placeholder="hva systemet skal huske"
+                  className="hud-input w-full resize-none"
+                />
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <button
+                onClick={() => update({ ...config, memories: [...memories, newMemory()] })}
+                className="flex flex-1 items-center justify-center gap-2 rounded border border-dashed border-primary/40 py-2 text-[11px] text-primary hover:bg-primary/10"
+              >
+                <Plus className="size-3.5" /> legg til minne
+              </button>
+              <button
+                onClick={() => update({ ...config, memories: memories.filter((m) => m.pinned) })}
+                className="rounded border border-destructive/50 px-3 py-1.5 text-[11px] text-destructive hover:bg-destructive/10"
+              >
+                Tøm (behold viktige)
+              </button>
+            </div>
           </>
         ) : null}
 
