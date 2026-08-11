@@ -485,7 +485,12 @@ export function SmartHomePanel({
         {/* VARSLER */}
         {tab === "varsler" ? (
           <>
+            <p className="hud-title text-[9px] text-muted-foreground">
+              REGLER: {regelKilde.kilde === "backend" ? "SYNKET MED BACKEND (24/7)" : "LOKALT (BACKEND UTILGJENGELIG)"}
+              {regelKilde.feil ? <span className="ml-2 text-destructive">{regelKilde.feil}</span> : null}
+            </p>
             <div className="flex flex-wrap items-center gap-1">
+
               <button
                 onClick={() =>
                   update({ ...config, rules: [...rules, newRule(devices[0]?.topic ?? "")] })
