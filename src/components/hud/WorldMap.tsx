@@ -135,10 +135,15 @@ export function WorldMap({
   return (
     <div
       ref={boxRef}
-      className="relative w-full touch-none overflow-hidden rounded border border-primary/20 bg-primary/[0.02]"
+      className={
+        expanded
+          ? "hud-panel fixed inset-3 z-[200] touch-none overflow-hidden rounded-lg border border-primary/25 md:inset-8"
+          : `relative w-full touch-none overflow-hidden rounded border border-primary/20 bg-primary/[0.02] ${fill ? "min-h-0 flex-1" : ""}`
+      }
     >
       <svg
         viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio={fill || expanded ? "xMidYMid slice" : "xMidYMid meet"}
         className="block size-full cursor-grab active:cursor-grabbing"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
