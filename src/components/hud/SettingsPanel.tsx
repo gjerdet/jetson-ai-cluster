@@ -38,7 +38,15 @@ import {
   type IntegrationKind,
 } from "@/lib/hud-store";
 
+import { TOOL_CATALOG } from "@/lib/agent-tools";
 import { EspWizard } from "./EspWizard";
+
+const ROLE_LABEL: Record<ModelNode["role"], string> = {
+  primary: "primær",
+  worker: "arbeider",
+  observer: "observatør",
+};
+
 
 type Tab =
   | "system"
