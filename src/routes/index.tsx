@@ -10,6 +10,7 @@ import { SmartHomePanel } from "@/components/hud/SmartHomePanel";
 import { SettingsPanel } from "@/components/hud/SettingsPanel";
 import { DashboardPanel } from "@/components/hud/DashboardPanel";
 import { HealthPanel } from "@/components/hud/HealthPanel";
+import { PoolPanel } from "@/components/hud/PoolPanel";
 import { BackendStatusBadge } from "@/components/hud/BackendStatusBadge";
 import { useHudConfig } from "@/lib/hud-store";
 import { setRules, setTelegramChat } from "@/lib/mqtt-bridge";
@@ -43,6 +44,7 @@ const LAYOUT: Record<WinId, { x: number; y: number; w: number; h: number }> = {
   home: { x: 80, y: 140, w: 460, h: 520 },
   dash: { x: 120, y: 120, w: 640, h: 560 },
   health: { x: 160, y: 130, w: 460, h: 560 },
+  pool: { x: 200, y: 150, w: 480, h: 540 },
   settings: { x: 0, y: 0, w: 0, h: 0 },
 };
 
@@ -53,6 +55,7 @@ const TITLES: Record<WinId, { title: string; subtitle: string }> = {
   home: { title: "SMARTHUS", subtitle: "MQTT-bro mot ESP32 og Pi" },
   dash: { title: "GRAFER", subtitle: "moduler for alt som er tilkoblet" },
   health: { title: "HELSE", subtitle: "selvovervåking av noder og tjenester" },
+  pool: { title: "POOL", subtitle: "lastbalansering og valgt node per forespørsel" },
   settings: { title: "SYSTEM", subtitle: "innstillinger, evner og plugins" },
 };
 
@@ -121,6 +124,7 @@ function Index() {
               {id === "home" ? <SmartHomePanel config={config} update={update} /> : null}
               {id === "dash" ? <DashboardPanel config={config} update={update} /> : null}
               {id === "health" ? <HealthPanel config={config} /> : null}
+              {id === "pool" ? <PoolPanel config={config} /> : null}
               {id === "settings" ? <SettingsPanel config={config} update={update} /> : null}
             </HudWindow>
           ))
