@@ -11,11 +11,14 @@ import {
   Plus,
   Trash2,
   Sliders,
+  Stethoscope,
 } from "lucide-react";
 import {
   DEVICE_KIND_LABEL,
   newDevice,
   newRule,
+  newAction,
+  type RuleAction,
   type AlertRule,
   type HudConfig,
 } from "@/lib/hud-store";
@@ -34,6 +37,8 @@ import {
   publishMqtt,
   sendCommand,
   setRules,
+  pingBroker,
+  clearDiagnostics,
   useMqtt,
   type Sample,
 } from "@/lib/mqtt-bridge";
@@ -46,13 +51,14 @@ const STATUS_LABEL = {
   error: "FEIL",
 } as const;
 
-type Tab = "enheter" | "grafer" | "varsler" | "oppdagelse";
+type Tab = "enheter" | "grafer" | "varsler" | "oppdagelse" | "diagnose";
 
 const TABS: { id: Tab; label: string; icon: typeof Activity }[] = [
   { id: "enheter", label: "ENHETER", icon: Sliders },
   { id: "grafer", label: "GRAFER 24T", icon: Activity },
   { id: "varsler", label: "VARSLER", icon: Bell },
   { id: "oppdagelse", label: "OPPDAGELSE", icon: Radar },
+  { id: "diagnose", label: "DIAGNOSE", icon: Stethoscope },
 ];
 
 export function SmartHomePanel({
@@ -62,7 +68,8 @@ export function SmartHomePanel({
   config: HudConfig;
   update: (c: HudConfig) => void;
 }) {
-  const { status, error, topics, log, alerts, history } = useMqtt();
+  const { status, error, topics, log, alerts, history, subscriptions, published, errors, reconnects, pingMs } =
+    useMqtt();
   const devices = (config.devices ?? []).filter((d) => d.enabled && d.protocol === "mqtt");
   const mqtt = config.mqtt;
   const rules = config.rules ?? [];
@@ -544,9 +551,176 @@ export function SmartHomePanel({
                     <option value="warn">advarsel</option>
                     <option value="crit">kritisk</option>
                   </select>
+                  {r.kind !== "stale" ? (
+                    <label className="hud-title flex items-center gap-1 text-[9px] text-muted-foreground">
+                      i minst
+                      <input
+                        type="number"
+                        min={0}
+                        value={r.forMinutes ?? 0}
+                        onChange={(e) => setRule(r.id, { forMinutes: Number(e.target.value) })}
+                        className="hud-input h-6 w-14 text-[11px]"
+                        aria-label="varighet i minutter"
+                      />
+                      min
+                    </label>
+                  ) : null}
+                </div>
+
+                {/* handlingskjede */}
+                <div className="space-y-1 rounded border border-primary/10 bg-primary/[0.02] p-1">
+                  <div className="flex items-center gap-1">
+                    <span className="hud-title flex-1 text-[9px] text-muted-foreground">
+                      HANDLINGER NÅR REGELEN SLÅR INN
+                    </span>
+                    {(["mqtt", "telegram", "notify"] as RuleAction["kind"][]).map((k) => (
+                      <button
+                        key={k}
+                        onClick={() =>
+                          setRule(r.id, { actions: [...(r.actions ?? []), newAction(k)] })
+                        }
+                        className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px]"
+                      >
+                        <Plus className="size-3" /> {k}
+                      </button>
+                    ))}
+                  </div>
+                  {(r.actions ?? []).map((a) => (
+                    <div key={a.id} className="flex flex-wrap items-center gap-1">
+                      <span className="hud-title w-14 text-[9px] text-primary/70">{a.kind}</span>
+                      {a.kind === "mqtt" ? (
+                        <>
+                          <input
+                            value={a.topic}
+                            onChange={(e) =>
+                              setRule(r.id, {
+                                actions: (r.actions ?? []).map((x) =>
+                                  x.id === a.id ? { ...x, topic: e.target.value } : x,
+                                ),
+                              })
+                            }
+                            placeholder="emne, f.eks. hjem/vifte/set"
+                            className="hud-input h-6 min-w-32 flex-1 text-[11px]"
+                          />
+                          <input
+                            value={a.payload}
+                            onChange={(e) =>
+                              setRule(r.id, {
+                                actions: (r.actions ?? []).map((x) =>
+                                  x.id === a.id ? { ...x, payload: e.target.value } : x,
+                                ),
+                              })
+                            }
+                            placeholder="ON"
+                            className="hud-input h-6 w-24 text-[11px]"
+                          />
+                        </>
+                      ) : (
+                        <input
+                          value={a.text}
+                          onChange={(e) =>
+                            setRule(r.id, {
+                              actions: (r.actions ?? []).map((x) =>
+                                x.id === a.id ? { ...x, text: e.target.value } : x,
+                              ),
+                            })
+                          }
+                          placeholder="melding – {regel} {emne} {verdi}"
+                          className="hud-input h-6 flex-1 text-[11px]"
+                        />
+                      )}
+                      <button
+                        onClick={() =>
+                          setRule(r.id, {
+                            actions: (r.actions ?? []).filter((x) => x.id !== a.id),
+                          })
+                        }
+                        aria-label="Slett handling"
+                        className="hud-btn hud-btn-hoverable !p-1"
+                      >
+                        <Trash2 className="size-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
+          </>
+        ) : null}
+
+        {/* DIAGNOSE */}
+        {tab === "diagnose" ? (
+          <>
+            <div className="grid grid-cols-2 gap-1 md:grid-cols-4">
+              {[
+                { l: "STATUS", v: STATUS_LABEL[status] },
+                { l: "PING", v: pingMs != null ? `${pingMs} ms` : "—" },
+                { l: "RECONNECTS", v: String(reconnects ?? 0) },
+                { l: "ABONNEMENT", v: String((subscriptions ?? []).length) },
+              ].map((c) => (
+                <div key={c.l} className="rounded border border-primary/15 p-2">
+                  <p className="hud-title text-[9px] text-muted-foreground">{c.l}</p>
+                  <p className="text-sm text-primary">{c.v}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-1">
+              <button onClick={pingBroker} className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px]">
+                <Activity className="size-3" /> ping broker
+              </button>
+              <button
+                onClick={() => void connectMqtt(mqtt, config.devices ?? [])}
+                className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px]"
+              >
+                <RefreshCw className="size-3" /> koble til på nytt
+              </button>
+              <button onClick={clearDiagnostics} className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px]">
+                <Trash2 className="size-3" /> tøm logg
+              </button>
+            </div>
+            <div>
+              <p className="hud-title text-[9px] text-muted-foreground">ABONNERTE EMNER</p>
+              <div className="flex flex-wrap gap-1">
+                {(subscriptions ?? []).length ? (
+                  (subscriptions ?? []).map((t) => (
+                    <span key={t} className="hud-btn hud-title !py-0.5 text-[9px] text-primary/80">
+                      {t}
+                    </span>
+                  ))
+                ) : (
+                  <span className="hud-title text-[10px] text-muted-foreground">ingen</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="hud-title text-[9px] text-muted-foreground">SISTE PUBLISERTE</p>
+              {(published ?? []).slice(0, 12).map((p, i) => (
+                <p key={`${p.topic}-${i}`} className="text-[10px] text-foreground/80">
+                  <span className="hud-title mr-1 text-[9px] text-muted-foreground">
+                    {new Date(p.time).toLocaleTimeString("nb-NO")}
+                  </span>
+                  {p.ok ? "✓" : "✕"} {p.topic} ← {p.payload}
+                </p>
+              ))}
+              {!(published ?? []).length ? (
+                <p className="hud-title text-[10px] text-muted-foreground">ingen ennå</p>
+              ) : null}
+            </div>
+            <div>
+              <p className="hud-title text-[9px] text-muted-foreground">SISTE FEIL</p>
+              {(errors ?? []).slice(0, 10).map((e, i) => (
+                <p key={i} className="text-[10px] text-destructive">
+                  <span className="hud-title mr-1 text-[9px] text-muted-foreground">
+                    {new Date(e.time).toLocaleTimeString("nb-NO")}
+                  </span>
+                  {e.text}
+                </p>
+              ))}
+              {!(errors ?? []).length ? (
+                <p className="hud-title text-[10px] text-muted-foreground">ingen feil</p>
+              ) : null}
+              {error ? <p className="text-[10px] text-destructive">{error}</p> : null}
+            </div>
           </>
         ) : null}
 
