@@ -427,6 +427,14 @@ export const defaultConfig: HudConfig = {
   loadBalance: true,
   keepHistory: true,
   evaluator: defaultEvaluator,
+  localAgent: {
+    enabled: false,
+    baseUrl: "http://192.168.1.50:8787",
+    token: "",
+    confirm: true,
+    timeoutMs: 15000,
+  },
+
 
   plugins: [
     {
