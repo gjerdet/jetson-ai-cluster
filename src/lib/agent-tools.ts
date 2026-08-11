@@ -73,6 +73,28 @@ export const TOOL_CATALOG: ToolSpec[] = [
     args: '{"tekst": "..."}',
     builtin: true,
   },
+  {
+    name: "verktoy_liste",
+    category: "verktoy",
+    summary: "Lister alle egendefinerte verktøy som er laget.",
+    args: "{}",
+    builtin: true,
+  },
+  {
+    name: "verktoy_lag",
+    category: "verktoy",
+    summary:
+      "Lager et nytt egendefinert verktøy (http, mqtt eller prompt). Krever godkjenning i SYSTEM → AGENTER.",
+    args: '{"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET", "args": "{\\"sted\\":\\"Oslo\\"}"}',
+    builtin: true,
+  },
+  {
+    name: "verktoy_slett",
+    category: "verktoy",
+    summary: "Sletter et egendefinert verktøy du har laget.",
+    args: '{"navn": "hent_vaer"}',
+    builtin: true,
+  },
 ];
 
 export const TOOL_NAMES = TOOL_CATALOG.map((t) => t.name);
@@ -89,19 +111,39 @@ Tilgjengelige verktøy:
 - system_hent {"navn": "TrueNAS", "sti": "/pool/dataset"} – henter data fra et tilkoblet lokalt system.
 - world_brief {"antall": 10} – topp hendelser fra World Monitor.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
+- verktoy_liste {} – dine egendefinerte verktøy.
+- verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
+- verktoy_slett {"navn": "hent_vaer"} – slett et verktøy du har laget.
 
 Regler: kall bare verktøy når du faktisk trenger dataene. Du får resultatet tilbake og skal
-deretter svare brukeren på norsk bokmål. Ikke finn på verdier du ikke har hentet.`;
+deretter svare brukeren på norsk bokmål. Ikke finn på verdier du ikke har hentet.
+Du har ikke tilgang til operativsystemet, filsystemet eller shell – bare verktøyene over.
+Lag nye verktøy kun når brukeren ber om det, og fortell alltid hva du laget.`;
 
-const CALL_RE = /^\s*(?:VERKT[ØO]Y|TOOL)\s*:\s*([a-z_]+)\s*(\{[\s\S]*?\})?\s*$/gim;
+/** Prompt-tillegg som beskriver de egendefinerte verktøyene som er slått på. */
+export function customToolPrompt(config: HudConfig): string {
+  const list = (config.customTools ?? []).filter((t) => t.enabled);
+  if (!list.length) return "";
+  return [
+    "Egendefinerte verktøy (laget lokalt, kalles på samme måte):",
+    ...list.map((t) => `- ${t.name} ${t.args || "{}"} – ${t.description || t.kind}`),
+  ].join("\n");
+}
 
-export function parseToolCalls(text: string): ToolCall[] {
+export function customToolNames(config: HudConfig): string[] {
+  return (config.customTools ?? []).filter((t) => t.enabled).map((t) => t.name);
+}
+
+const CALL_RE = /^\s*(?:VERKT[ØO]Y|TOOL)\s*:\s*([a-z0-9_]+)\s*(\{[\s\S]*?\})?\s*$/gim;
+
+export function parseToolCalls(text: string, extraNames: string[] = []): ToolCall[] {
+  const allowed = new Set<string>([...TOOL_NAMES, ...extraNames]);
   const out: ToolCall[] = [];
   CALL_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = CALL_RE.exec(text))) {
     const name = (m[1] ?? "").toLowerCase();
-    if (!(TOOL_NAMES as readonly string[]).includes(name)) continue;
+    if (!allowed.has(name)) continue;
     let args: Record<string, unknown> = {};
     try {
       if (m[2]) args = JSON.parse(m[2]) as Record<string, unknown>;
