@@ -30,6 +30,7 @@ export function HudWindow({
 }: Props) {
   const [pos, setPos] = useState({ x: initial.x, y: initial.y });
   const [size, setSize] = useState({ w: initial.w, h: initial.h });
+  const [min, setMin] = useState(false);
   const drag = useRef<{ dx: number; dy: number } | null>(null);
   const resize = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
