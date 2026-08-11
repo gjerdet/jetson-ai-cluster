@@ -280,9 +280,66 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Backend: lagring, MQTT-lytter, regelmotor og Telegram
+// ---------------------------------------------------------------------------
+let mqtt = null;
+let mqttConnected = false;
+const previousValues = new Map();
+
+function mqttStatus() {
+  const cfg = doc("mqtt", { url: "", enabled: false, topics: ["#"] });
+  return { tilkoblet: mqttConnected, url: cfg.url, aktiv: !!cfg.enabled, emner: cfg.topics, kjente: latest.size };
+}
+
+async function publish(topic, payload) {
+  if (!mqtt || !mqttConnected) throw new Error("MQTT er ikke tilkoblet");
+  mqtt.publish(topic, payload);
+  return true;
+}
+
+function startMqtt() {
+  mqtt?.stop();
+  mqtt = null;
+  mqttConnected = false;
+  const cfg = doc("mqtt", { url: "mqtt://127.0.0.1:1883", topics: ["#"], enabled: false });
+  if (!cfg.enabled) return;
+  mqtt = new MqttClient({ ...parseMqttUrl(cfg.url), clientId: `jarvis-agent-${process.pid}` });
+  mqtt.on("connect", () => {
+    mqttConnected = true;
+    mqtt.subscribe(cfg.topics?.length ? cfg.topics : ["#"]);
+    console.log("[jarvis-agent] MQTT tilkoblet", cfg.url);
+  });
+  mqtt.on("close", () => {
+    mqttConnected = false;
+  });
+  mqtt.on("error", (e) => console.error("[jarvis-agent] MQTT-feil:", e?.message));
+  mqtt.on("message", async (topic, message) => {
+    const row = addSample({ topic, value: message, time: Date.now() });
+    const previous = previousValues.get(topic);
+    previousValues.set(topic, row.v ?? row.s);
+    try {
+      await evaluate({ topic, value: row.v ?? row.s, previous }, { publish, notify: notifyAll });
+    } catch (e) {
+      console.error("[jarvis-agent] regelfeil:", e?.message);
+    }
+  });
+  mqtt.connect();
+}
+
+const apiDeps = { publish, mqttStatus, restartMqtt: startMqtt, rulesStatus };
+
 await ensureSandbox();
+await initStore();
+await warmLatest();
+startMqtt();
+startTelegram({ rulesStatus });
+setInterval(() => pruneSamples().catch(() => {}), 6 * 60 * 60 * 1000);
+
 server.listen(PORT, HOST, () => {
   console.log(`[jarvis-agent] lytter på http://${HOST}:${PORT}`);
   console.log(`[jarvis-agent] sandkasse: ${SANDBOX}`);
+  console.log(`[jarvis-agent] backend-API: http://${HOST}:${PORT}/api/status`);
   if (!TOKEN) console.warn("[jarvis-agent] ADVARSEL: AGENT_TOKEN er ikke satt – alle kan kalle agenten.");
 });
+
