@@ -238,7 +238,89 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     return `Lagret i langtidsminnet: «${text}».`;
   }
 
+  if (call.name === "verktoy_liste") {
+    const list = config.customTools ?? [];
+    if (!list.length) return "Ingen egendefinerte verktøy er laget enda.";
+    return list
+      .map(
+        (t) =>
+          `${t.name} (${t.kind}${t.enabled ? "" : ", avslått"}, laget av ${t.createdBy}) – ${t.description || "ingen beskrivelse"}`,
+      )
+      .join("\n");
+  }
+
+  if (call.name === "verktoy_lag") {
+    if (!ctx.update) return "Kan ikke lage verktøy akkurat nå (skrivebeskyttet).";
+    const name = sanitizeToolName(str(call.args["navn"] ?? call.args["name"]));
+    if (!name) return "Mangler navn på verktøyet.";
+    if ((TOOL_NAMES as readonly string[]).includes(name))
+      return `«${name}» er navnet på et innebygd verktøy. Velg et annet navn.`;
+    const existing = config.customTools ?? [];
+    if (existing.some((t) => t.name === name)) return `Verktøyet «${name}» finnes allerede.`;
+    const rawKind = str(call.args["type"] ?? call.args["kind"]).toLowerCase();
+    const kind: CustomTool["kind"] =
+      rawKind === "mqtt" ? "mqtt" : rawKind === "prompt" ? "prompt" : "http";
+    const tool: CustomTool = {
+      ...newCustomTool("jarvis"),
+      name,
+      kind,
+      description: str(call.args["beskrivelse"] ?? call.args["description"]),
+      url: str(call.args["url"]),
+      method: str(call.args["metode"] ?? call.args["method"]).toUpperCase() === "POST" ? "POST" : "GET",
+      topic: str(call.args["emne"] ?? call.args["topic"]),
+      body: str(call.args["payload"] ?? call.args["body"] ?? call.args["tekst"]),
+      args: str(call.args["args"]) || "{}",
+    };
+    ctx.update({ ...config, customTools: [...existing, tool] });
+    return `Laget verktøyet «${name}» (${kind}). Det kan slås av eller slettes under SYSTEM → AGENTER.`;
+  }
+
+  if (call.name === "verktoy_slett") {
+    if (!ctx.update) return "Kan ikke slette verktøy akkurat nå (skrivebeskyttet).";
+    const name = sanitizeToolName(str(call.args["navn"] ?? call.args["name"]));
+    const existing = config.customTools ?? [];
+    if (!existing.some((t) => t.name === name)) return `Fant ingen verktøy som heter «${name}».`;
+    ctx.update({ ...config, customTools: existing.filter((t) => t.name !== name) });
+    return `Slettet verktøyet «${name}».`;
+  }
+
+  const custom = (config.customTools ?? []).find((t) => t.enabled && t.name === call.name);
+  if (custom) return runCustomTool(custom, call.args);
+
   return `Ukjent verktøy: ${call.name}`;
+}
+
+function fill(tpl: string, args: Record<string, unknown>): string {
+  return tpl.replace(/\{(\w+)\}/g, (_, k: string) => str(args[k]));
+}
+
+async function runCustomTool(tool: CustomTool, args: Record<string, unknown>): Promise<string> {
+  if (tool.kind === "prompt") {
+    return fill(tool.body ?? "", args) || tool.description || "Tomt verktøy.";
+  }
+
+  if (tool.kind === "mqtt") {
+    if (!mqttOnline()) return "MQTT-broker er ikke tilkoblet.";
+    const topic = fill(tool.topic ?? "", args);
+    if (!topic) return "Verktøyet mangler MQTT-emne.";
+    publishMqtt(topic, fill(tool.body ?? "", args));
+    return `Sendte MQTT til ${topic}.`;
+  }
+
+  const url = fill(tool.url ?? "", args);
+  if (!url) return "Verktøyet mangler URL.";
+  try {
+    const init: RequestInit = { method: tool.method ?? "GET" };
+    if ((tool.method ?? "GET") === "POST") {
+      init.headers = { "content-type": "application/json" };
+      init.body = fill(tool.body || "{}", args);
+    }
+    const r = await fetch(url, init);
+    const text = await r.text();
+    return `${r.status} ${r.statusText}\n${text.slice(0, 2500)}`;
+  } catch (e) {
+    return `Kall feilet: ${e instanceof Error ? e.message : "ukjent feil"}`;
+  }
 }
 
 /** Kort sammendrag av hva som faktisk er tilgjengelig – hjelper modellen å velge riktig verktøy. */
