@@ -88,22 +88,8 @@ function Index() {
       <div className="hud-grid pointer-events-none absolute inset-0" />
       <div className="hud-scan pointer-events-none absolute inset-0" />
 
-      <header className="relative z-50 flex items-center justify-between px-5 py-4">
-        <div>
-          <h1 className="hud-title text-sm tracking-[0.4em] text-primary">{config.callsign}</h1>
-          <p className="text-[10px] tracking-[0.2em] text-muted-foreground">
-            DISTRIBUERT NODENETTVERK
-          </p>
-        </div>
-        <div className="hud-title flex items-center gap-4 text-[10px] text-muted-foreground">
-          <BackendStatusBadge />
-          <span>
-            NODER <span className="text-primary">{activeNodes}</span>/{config.nodes.length}
-          </span>
-          <span>
-            SAMARBEID <span className="text-primary">{config.collaboration ? "PÅ" : "AV"}</span>
-          </span>
-        </div>
+      <header className="relative z-50 flex items-center justify-end px-5 py-4">
+        <BackendStatusBadge />
       </header>
 
       <CenterMenu
