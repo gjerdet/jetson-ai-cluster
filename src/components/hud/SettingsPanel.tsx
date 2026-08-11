@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Plus, Trash2, Sparkles, Puzzle, Sliders, Cpu } from "lucide-react";
 import {
   defaultConfig,
+  newNode,
   newPlugin,
   newTalent,
   type HudConfig,
+  type ModelNode,
   type Plugin,
   type Talent,
 } from "@/lib/hud-store";
@@ -27,6 +29,8 @@ export function SettingsPanel({
 }) {
   const [tab, setTab] = useState<Tab>("system");
 
+  const patchNode = (id: string, p: Partial<ModelNode>) =>
+    update({ ...config, nodes: config.nodes.map((n) => (n.id === id ? { ...n, ...p } : n)) });
   const patchTalent = (id: string, p: Partial<Talent>) =>
     update({ ...config, talents: config.talents.map((t) => (t.id === id ? { ...t, ...p } : t)) });
   const patchPlugin = (id: string, p: Partial<Plugin>) =>
