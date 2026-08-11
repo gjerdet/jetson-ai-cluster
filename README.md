@@ -14,6 +14,8 @@ Et minimalistisk, Jarvis-inspirert HUD som kjører i nettleseren og snakker dire
 
 ## Kjør lokalt på Jetson
 
+> Full steg-for-steg-guide: [docs/JETSON-SETUP.md](docs/JETSON-SETUP.md)
+
 Du trenger **Node.js 20+** (eller Bun) og Git. På Jetson Nano Super anbefales Node.js via [nvm](https://github.com/nvm-sh/nvm) eller den innebygde pakkebehandleren.
 
 ```sh

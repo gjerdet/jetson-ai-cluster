@@ -1,5 +1,7 @@
 import { useState } from "react";
 import {
+  Bot,
+  Wrench,
   Plus,
   Trash2,
   Sparkles,
@@ -37,11 +39,20 @@ import {
   type IntegrationKind,
 } from "@/lib/hud-store";
 
+import { TOOL_CATALOG } from "@/lib/agent-tools";
 import { EspWizard } from "./EspWizard";
+
+const ROLE_LABEL: Record<ModelNode["role"], string> = {
+  primary: "primær",
+  worker: "arbeider",
+  observer: "observatør",
+};
+
 
 type Tab =
   | "system"
   | "modeller"
+  | "agenter"
   | "evaluator"
   | "enheter"
   | "minne"
@@ -52,6 +63,7 @@ type Tab =
 const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "system", label: "SYSTEM", icon: Sliders },
   { id: "modeller", label: "MODELLER", icon: Cpu },
+  { id: "agenter", label: "AGENTER", icon: Bot },
   { id: "evaluator", label: "EVALUATOR", icon: Scale },
   { id: "enheter", label: "ENHETER", icon: HardDrive },
   { id: "minne", label: "MINNE", icon: Brain },
@@ -206,6 +218,121 @@ export function SettingsPanel({
             >
               Tilbakestill konfigurasjon
             </button>
+          </>
+        ) : null}
+
+        {tab === "agenter" ? (
+          <>
+            <p className="text-[10px] text-muted-foreground">
+              Oversikt over agentene som kjører og verktøyene de kan bruke. Verktøy kalles
+              automatisk i chatten når Jarvis trenger ekte data.
+            </p>
+
+            <div className="rounded border border-primary/25 bg-primary/[0.04] p-2">
+              <div className="hud-title mb-1.5 text-[10px] text-primary">AGENTER</div>
+              {config.nodes.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground">Ingen modeller lagt til enda.</p>
+              ) : (
+                <div className="space-y-1">
+                  {config.nodes.map((n) => (
+                    <div
+                      key={n.id}
+                      className="flex items-center gap-2 rounded border border-primary/15 px-2 py-1"
+                    >
+                      <span
+                        className={`size-1.5 rounded-full ${n.enabled ? "bg-primary" : "bg-muted-foreground/40"}`}
+                      />
+                      <span className="hud-title flex-1 truncate text-[10px] text-primary">
+                        {n.name}
+                      </span>
+                      <span className="truncate text-[10px] text-muted-foreground">{n.model}</span>
+                      <span className="rounded border border-primary/25 px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                        {ROLE_LABEL[n.role]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="mt-1.5 text-[10px] text-muted-foreground">
+                {config.nodes.filter((n) => n.enabled).length} aktive ·{" "}
+                {config.collaboration ? "samarbeid på" : "samarbeid av"} ·{" "}
+                {config.loadBalance ? "lastbalansering på" : "lastbalansering av"}
+              </p>
+            </div>
+
+            <div className="rounded border border-primary/25 bg-primary/[0.04] p-2">
+              <div className="hud-title mb-1.5 text-[10px] text-primary">VERKTØY</div>
+              <div className="space-y-1">
+                {TOOL_CATALOG.map((t) => (
+                  <div key={t.name} className="rounded border border-primary/15 px-2 py-1">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="size-3 text-primary" />
+                      <span className="hud-title flex-1 text-[10px] text-primary">{t.name}</span>
+                      <span className="rounded border border-primary/25 px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                        {t.category}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">{t.summary}</p>
+                    <code className="text-[9px] text-muted-foreground/70">{t.args}</code>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded border border-primary/25 bg-primary/[0.04] p-2">
+              <div className="hud-title mb-1.5 text-[10px] text-primary">LÆRTE EVNER</div>
+              {config.talents.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground">Ingen evner lært enda.</p>
+              ) : (
+                <div className="space-y-1">
+                  {config.talents.map((t) => (
+                    <div key={t.id} className="flex items-center gap-2 text-[10px]">
+                      <span
+                        className={`size-1.5 rounded-full ${t.enabled ? "bg-primary" : "bg-muted-foreground/40"}`}
+                      />
+                      <span className="text-primary">{t.name}</span>
+                      <span className="flex-1 truncate text-muted-foreground">{t.description}</span>
+                      {t.builtin ? (
+                        <span className="text-[9px] text-muted-foreground/70">innebygd</span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => setTab("evner")}
+                className="mt-1.5 text-[10px] text-primary hover:underline"
+              >
+                lær ny evne →
+              </button>
+            </div>
+
+            <div className="rounded border border-primary/25 bg-primary/[0.04] p-2">
+              <div className="hud-title mb-1.5 text-[10px] text-primary">PLUGINS OG KOBLINGER</div>
+              <div className="space-y-1">
+                {config.plugins.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2 text-[10px]">
+                    <span
+                      className={`size-1.5 rounded-full ${p.enabled ? "bg-primary" : "bg-muted-foreground/40"}`}
+                    />
+                    <span className="text-primary">{p.name}</span>
+                    <span className="flex-1 truncate text-muted-foreground">{p.kind}</span>
+                  </div>
+                ))}
+                {integrations.map((i) => (
+                  <div key={i.id} className="flex items-center gap-2 text-[10px]">
+                    <span
+                      className={`size-1.5 rounded-full ${i.enabled ? "bg-primary" : "bg-muted-foreground/40"}`}
+                    />
+                    <span className="text-primary">{i.name}</span>
+                    <span className="flex-1 truncate text-muted-foreground">{i.kind}</span>
+                  </div>
+                ))}
+                {config.plugins.length === 0 && integrations.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground">Ingenting koblet til enda.</p>
+                ) : null}
+              </div>
+            </div>
           </>
         ) : null}
 

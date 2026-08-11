@@ -14,15 +14,68 @@ export type ToolContext = {
   topics: Record<string, { value: string; time: number }>;
 };
 
-export const TOOL_NAMES = [
-  "mqtt_les",
-  "mqtt_historikk",
-  "enheter",
-  "noder",
-  "system_hent",
-  "world_brief",
-  "minne_lagre",
-] as const;
+export type ToolSpec = {
+  name: string;
+  category: "smarthus" | "system" | "verden" | "minne";
+  summary: string;
+  args: string;
+  builtin: true;
+};
+
+/** Innebygde verktøy Jarvis kan kalle i verktøy-loopen. */
+export const TOOL_CATALOG: ToolSpec[] = [
+  {
+    name: "mqtt_les",
+    category: "smarthus",
+    summary: "Leser siste målte verdi på et MQTT-emne (eller alle kjente emner).",
+    args: '{"emne": "hjem/stue/temp"}',
+    builtin: true,
+  },
+  {
+    name: "mqtt_historikk",
+    category: "smarthus",
+    summary: "Min/maks/snitt for et emne siste 24 timer.",
+    args: '{"emne": "hjem/stue/temp"}',
+    builtin: true,
+  },
+  {
+    name: "enheter",
+    category: "smarthus",
+    summary: "Lister alle registrerte ESP32/Pi-enheter med emner og evner.",
+    args: "{}",
+    builtin: true,
+  },
+  {
+    name: "noder",
+    category: "system",
+    summary: "Status og svartid for alle AI-noder.",
+    args: "{}",
+    builtin: true,
+  },
+  {
+    name: "system_hent",
+    category: "system",
+    summary: "Henter data fra et tilkoblet lokalt system (TrueNAS, Proxmox, UniFi, Homey).",
+    args: '{"navn": "TrueNAS", "sti": "/pool/dataset"}',
+    builtin: true,
+  },
+  {
+    name: "world_brief",
+    category: "verden",
+    summary: "Topp hendelser fra World Monitor.",
+    args: '{"antall": 10}',
+    builtin: true,
+  },
+  {
+    name: "minne_lagre",
+    category: "minne",
+    summary: "Lagrer et varig faktum i lokalt minne.",
+    args: '{"tekst": "..."}',
+    builtin: true,
+  },
+];
+
+export const TOOL_NAMES = TOOL_CATALOG.map((t) => t.name);
 
 export const TOOL_PROMPT = `Du har verktøy du kan bruke for å hente ekte data før du svarer.
 Skriv verktøykall på egen linje, nøyaktig slik:
