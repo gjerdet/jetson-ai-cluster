@@ -31,7 +31,6 @@ export function ChatPanel({
   update?: (c: HudConfig) => void;
 }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const [restored, setRestored] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
@@ -45,7 +44,6 @@ export function ChatPanel({
     if (config.keepHistory === false) return;
     const prev = loadChat();
     if (prev.length) setMessages(prev);
-    setRestored(true);
   }, [config.keepHistory]);
 
   useEffect(() => {
