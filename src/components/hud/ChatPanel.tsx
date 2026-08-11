@@ -177,11 +177,11 @@ export function ChatPanel({
               .then((r) => {
                 logRouting({
                   oppgave: round === 0 ? "chat" : "verktoy",
-                  nodeId: r.nodeId,
                   nodeNavn: r.nodeNavn || r.model || "backend",
-                  model: r.model,
-                  ms: r.ms,
-                  hoppetOver: r.hoppetOver,
+                  ...(r.nodeId ? { nodeId: r.nodeId } : {}),
+                  ...(r.model ? { model: r.model } : {}),
+                  ...(r.ms != null ? { ms: r.ms } : {}),
+                  ...(r.hoppetOver?.length ? { hoppetOver: r.hoppetOver } : {}),
                 });
                 if (r.hoppetOver?.length)
                   logSelfEvent("warn", `Backend hoppet over ${r.hoppetOver.map((h) => h.node).join(", ")}`);
