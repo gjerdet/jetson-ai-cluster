@@ -23,6 +23,10 @@ function file(name) {
 export async function initStore() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.mkdir(SAMPLE_DIR, { recursive: true });
+  // Rydd bort halvskrevne filer etter en eventuell krasj.
+  for (const f of await fs.readdir(DATA_DIR).catch(() => [])) {
+    if (f.endsWith(".json.tmp")) await fs.unlink(path.join(DATA_DIR, f)).catch(() => {});
+  }
 }
 
 /** Leser et dokument (cachet i minnet). */
@@ -31,11 +35,28 @@ export function doc(name, fallback) {
   let value = fallback;
   try {
     value = JSON.parse(fsSync.readFileSync(file(name), "utf8"));
-  } catch {
+  } catch (e) {
+    if (e?.code !== "ENOENT") {
+      // Ta vare på den ødelagte fila slik at data kan reddes manuelt.
+      try {
+        fsSync.renameSync(file(name), `${file(name)}.korrupt-${Date.now()}`);
+        console.error(`[store] ${name}.json var ødelagt og ble flyttet til side.`);
+      } catch {
+        /* ignorer */
+      }
+    }
     value = fallback;
   }
   docs.set(name, value);
   return value;
+}
+
+/** Atomisk skriving: skriv til .tmp og bytt navn – aldri halve filer. */
+function writeAtomic(name, value) {
+  const target = file(name);
+  const tmp = `${target}.tmp`;
+  fsSync.writeFileSync(tmp, JSON.stringify(value, null, 2), { encoding: "utf8", mode: 0o600 });
+  fsSync.renameSync(tmp, target);
 }
 
 /** Skriver et dokument (samlet skriving etter 200 ms). */
@@ -49,7 +70,7 @@ export function saveDoc(name, value) {
     dirty.clear();
     for (const n of names) {
       try {
-        fsSync.writeFileSync(file(n), JSON.stringify(docs.get(n), null, 2), "utf8");
+        writeAtomic(n, docs.get(n));
       } catch (e) {
         console.error("[store] klarte ikke skrive", n, e?.message);
       }
@@ -63,7 +84,7 @@ export function flushNow() {
   flushTimer = null;
   for (const n of dirty) {
     try {
-      fsSync.writeFileSync(file(n), JSON.stringify(docs.get(n), null, 2), "utf8");
+      writeAtomic(n, docs.get(n));
     } catch {
       /* ignorer */
     }
@@ -79,6 +100,10 @@ export const latest = new Map();
 
 /** Legger til en måling i tidsserien. */
 export function addSample({ topic, value, time = Date.now(), raw }) {
+  const emne = String(topic ?? "").trim();
+  if (!emne || emne.length > 256) throw new Error("Ugyldig emne");
+  if (!Number.isFinite(time) || time < 0 || time > Date.now() + 86_400_000) time = Date.now();
+  topic = emne;
   const num = typeof value === "number" ? value : Number(String(value ?? "").replace(",", "."));
   const row = {
     t: time,
