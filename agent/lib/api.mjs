@@ -34,9 +34,14 @@ import {
   validateNode,
   validateSettings,
 } from "./contract.mjs";
+import { kjorBalansert, poolFor, poolStatus } from "./balancer.mjs";
 
 /** Gjeldende innstillinger = standardverdier overstyrt av lagrede verdier. */
 const currentSettings = () => ({ ...SETTINGS_DEFAULTS, ...(doc("settings", {}) || {}) });
+
+/** Noder som kan ta AI-oppgaver (aktive og med gyldig adresse). */
+const chatNoder = (liste) => poolFor(liste, "chat");
+
 
 import { corsBlocked, corsHeaders, rateLimit } from "./security.mjs";
 import { decryptSecret, encryptSecret, maskSecret } from "./secrets.mjs";
@@ -248,14 +253,19 @@ export async function handleApi(req, res, route, url, deps = {}) {
       }
     }
 
-    // ---- AI-proxy: HUD-en kan la backend-en snakke med AI-noden ----------
+    // ---- AI-poolens helse og rutingsrekkefølge ---------------------------
+    if (path === "/ai/pool" && method === "GET") {
+      const db = doc("nodes", { list: [] });
+      const oppgave = url.searchParams.get("oppgave") || "chat";
+      return json(req, res, 200, poolStatus(chatNoder(db.list), oppgave));
+    }
+
+    // ---- AI-proxy: backend-en fordeler chatten mellom nodene -------------
     if (path === "/ai/chat" && method === "POST") {
       const b = await readBody(req);
       const meldinger = Array.isArray(b.meldinger) ? b.meldinger : [];
       if (!meldinger.length) return json(req, res, 400, { error: "Ingen meldinger" });
       const cfg = doc("ai", { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1", apiKey: "", system: "" });
-      const baseUrl = str(b.baseUrl || cfg.baseUrl, "Adresse", { maks: 300 }).replace(/\/+$/, "");
-      const model = str(b.model || cfg.model, "Modell", { maks: 120 });
       const key = decryptSecret(cfg.apiKey);
       const messages = meldinger
         .filter((m) => m && typeof m.content === "string")
@@ -264,25 +274,61 @@ export async function handleApi(req, res, route, url, deps = {}) {
           role: ["system", "user", "assistant"].includes(m.role) ? m.role : "user",
           content: String(m.content).slice(0, 24000),
         }));
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 120_000);
+
+      // Klyngenodene utgjør poolen. Er klyngen tom, brukes den faste AI-noden.
+      const registrerte = chatNoder(doc("nodes", { list: [] }).list);
+      const fallbackNode = {
+        id: "ai-standard",
+        navn: "AI-node",
+        baseUrl: str(b.baseUrl || cfg.baseUrl, "Adresse", { maks: 300 }).replace(/\/+$/, ""),
+        modell: str(b.model || cfg.model, "Modell", { maks: 120 }),
+        vekt: 1,
+      };
+      // Eksplisitt adresse fra klienten overstyrer balanseringen.
+      const pool = b.baseUrl || !registrerte.length ? [fallbackNode] : registrerte;
+      const oppgave = typeof b.oppgave === "string" ? b.oppgave : "chat";
+      const foretrukket = typeof b.nodeId === "string" ? b.nodeId : "";
+
+      const kall = async (node) => {
+        const baseUrl = String(node.baseUrl).replace(/\/+$/, "");
+        const model = str(b.model || node.modell || cfg.model, "Modell", { maks: 120 });
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 120_000);
+        try {
+          const r = await fetch(`${baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: { "content-type": "application/json", ...(key ? { authorization: `Bearer ${key}` } : {}) },
+            body: JSON.stringify({ model, messages, stream: false, temperature: Number(b.temperatur) || 0.7 }),
+            signal: ctrl.signal,
+          });
+          if (!r.ok) throw new Error(`Noden svarte ${r.status}`);
+          const data = await r.json();
+          return { svar: data?.choices?.[0]?.message?.content?.trim() || "", model, baseUrl };
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+
       try {
-        const r = await fetch(`${baseUrl}/chat/completions`, {
-          method: "POST",
-          headers: { "content-type": "application/json", ...(key ? { authorization: `Bearer ${key}` } : {}) },
-          body: JSON.stringify({ model, messages, stream: false, temperature: Number(b.temperatur) || 0.7 }),
-          signal: ctrl.signal,
+        const { resultat, node, ms, forsok } = await kjorBalansert(pool, kall, { oppgave, foretrukket });
+        return json(req, res, 200, {
+          svar: resultat.svar,
+          model: resultat.model,
+          node: resultat.baseUrl,
+          nodeId: node.id,
+          nodeNavn: node.navn,
+          ms,
+          ...(forsok.length ? { hoppetOver: forsok } : {}),
         });
-        if (!r.ok) return json(req, res, 502, { error: `AI-noden svarte ${r.status}`, kode: "unavailable" });
-        const data = await r.json();
-        const svar = data?.choices?.[0]?.message?.content?.trim() || "";
-        return json(req, res, 200, { svar, model, node: baseUrl });
       } catch (e) {
-        return json(req, res, 502, { error: `Nådde ikke AI-noden: ${e?.message || "ukjent"}`, kode: "unavailable" });
-      } finally {
-        clearTimeout(timer);
+        return json(req, res, 502, {
+          error: `Nådde ingen AI-node: ${e?.message || "ukjent"}`,
+          kode: "unavailable",
+          forsok: e?.forsok ?? [],
+        });
       }
     }
+
 
     // ---- tidsserier ------------------------------------------------------
     if (path === "/maalinger" && method === "GET") {
