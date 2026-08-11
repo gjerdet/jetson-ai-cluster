@@ -33,6 +33,7 @@ export const ROUTES = {
   config: "/config",
   ai: "/ai",
   aiChat: "/ai/chat",
+  aiPool: "/ai/pool",
   samples: "/maalinger",
   samplesLatest: "/maalinger/siste",
   samplesPrune: "/maalinger/rydd",
