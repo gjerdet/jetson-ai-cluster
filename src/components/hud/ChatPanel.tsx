@@ -1,5 +1,26 @@
 import { useEffect, useRef, useState } from "react";
-import { SendHorizonal, Loader2, Radar, Cpu, Eraser, Wrench, BookOpen } from "lucide-react";
+import {
+  SendHorizonal,
+  Loader2,
+  Radar,
+  Cpu,
+  Eraser,
+  Wrench,
+  BookOpen,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
+import {
+  loadVoiceConfig,
+  onVoicesReady,
+  pickJarvisVoice,
+  listVoices,
+  saveVoiceConfig,
+  speak,
+  stopSpeak,
+  voiceSupported,
+} from "@/lib/voice";
+
 import { type ChatMsg, type ToolRun } from "@/lib/hud-client";
 import { callBalanced, callTracked } from "@/lib/balancer";
 import { logRouting } from "@/lib/routing-log";
