@@ -11,7 +11,12 @@ export function BackendStatusBadge() {
     error: null,
   });
 
-  useEffect(() => onBackendState(setState), []);
+  useEffect(() => {
+    const av = onBackendState(setState);
+    return () => {
+      av();
+    };
+  }, []);
 
   if (state.online) return null;
 
