@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { MessageSquare, Cpu, Globe2, Settings2 } from "lucide-react";
 import { HudWindow } from "@/components/hud/HudWindow";
-import { ReactorCore } from "@/components/hud/ReactorCore";
 import { AmbientField } from "@/components/hud/AmbientField";
+import { CenterMenu, type WinId } from "@/components/hud/CenterMenu";
 import { ChatPanel } from "@/components/hud/ChatPanel";
 import { NodesPanel } from "@/components/hud/NodesPanel";
 import { WorldMonitor } from "@/components/hud/WorldMonitor";
@@ -32,26 +31,25 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-type WinId = "chat" | "nodes" | "world" | "settings";
-
 const LAYOUT: Record<WinId, { x: number; y: number; w: number; h: number }> = {
   chat: { x: 40, y: 100, w: 420, h: 460 },
   nodes: { x: 500, y: 80, w: 400, h: 500 },
-  world: { x: 620, y: 200, w: 440, h: 480 },
-  settings: { x: 200, y: 180, w: 360, h: 380 },
+  world: { x: 620, y: 200, w: 460, h: 520 },
+  settings: { x: 0, y: 0, w: 0, h: 0 },
 };
 
 const TITLES: Record<WinId, { title: string; subtitle: string }> = {
   chat: { title: "KOMMANDO", subtitle: "direkte dialog med primærnode" },
   nodes: { title: "NODER", subtitle: "modeller og tilkoblinger" },
   world: { title: "WORLD MONITOR", subtitle: "global telemetri" },
-  settings: { title: "SYSTEM", subtitle: "innstillinger" },
+  settings: { title: "SYSTEM", subtitle: "innstillinger, evner og plugins" },
 };
 
 function Index() {
   const { config, update, loaded } = useHudConfig();
-  const [open, setOpen] = useState<WinId[]>(["chat"]);
-  const [order, setOrder] = useState<WinId[]>(["chat"]);
+  const [open, setOpen] = useState<WinId[]>([]);
+  const [order, setOrder] = useState<WinId[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const toggle = (id: WinId) => {
     setOpen((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]));
@@ -69,8 +67,6 @@ function Index() {
       <AmbientField />
       <div className="hud-grid pointer-events-none absolute inset-0" />
       <div className="hud-scan pointer-events-none absolute inset-0" />
-      <ReactorCore active={activeNodes > 0} />
-
 
       <header className="relative z-50 flex items-center justify-between px-5 py-4">
         <div>
@@ -84,11 +80,21 @@ function Index() {
             NODER <span className="text-primary">{activeNodes}</span>/{config.nodes.length}
           </span>
           <span>
-            SAMARBEID{" "}
-            <span className="text-primary">{config.collaboration ? "PÅ" : "AV"}</span>
+            SAMARBEID <span className="text-primary">{config.collaboration ? "PÅ" : "AV"}</span>
           </span>
         </div>
       </header>
+
+      <CenterMenu
+        open={menuOpen}
+        setOpen={setMenuOpen}
+        active={open}
+        activeNodes={activeNodes}
+        onSelect={(id) => {
+          toggle(id);
+          setMenuOpen(false);
+        }}
+      />
 
       {loaded
         ? open.map((id) => (
@@ -97,7 +103,8 @@ function Index() {
               title={TITLES[id].title}
               subtitle={TITLES[id].subtitle}
               initial={LAYOUT[id]}
-              z={20 + order.indexOf(id)}
+              z={60 + order.indexOf(id)}
+              fullscreen={id === "settings"}
               onFocus={() => focus(id)}
               onClose={() => toggle(id)}
             >
@@ -108,55 +115,6 @@ function Index() {
             </HudWindow>
           ))
         : null}
-
-      <nav className="fixed bottom-5 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-1 rounded-full border border-primary/30 bg-background/40 px-2 py-1.5 backdrop-blur-md">
-        <DockButton
-          label="KOMMANDO"
-          active={open.includes("chat")}
-          onClick={() => toggle("chat")}
-        >
-          <MessageSquare className="size-4" />
-        </DockButton>
-        <DockButton label="NODER" active={open.includes("nodes")} onClick={() => toggle("nodes")}>
-          <Cpu className="size-4" />
-        </DockButton>
-        <DockButton label="WORLD" active={open.includes("world")} onClick={() => toggle("world")}>
-          <Globe2 className="size-4" />
-        </DockButton>
-        <DockButton
-          label="SYSTEM"
-          active={open.includes("settings")}
-          onClick={() => toggle("settings")}
-        >
-          <Settings2 className="size-4" />
-        </DockButton>
-      </nav>
     </main>
-  );
-}
-
-function DockButton({
-  children,
-  label,
-  active,
-  onClick,
-}: {
-  children: React.ReactNode;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`hud-title flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] transition-colors ${
-        active
-          ? "bg-primary/20 text-primary"
-          : "text-muted-foreground hover:bg-primary/10 hover:text-primary"
-      }`}
-    >
-      {children}
-      <span className="hidden sm:inline">{label}</span>
-    </button>
   );
 }

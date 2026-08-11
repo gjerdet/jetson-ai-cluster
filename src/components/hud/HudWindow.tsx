@@ -9,6 +9,7 @@ type Props = {
   onClose: () => void;
   onFocus: () => void;
   z: number;
+  fullscreen?: boolean;
   children: ReactNode;
   className?: string;
 };
@@ -20,6 +21,7 @@ export function HudWindow({
   onClose,
   onFocus,
   z,
+  fullscreen,
   children,
   className,
 }: Props) {
@@ -28,6 +30,7 @@ export function HudWindow({
 
   const onPointerDown = (e: React.PointerEvent) => {
     onFocus();
+    if (fullscreen) return;
     drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
     (e.target as Element).setPointerCapture(e.pointerId);
   };
@@ -45,9 +48,14 @@ export function HudWindow({
   return (
     <div
       onMouseDown={onFocus}
-      style={{ left: pos.x, top: pos.y, width: initial.w, height: initial.h, zIndex: z }}
+      style={
+        fullscreen
+          ? { zIndex: z }
+          : { left: pos.x, top: pos.y, width: initial.w, height: initial.h, zIndex: z }
+      }
       className={cn(
-        "hud-panel absolute flex flex-col overflow-hidden rounded-lg animate-hud-in",
+        "hud-panel flex flex-col overflow-hidden rounded-lg animate-hud-in",
+        fullscreen ? "fixed inset-3 md:inset-8" : "absolute",
         className,
       )}
     >
@@ -55,7 +63,10 @@ export function HudWindow({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        className="flex cursor-grab items-center justify-between gap-3 border-b border-primary/25 bg-primary/5 px-3 py-2 active:cursor-grabbing"
+        className={cn(
+          "flex items-center justify-between gap-3 border-b border-primary/25 bg-primary/5 px-3 py-2",
+          fullscreen ? "" : "cursor-grab active:cursor-grabbing",
+        )}
       >
         <div className="min-w-0">
           <p className="hud-title truncate text-[11px] text-primary">{title}</p>
