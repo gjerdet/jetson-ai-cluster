@@ -71,7 +71,27 @@ export function ChatPanel({
   const endRef = useRef<HTMLDivElement>(null);
   const mqtt = useMqtt();
 
+  // stemme (Web Speech API – kjører lokalt, ingen sky)
+  const [voice, setVoice] = useState(() => loadVoiceConfig());
+  const [voiceName, setVoiceName] = useState("");
+  const spokenRef = useRef(0);
+  useEffect(() => onVoicesReady(() => {
+    const v = pickJarvisVoice(listVoices(), loadVoiceConfig().voiceURI);
+    setVoiceName(v ? `${v.name} (${v.lang})` : "ingen stemme funnet");
+  }), []);
+  useEffect(() => {
+    if (!voice.på) return;
+    const siste = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!siste) return;
+    const stempel = siste.time ?? messages.length;
+    if (stempel === spokenRef.current) return;
+    spokenRef.current = stempel;
+    speak(siste.content, voice);
+  }, [messages, voice]);
+  useEffect(() => () => stopSpeak(), []);
+
   const [synced, setSynced] = useState(false);
+
 
   // henter forrige samtale: først lokalt (raskt), deretter fra backend-en om
   // du er logget inn – slik at historikken er delt mellom maskiner
