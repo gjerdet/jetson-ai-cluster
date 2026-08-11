@@ -178,11 +178,6 @@ export function ChatPanel({
       setBusy(false);
       setStage("");
     }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Ukjent feil");
-    } finally {
-      setBusy(false);
-    }
   };
 
   return (
