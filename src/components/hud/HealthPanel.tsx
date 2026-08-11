@@ -62,7 +62,36 @@ export function HealthPanel({ config }: { config: HudConfig }) {
         </button>
       </div>
 
+      {pool ? (
+        <section className="space-y-1">
+          <p className="hud-title text-[9px] text-muted-foreground">
+            LASTBALANSERING (BACKEND) · {pool.antall} noder i poolen
+          </p>
+          {pool.noder.length === 0 ? (
+            <p className="text-muted-foreground">Ingen noder registrert i klyngen.</p>
+          ) : null}
+          {pool.noder.map((n, i) => (
+            <div key={n.id} className="flex items-baseline justify-between rounded border border-primary/15 p-2">
+              <div>
+                <span className="hud-title text-[10px] text-primary/90">
+                  {i === 0 && !n.karantene ? "▸ " : ""}
+                  {n.navn}
+                </span>
+                <p className="text-[10px] text-muted-foreground">
+                  {n.inflight} i kø · snitt {n.snittMs ?? "–"} ms · {n.ok}/{n.kall} ok
+                  {n.sisteFeil ? ` · ${n.sisteFeil}` : ""}
+                </p>
+              </div>
+              <span className={n.karantene ? "text-destructive" : "text-primary"}>
+                {n.karantene ? `karantene ${n.karanteneSek}s` : `vekt ${n.vekt}`}
+              </span>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
       <section className="space-y-2">
+
         <p className="hud-title text-[9px] text-muted-foreground">NODER</p>
         {nodes.length === 0 ? (
           <p className="text-muted-foreground">Ingen aktive noder å overvåke.</p>
