@@ -108,7 +108,57 @@ export const TOOL_CATALOG: ToolSpec[] = [
     args: '{"navn": "hent_vaer"}',
     builtin: true,
   },
+  {
+    name: "agent_status",
+    category: "os",
+    summary: "Status for den lokale agenten på Jetson: OS, last, minne, sandkasse og hviteliste.",
+    args: "{}",
+    builtin: true,
+  },
+  {
+    name: "os_kjor",
+    category: "os",
+    summary: "Kjører en hvitelistet OS-kommando via lokal agent (f.eks. df, nvidia-smi, systemctl status).",
+    args: '{"kommando": "df", "args": ["-h"]}',
+    builtin: true,
+  },
+  {
+    name: "skript_lag",
+    category: "os",
+    summary: "Skriver et skript til sandkassen på Jetson (bash, python eller node).",
+    args: '{"navn": "test.py", "innhold": "print(1+1)"}',
+    builtin: true,
+  },
+  {
+    name: "skript_kjor",
+    category: "os",
+    summary: "Kjører et skript i sandkassen med tidsgrense og returnerer stdout/stderr.",
+    args: '{"navn": "test.py", "sprak": "python", "args": []}',
+    builtin: true,
+  },
+  {
+    name: "skript_test",
+    category: "os",
+    summary: "Skriver og kjører et skript i sandkassen i én operasjon (rask test).",
+    args: '{"sprak": "python", "innhold": "print(1+1)"}',
+    builtin: true,
+  },
+  {
+    name: "skript_liste",
+    category: "os",
+    summary: "Lister skript i sandkassen, eventuelt leser innholdet i ett av dem.",
+    args: '{"navn": "test.py"}',
+    builtin: true,
+  },
+  {
+    name: "skript_slett",
+    category: "os",
+    summary: "Sletter et skript fra sandkassen.",
+    args: '{"navn": "test.py"}',
+    builtin: true,
+  },
 ];
+
 
 export const TOOL_NAMES = TOOL_CATALOG.map((t) => t.name);
 
