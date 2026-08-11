@@ -196,6 +196,18 @@ export function WorldMap({
                     repeatCount="indefinite"
                   />
                 </circle>
+                {zoom >= 3 ? (
+                  <text
+                    x={4}
+                    y={2.5}
+                    fontSize={4}
+                    fill={color}
+                    opacity={0.9}
+                    className="hud-title pointer-events-none"
+                  >
+                    {e.title.length > 42 ? `${e.title.slice(0, 42)}…` : e.title}
+                  </text>
+                ) : null}
                 <title>{e.title}</title>
               </g>
             );
@@ -204,6 +216,13 @@ export function WorldMap({
       </svg>
       <div className="hud-radar-sweep pointer-events-none absolute inset-0" />
       <div className="absolute bottom-2 right-2 flex flex-col gap-1">
+        <button
+          className={btn}
+          aria-label={expanded ? "Lukk stort kart" : "Vis stort kart"}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? <Shrink className="size-3" /> : <Expand className="size-3" />}
+        </button>
         <button className={btn} aria-label="Zoom inn" onClick={() => zoomAt(W / 2, H / 2, zoom * 1.5)}>
           <Plus className="size-3" />
         </button>
