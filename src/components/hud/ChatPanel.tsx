@@ -14,7 +14,15 @@ import {
   type PendingCommand,
 } from "@/lib/mqtt-bridge";
 import { briefingText, refreshFeed, snapshot } from "@/lib/world-feed";
-import { parseToolCalls, runTool, stripToolCalls, TOOL_PROMPT, toolAvailability } from "@/lib/agent-tools";
+import {
+  parseToolCalls,
+  runTool,
+  stripToolCalls,
+  TOOL_PROMPT,
+  toolAvailability,
+  customToolPrompt,
+  customToolNames,
+} from "@/lib/agent-tools";
 import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
 
@@ -93,6 +101,7 @@ export function ChatPanel({
         live,
         mqttOnline() ? MQTT_TOOL_PROMPT : "",
         TOOL_PROMPT,
+        customToolPrompt(config),
         toolAvailability(config, Object.keys(mqtt.topics).length),
       ]
         .filter(Boolean)
@@ -121,7 +130,7 @@ export function ChatPanel({
           : { text: await callTracked(primary, thread), node: primary };
         const raw = call.text;
         answeredBy = call.node.name;
-        const calls = parseToolCalls(raw);
+        const calls = parseToolCalls(raw, customToolNames(config));
         if (!calls.length) {
           answer = raw.trim();
           break;

@@ -1,6 +1,6 @@
-import type { HudConfig } from "./hud-store";
-import { deviceBrief, newMemory } from "./hud-store";
-import { historyFor, numericValue } from "./mqtt-bridge";
+import type { CustomTool, HudConfig } from "./hud-store";
+import { deviceBrief, newCustomTool, newMemory, sanitizeToolName } from "./hud-store";
+import { historyFor, numericValue, mqttOnline, publishMqtt } from "./mqtt-bridge";
 import { fetchIntegration } from "./integrations.functions";
 import { briefingText, refreshFeed, snapshot } from "./world-feed";
 import { pingNode } from "./hud-client";
@@ -16,7 +16,7 @@ export type ToolContext = {
 
 export type ToolSpec = {
   name: string;
-  category: "smarthus" | "system" | "verden" | "minne";
+  category: "smarthus" | "system" | "verden" | "minne" | "verktoy";
   summary: string;
   args: string;
   builtin: true;
@@ -73,6 +73,28 @@ export const TOOL_CATALOG: ToolSpec[] = [
     args: '{"tekst": "..."}',
     builtin: true,
   },
+  {
+    name: "verktoy_liste",
+    category: "verktoy",
+    summary: "Lister alle egendefinerte verktøy som er laget.",
+    args: "{}",
+    builtin: true,
+  },
+  {
+    name: "verktoy_lag",
+    category: "verktoy",
+    summary:
+      "Lager et nytt egendefinert verktøy (http, mqtt eller prompt). Krever godkjenning i SYSTEM → AGENTER.",
+    args: '{"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET", "args": "{\\"sted\\":\\"Oslo\\"}"}',
+    builtin: true,
+  },
+  {
+    name: "verktoy_slett",
+    category: "verktoy",
+    summary: "Sletter et egendefinert verktøy du har laget.",
+    args: '{"navn": "hent_vaer"}',
+    builtin: true,
+  },
 ];
 
 export const TOOL_NAMES = TOOL_CATALOG.map((t) => t.name);
@@ -89,19 +111,39 @@ Tilgjengelige verktøy:
 - system_hent {"navn": "TrueNAS", "sti": "/pool/dataset"} – henter data fra et tilkoblet lokalt system.
 - world_brief {"antall": 10} – topp hendelser fra World Monitor.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
+- verktoy_liste {} – dine egendefinerte verktøy.
+- verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
+- verktoy_slett {"navn": "hent_vaer"} – slett et verktøy du har laget.
 
 Regler: kall bare verktøy når du faktisk trenger dataene. Du får resultatet tilbake og skal
-deretter svare brukeren på norsk bokmål. Ikke finn på verdier du ikke har hentet.`;
+deretter svare brukeren på norsk bokmål. Ikke finn på verdier du ikke har hentet.
+Du har ikke tilgang til operativsystemet, filsystemet eller shell – bare verktøyene over.
+Lag nye verktøy kun når brukeren ber om det, og fortell alltid hva du laget.`;
 
-const CALL_RE = /^\s*(?:VERKT[ØO]Y|TOOL)\s*:\s*([a-z_]+)\s*(\{[\s\S]*?\})?\s*$/gim;
+/** Prompt-tillegg som beskriver de egendefinerte verktøyene som er slått på. */
+export function customToolPrompt(config: HudConfig): string {
+  const list = (config.customTools ?? []).filter((t) => t.enabled);
+  if (!list.length) return "";
+  return [
+    "Egendefinerte verktøy (laget lokalt, kalles på samme måte):",
+    ...list.map((t) => `- ${t.name} ${t.args || "{}"} – ${t.description || t.kind}`),
+  ].join("\n");
+}
 
-export function parseToolCalls(text: string): ToolCall[] {
+export function customToolNames(config: HudConfig): string[] {
+  return (config.customTools ?? []).filter((t) => t.enabled).map((t) => t.name);
+}
+
+const CALL_RE = /^\s*(?:VERKT[ØO]Y|TOOL)\s*:\s*([a-z0-9_]+)\s*(\{[\s\S]*?\})?\s*$/gim;
+
+export function parseToolCalls(text: string, extraNames: string[] = []): ToolCall[] {
+  const allowed = new Set<string>([...TOOL_NAMES, ...extraNames]);
   const out: ToolCall[] = [];
   CALL_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = CALL_RE.exec(text))) {
     const name = (m[1] ?? "").toLowerCase();
-    if (!(TOOL_NAMES as readonly string[]).includes(name)) continue;
+    if (!allowed.has(name)) continue;
     let args: Record<string, unknown> = {};
     try {
       if (m[2]) args = JSON.parse(m[2]) as Record<string, unknown>;
@@ -196,7 +238,89 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     return `Lagret i langtidsminnet: «${text}».`;
   }
 
+  if (call.name === "verktoy_liste") {
+    const list = config.customTools ?? [];
+    if (!list.length) return "Ingen egendefinerte verktøy er laget enda.";
+    return list
+      .map(
+        (t) =>
+          `${t.name} (${t.kind}${t.enabled ? "" : ", avslått"}, laget av ${t.createdBy}) – ${t.description || "ingen beskrivelse"}`,
+      )
+      .join("\n");
+  }
+
+  if (call.name === "verktoy_lag") {
+    if (!ctx.update) return "Kan ikke lage verktøy akkurat nå (skrivebeskyttet).";
+    const name = sanitizeToolName(str(call.args["navn"] ?? call.args["name"]));
+    if (!name) return "Mangler navn på verktøyet.";
+    if ((TOOL_NAMES as readonly string[]).includes(name))
+      return `«${name}» er navnet på et innebygd verktøy. Velg et annet navn.`;
+    const existing = config.customTools ?? [];
+    if (existing.some((t) => t.name === name)) return `Verktøyet «${name}» finnes allerede.`;
+    const rawKind = str(call.args["type"] ?? call.args["kind"]).toLowerCase();
+    const kind: CustomTool["kind"] =
+      rawKind === "mqtt" ? "mqtt" : rawKind === "prompt" ? "prompt" : "http";
+    const tool: CustomTool = {
+      ...newCustomTool("jarvis"),
+      name,
+      kind,
+      description: str(call.args["beskrivelse"] ?? call.args["description"]),
+      url: str(call.args["url"]),
+      method: str(call.args["metode"] ?? call.args["method"]).toUpperCase() === "POST" ? "POST" : "GET",
+      topic: str(call.args["emne"] ?? call.args["topic"]),
+      body: str(call.args["payload"] ?? call.args["body"] ?? call.args["tekst"]),
+      args: str(call.args["args"]) || "{}",
+    };
+    ctx.update({ ...config, customTools: [...existing, tool] });
+    return `Laget verktøyet «${name}» (${kind}). Det kan slås av eller slettes under SYSTEM → AGENTER.`;
+  }
+
+  if (call.name === "verktoy_slett") {
+    if (!ctx.update) return "Kan ikke slette verktøy akkurat nå (skrivebeskyttet).";
+    const name = sanitizeToolName(str(call.args["navn"] ?? call.args["name"]));
+    const existing = config.customTools ?? [];
+    if (!existing.some((t) => t.name === name)) return `Fant ingen verktøy som heter «${name}».`;
+    ctx.update({ ...config, customTools: existing.filter((t) => t.name !== name) });
+    return `Slettet verktøyet «${name}».`;
+  }
+
+  const custom = (config.customTools ?? []).find((t) => t.enabled && t.name === call.name);
+  if (custom) return runCustomTool(custom, call.args);
+
   return `Ukjent verktøy: ${call.name}`;
+}
+
+function fill(tpl: string, args: Record<string, unknown>): string {
+  return tpl.replace(/\{(\w+)\}/g, (_, k: string) => str(args[k]));
+}
+
+async function runCustomTool(tool: CustomTool, args: Record<string, unknown>): Promise<string> {
+  if (tool.kind === "prompt") {
+    return fill(tool.body ?? "", args) || tool.description || "Tomt verktøy.";
+  }
+
+  if (tool.kind === "mqtt") {
+    if (!mqttOnline()) return "MQTT-broker er ikke tilkoblet.";
+    const topic = fill(tool.topic ?? "", args);
+    if (!topic) return "Verktøyet mangler MQTT-emne.";
+    publishMqtt(topic, fill(tool.body ?? "", args));
+    return `Sendte MQTT til ${topic}.`;
+  }
+
+  const url = fill(tool.url ?? "", args);
+  if (!url) return "Verktøyet mangler URL.";
+  try {
+    const init: RequestInit = { method: tool.method ?? "GET" };
+    if ((tool.method ?? "GET") === "POST") {
+      init.headers = { "content-type": "application/json" };
+      init.body = fill(tool.body || "{}", args);
+    }
+    const r = await fetch(url, init);
+    const text = await r.text();
+    return `${r.status} ${r.statusText}\n${text.slice(0, 2500)}`;
+  } catch (e) {
+    return `Kall feilet: ${e instanceof Error ? e.message : "ukjent feil"}`;
+  }
 }
 
 /** Kort sammendrag av hva som faktisk er tilgjengelig – hjelper modellen å velge riktig verktøy. */

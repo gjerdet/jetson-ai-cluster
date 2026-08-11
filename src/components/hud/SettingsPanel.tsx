@@ -26,6 +26,9 @@ import {
   newDevice,
   newPlugin,
   newTalent,
+  newCustomTool,
+  sanitizeToolName,
+  type CustomTool,
   INTEGRATION_PRESETS,
   DEVICE_KIND_LABEL,
   type HudConfig,
@@ -86,6 +89,12 @@ export function SettingsPanel({
   const patchTalent = (id: string, p: Partial<Talent>) =>
     update({ ...config, talents: config.talents.map((t) => (t.id === id ? { ...t, ...p } : t)) });
   const integrations = config.integrations ?? [];
+  const customTools = config.customTools ?? [];
+  const patchTool = (id: string, p: Partial<CustomTool>) =>
+    update({
+      ...config,
+      customTools: customTools.map((t) => (t.id === id ? { ...t, ...p } : t)),
+    });
   const patchIntegration = (id: string, p: Partial<Integration>) =>
     update({
       ...config,
@@ -280,7 +289,137 @@ export function SettingsPanel({
             </div>
 
             <div className="rounded border border-primary/25 bg-primary/[0.04] p-2">
+              <div className="mb-1.5 flex items-center gap-2">
+                <div className="hud-title text-[10px] text-primary">EGENDEFINERTE VERKTØY</div>
+                <span className="flex-1" />
+                <button
+                  onClick={() =>
+                    update({ ...config, customTools: [...customTools, newCustomTool("bruker")] })
+                  }
+                  className="flex items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10"
+                >
+                  <Plus className="size-3" /> nytt verktøy
+                </button>
+              </div>
+              {customTools.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground">
+                  Ingen egendefinerte verktøy. Jarvis kan lage dem selv med{" "}
+                  <code className="text-primary/80">verktoy_lag</code> – de dukker opp her og kan
+                  slås av eller slettes.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {customTools.map((t) => (
+                    <div key={t.id} className="rounded border border-primary/15 p-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          value={t.name}
+                          onChange={(e) =>
+                            patchTool(t.id, { name: sanitizeToolName(e.target.value) })
+                          }
+                          className="hud-title w-36 rounded border border-primary/20 bg-transparent px-1.5 py-0.5 text-[10px] text-primary outline-none"
+                        />
+                        <select
+                          value={t.kind}
+                          onChange={(e) =>
+                            patchTool(t.id, { kind: e.target.value as CustomTool["kind"] })
+                          }
+                          className="rounded border border-primary/20 bg-transparent px-1 py-0.5 text-[10px] text-muted-foreground outline-none"
+                        >
+                          <option value="http">http</option>
+                          <option value="mqtt">mqtt</option>
+                          <option value="prompt">prompt</option>
+                        </select>
+                        <span className="flex-1 truncate text-[9px] text-muted-foreground/70">
+                          laget av {t.createdBy}
+                        </span>
+                        <button
+                          onClick={() => patchTool(t.id, { enabled: !t.enabled })}
+                          className={`rounded-full border px-2 py-0.5 text-[9px] ${
+                            t.enabled
+                              ? "border-primary/40 text-primary"
+                              : "border-primary/15 text-muted-foreground"
+                          }`}
+                        >
+                          {t.enabled ? "på" : "av"}
+                        </button>
+                        <button
+                          onClick={() =>
+                            update({
+                              ...config,
+                              customTools: customTools.filter((x) => x.id !== t.id),
+                            })
+                          }
+                          className="text-muted-foreground hover:text-destructive"
+                          aria-label={`slett ${t.name}`}
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      </div>
+                      <input
+                        value={t.description}
+                        onChange={(e) => patchTool(t.id, { description: e.target.value })}
+                        placeholder="hva gjør verktøyet?"
+                        className="mt-1 w-full rounded border border-primary/20 bg-transparent px-1.5 py-0.5 text-[10px] text-muted-foreground outline-none"
+                      />
+                      {t.kind === "http" ? (
+                        <div className="mt-1 flex gap-1.5">
+                          <select
+                            value={t.method ?? "GET"}
+                            onChange={(e) =>
+                              patchTool(t.id, { method: e.target.value as "GET" | "POST" })
+                            }
+                            className="rounded border border-primary/20 bg-transparent px-1 py-0.5 text-[10px] text-muted-foreground outline-none"
+                          >
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                          </select>
+                          <input
+                            value={t.url ?? ""}
+                            onChange={(e) => patchTool(t.id, { url: e.target.value })}
+                            placeholder="http://192.168.1.50:8123/api/{sti}"
+                            className="flex-1 rounded border border-primary/20 bg-transparent px-1.5 py-0.5 text-[10px] text-muted-foreground outline-none"
+                          />
+                        </div>
+                      ) : null}
+                      {t.kind === "mqtt" ? (
+                        <input
+                          value={t.topic ?? ""}
+                          onChange={(e) => patchTool(t.id, { topic: e.target.value })}
+                          placeholder="hjem/stue/lys/set"
+                          className="mt-1 w-full rounded border border-primary/20 bg-transparent px-1.5 py-0.5 text-[10px] text-muted-foreground outline-none"
+                        />
+                      ) : null}
+                      <textarea
+                        value={t.body ?? ""}
+                        onChange={(e) => patchTool(t.id, { body: e.target.value })}
+                        rows={2}
+                        placeholder={
+                          t.kind === "prompt"
+                            ? "instruksjon som returneres til modellen"
+                            : 'payload/body-mal, f.eks. {"state":"{verdi}"}'
+                        }
+                        className="mt-1 w-full resize-none rounded border border-primary/20 bg-transparent px-1.5 py-1 text-[10px] text-muted-foreground outline-none"
+                      />
+                      <input
+                        value={t.args}
+                        onChange={(e) => patchTool(t.id, { args: e.target.value })}
+                        placeholder='eksempelargumenter: {"verdi":"på"}'
+                        className="mt-1 w-full rounded border border-primary/20 bg-transparent px-1.5 py-0.5 text-[10px] text-muted-foreground outline-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="mt-1.5 text-[10px] text-muted-foreground/70">
+                Felt i {"{"}krøllparentes{"}"} fylles med argumentene fra verktøykallet. Jarvis har
+                ingen tilgang til operativsystem, filsystem eller shell – kun disse verktøyene.
+              </p>
+            </div>
+
+            <div className="rounded border border-primary/25 bg-primary/[0.04] p-2">
               <div className="hud-title mb-1.5 text-[10px] text-primary">LÆRTE EVNER</div>
+
               {config.talents.length === 0 ? (
                 <p className="text-[10px] text-muted-foreground">Ingen evner lært enda.</p>
               ) : (
