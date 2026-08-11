@@ -107,12 +107,9 @@ export function WorldMonitor() {
             <button
               key={h}
               onClick={() => setRange(h)}
-              className={`rounded border px-1.5 py-1 transition-colors ${
-                range === h
-                  ? "border-primary/60 bg-primary/10 text-primary"
-                  : "border-primary/20 text-muted-foreground hover:text-primary"
-              }`}
+              className={`hud-btn hud-btn-hoverable !py-1 ${range === h ? "hud-btn-on" : ""}`}
             >
+
               {h === 168 ? "7d" : `${h}t`}
             </button>
           ))}
