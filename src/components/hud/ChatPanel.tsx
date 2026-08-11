@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { SendHorizonal, Loader2, Radar } from "lucide-react";
+import { SendHorizonal, Loader2, Radar, Cpu } from "lucide-react";
 import { callNode, type ChatMsg } from "@/lib/hud-client";
-import { newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
+import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
 import { briefingText, refreshFeed, snapshot } from "@/lib/world-feed";
 
 const BRIEF_TRIGGERS =
