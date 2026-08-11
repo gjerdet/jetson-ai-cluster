@@ -1,4 +1,19 @@
-# Oppsett av JARVIS HUD på NVIDIA Jetson Nano Super
+# Jarvis på Jetson
+
+## 0. Ett-kommandos oppsett (anbefalt)
+
+Kjør dette på Jetson-en – det installerer Ollama, henter modellene, setter opp
+agenten som systemd-tjeneste og skriver ut innloggingen:
+
+```bash
+sudo bash agent/scripts/install-jetson.sh
+```
+
+Deretter: åpne web-GUI-et, åpne **NODER** og bruk **HURTIGOPPSETT**. Skriv inn
+Jetson-IP-en, så registreres chat-noden (llama3.2:3b), Hermes-noden (hermes3:8b)
+og backend-adressen automatisk, med tilkoblingstest på hvert steg.
+
+Trinnene under er den manuelle varianten av det samme.
 
 Steg-for-steg-guide fra tomt system til kjørende HUD med lokal AI-modell.
 Alt kjører lokalt på din egen maskin — ingen sky er nødvendig.
