@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Minus, Square, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -142,7 +142,7 @@ export function HudWindow({
         </div>
       </div>
       {min ? null : <div className="min-h-0 flex-1 overflow-auto p-3">{children}</div>}
-      {!fullscreen && !min ? (
+      {!locked && !min ? (
         <div
           role="separator"
           aria-label={`Endre størrelse på ${title}`}
