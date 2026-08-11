@@ -36,17 +36,24 @@ function nightPath(): string {
   return `M${pts.join(" L")} L${W},${closeTop ? 0 : H} L0,${closeTop ? 0 : H} Z`;
 }
 
+export type MapMarker = { id: string; name: string; lat: number; lon: number; detail?: string };
+
 export function WorldMap({
   events,
   onSelect,
   dayNight = false,
   fill = false,
+  markers = [],
+  highlightId = null,
 }: {
   events: WorldEvent[];
   onSelect?: (e: WorldEvent) => void;
   dayNight?: boolean;
   /** fyller tilgjengelig høyde i stedet for fast 2:1-forhold */
   fill?: boolean;
+  /** egne markører, f.eks. smarthus-enheter */
+  markers?: MapMarker[];
+  highlightId?: string | null;
 }) {
   const [land, setLand] = useState<FeatureCollection<Geometry> | null>(cache);
   const [zoom, setZoom] = useState(1);
