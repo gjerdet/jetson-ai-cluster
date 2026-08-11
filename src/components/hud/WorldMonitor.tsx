@@ -65,9 +65,7 @@ export function WorldMonitor() {
                 key={l.id}
                 onClick={() => toggle(l.id)}
                 style={on ? { borderColor: LAYER_COLOR[l.id], color: LAYER_COLOR[l.id] } : undefined}
-                className={`flex items-center gap-1 rounded border px-1.5 py-0.5 transition-colors ${
-                  on ? "bg-primary/10" : "border-primary/15 text-muted-foreground"
-                }`}
+                className={`hud-btn hud-btn-hoverable !py-0.5 text-[9px] ${on ? "hud-btn-on" : ""}`}
               >
                 <span
                   className="size-1.5 rounded-full"
@@ -82,18 +80,19 @@ export function WorldMonitor() {
         <div className="flex shrink-0 gap-1">
           <button
             onClick={() => setActive(active.length === ALL.length ? [] : ALL)}
-            className="hud-title rounded border border-primary/25 px-1.5 py-0.5 text-[9px] text-muted-foreground hover:text-primary"
+            className="hud-title hud-btn hud-btn-hoverable !py-0.5 text-[9px]"
           >
             {active.length === ALL.length ? "ingen" : "alle"}
           </button>
           <button
             onClick={load}
             aria-label="Oppdater"
-            className="rounded p-1 text-muted-foreground hover:text-primary"
+            className="hud-btn hud-btn-hoverable size-6 !p-0"
           >
             <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
+
       </div>
 
       <div className="flex items-center gap-2">
