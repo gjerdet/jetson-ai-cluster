@@ -184,6 +184,11 @@ export function VoiceSection() {
         filmatisk JARVIS-klang enn nettleserstemmene. Egen trent stemme legges inn ved å peke
         «Piper-modell» til din <code>.onnx</code>-modell.
       </p>
+      </p>
+
+      <div className="border-t border-primary/15 pt-3">
+        <VoiceTraining />
+      </div>
     </div>
   );
 }
