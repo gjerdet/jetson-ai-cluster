@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SendHorizonal, Loader2 } from "lucide-react";
 import { callNode, type ChatMsg } from "@/lib/hud-client";
-import type { HudConfig } from "@/lib/hud-store";
+import { systemPrompt, type HudConfig } from "@/lib/hud-store";
 
 export function ChatPanel({ config }: { config: HudConfig }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);

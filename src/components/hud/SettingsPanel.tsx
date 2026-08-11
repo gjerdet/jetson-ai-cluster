@@ -80,7 +80,7 @@ export function SettingsPanel({
                 className="w-full accent-[oklch(0.78_0.13_200)]"
               />
             </Field>
-            <Field label={`Gjennomsiktighet – ${config.transparency}%`}>
+            <Field label={`Panelfyll (lavere = mer gjennomsiktig) – ${config.transparency}%`}>
               <input
                 type="range"
                 min={5}
