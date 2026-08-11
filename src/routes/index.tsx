@@ -9,6 +9,7 @@ import { WorldMonitor } from "@/components/hud/WorldMonitor";
 import { SmartHomePanel } from "@/components/hud/SmartHomePanel";
 import { SettingsPanel } from "@/components/hud/SettingsPanel";
 import { DashboardPanel } from "@/components/hud/DashboardPanel";
+import { HealthPanel } from "@/components/hud/HealthPanel";
 import { useHudConfig } from "@/lib/hud-store";
 import { setRules, setTelegramChat } from "@/lib/mqtt-bridge";
 
@@ -131,6 +132,7 @@ function Index() {
               {id === "world" ? <WorldMonitor config={config} update={update} /> : null}
               {id === "home" ? <SmartHomePanel config={config} update={update} /> : null}
               {id === "dash" ? <DashboardPanel config={config} update={update} /> : null}
+              {id === "health" ? <HealthPanel config={config} /> : null}
               {id === "settings" ? <SettingsPanel config={config} update={update} /> : null}
             </HudWindow>
           ))
