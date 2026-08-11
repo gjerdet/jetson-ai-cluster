@@ -40,6 +40,7 @@ export const ROUTES: {
   threads: string;
   telegram: string;
   telegramTest: string;
+  backup: string;
 };
 export const ERROR_CODES: {
   UNAUTHORIZED: ErrorCode;
