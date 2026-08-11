@@ -13,6 +13,7 @@ import {
   codeFromStatus,
   type AiConfig,
   type BackendRule,
+  type BackupFile,
   type BackendStatus,
   type BackendUser,
   type ErrorCode,
@@ -28,6 +29,7 @@ import {
 export type {
   AiConfig,
   BackendRule,
+  BackupFile,
   BackendStatus,
   BackendUser,
   ErrorCode,
@@ -85,12 +87,16 @@ export class BackendError extends Error {
   status: number;
   detalj: string | undefined;
 
-  constructor(code: ErrorCode, detalj?: string, status = 0) {
+  /** Sekunder til neste forsøk (kun ved rate-limit). */
+  retryAfter: number | undefined;
+
+  constructor(code: ErrorCode, detalj?: string, status = 0, retryAfter?: number) {
     super(detalj?.trim() || ERROR_TEXTS[code] || "Ukjent feil mot backend-en.");
     this.name = "BackendError";
     this.code = code;
     this.status = status;
     this.detalj = detalj;
+    this.retryAfter = retryAfter;
   }
 
   /** Kort forklaring + hva brukeren kan gjøre. */
@@ -104,6 +110,10 @@ export class BackendError extends Error {
         return "Logg inn på nytt i BACKEND-fanen.";
       case ERROR_CODES.TIMEOUT:
         return "Prøv igjen – backend-en kan være opptatt eller nettet tregt.";
+      case ERROR_CODES.RATE_LIMIT:
+        return `Vent ${this.retryAfter ?? 60} sekunder – agenten begrenser antall forespørsler per IP.`;
+      case ERROR_CODES.FORBIDDEN:
+        return "Har du riktig rolle? Domenet må også stå i AGENT_ORIGINS på agenten.";
       default:
         return "";
     }
@@ -126,7 +136,12 @@ function emit(online: boolean, error: BackendError | null) {
   listeners.forEach((l) => l({ online, error }));
 }
 
-const RETRYABLE: ErrorCode[] = [ERROR_CODES.NETWORK, ERROR_CODES.TIMEOUT, ERROR_CODES.SERVER];
+const RETRYABLE: ErrorCode[] = [
+  ERROR_CODES.NETWORK,
+  ERROR_CODES.TIMEOUT,
+  ERROR_CODES.SERVER,
+  ERROR_CODES.RATE_LIMIT,
+];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function networkError(e: unknown): BackendError {
@@ -170,7 +185,13 @@ async function call<T>(
         }
       }
       if (!res.ok) {
-        const err = new BackendError(codeFromStatus(res.status), String(data["error"] ?? ""), res.status);
+        const retryAfter = Number(res.headers.get("retry-after")) || undefined;
+        const err = new BackendError(
+          codeFromStatus(res.status),
+          String(data["error"] ?? ""),
+          res.status,
+          retryAfter,
+        );
         if (err.code === ERROR_CODES.UNAUTHORIZED) setBackendToken(null);
         throw err;
       }
@@ -180,7 +201,12 @@ async function call<T>(
       const err = e instanceof BackendError ? e : networkError(e);
       siste = err;
       if (!RETRYABLE.includes(err.code) || forsok === retries) break;
-      await sleep(400 * 2 ** forsok);
+      // Ved rate-limit venter vi det agenten ber om (maks 10 s her).
+      const vent =
+        err.code === ERROR_CODES.RATE_LIMIT
+          ? Math.min((err.retryAfter ?? 5) * 1000, 10_000)
+          : 400 * 2 ** forsok;
+      await sleep(vent);
     } finally {
       clearTimeout(timer);
     }
@@ -271,6 +297,9 @@ export const backend = {
     call(ROUTES.telegram!, { method: "PUT", body: JSON.stringify(v) }, { retries: 0 }),
   testTelegram: (tekst: string, chatId?: number) =>
     call(ROUTES.telegramTest!, { method: "POST", body: JSON.stringify({ tekst, chatId }) }, { retries: 0 }),
+
+  hentBackuper: () => call<{ kopier: BackupFile[] }>(ROUTES.backup!).then((r) => r.kopier),
+  taBackup: () => call<{ ok: boolean; navn: string }>(ROUTES.backup!, { method: "POST" }, { timeoutMs: 30_000, retries: 0 }),
 
   samtaler: () => call<{ samtaler: ThreadSummary[] }>(ROUTES.threads!).then((r) => r.samtaler),
   lagreSamtale: (t: { id?: string; tittel: string; meldinger: unknown[] }) =>
