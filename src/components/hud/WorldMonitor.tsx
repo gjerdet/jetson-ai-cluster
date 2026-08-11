@@ -49,7 +49,7 @@ export function WorldMonitor({ config }: { config?: HudConfig }) {
   const devMatches = useMemo(() => {
     const q = devQuery.trim().toLowerCase();
     if (!q) return [];
-    return devices.filter((d) => `${d.name} ${d.baseTopic ?? ""} ${d.host ?? ""}`.toLowerCase().includes(q)).slice(0, 8);
+    return devices.filter((d) => `${d.name} ${d.topic ?? ""} ${d.host ?? ""}`.toLowerCase().includes(q)).slice(0, 8);
   }, [devices, devQuery]);
   const markers: MapMarker[] = useMemo(
     () =>
@@ -61,7 +61,7 @@ export function WorldMonitor({ config }: { config?: HudConfig }) {
               name: d.name,
               lat: d.lat as number,
               lon: d.lon as number,
-              detail: `${DEVICE_KIND_LABEL[d.kind]} · ${d.baseTopic ?? d.host ?? ""}`,
+              detail: `${DEVICE_KIND_LABEL[d.kind]} · ${d.topic ?? d.host ?? ""}`,
             }))
         : [],
     [devices, showDevices],
