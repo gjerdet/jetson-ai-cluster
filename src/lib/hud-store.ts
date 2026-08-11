@@ -211,6 +211,7 @@ export const defaultConfig: HudConfig = {
   integrations: [],
   memories: [],
   devices: [],
+  mqtt: defaultMqtt,
   plugins: [
     {
       id: "p-telegram",
