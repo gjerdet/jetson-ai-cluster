@@ -1,13 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { SendHorizonal, Loader2, Radar } from "lucide-react";
 import { callNode, type ChatMsg } from "@/lib/hud-client";
-import { systemPrompt, type HudConfig } from "@/lib/hud-store";
+import { newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
 import { briefingText, refreshFeed, snapshot } from "@/lib/world-feed";
 
 const BRIEF_TRIGGERS =
   /(topp\s*10|top\s*10|nyhet|hendels|world ?monitor|situasjonsbilde|verden|defcon|pizza|hva skjer|brief)/i;
 
-export function ChatPanel({ config }: { config: HudConfig }) {
+const REMEMBER = /^\s*(husk|remember)[:\s]+(.+)$/is;
+
+export function ChatPanel({
+  config,
+  update,
+}: {
+  config: HudConfig;
+  update?: (c: HudConfig) => void;
+}) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,6 +33,20 @@ export function ChatPanel({ config }: { config: HudConfig }) {
   const send = async (override?: string) => {
     const text = (override ?? input).trim();
     if (!text || busy) return;
+
+    const rem = REMEMBER.exec(text);
+    if (rem && update) {
+      const fact = (rem[2] ?? "").trim();
+      update({ ...config, memories: [...(config.memories ?? []), newMemory(fact)] });
+      setMessages((m) => [
+        ...m,
+        { role: "user", content: text },
+        { role: "assistant", content: `Lagret i minnet: «${fact}»`, node: "MINNE" },
+      ]);
+      setInput("");
+      return;
+    }
+
     if (!primary) {
       setError("Ingen aktiv node. Åpne NODER og aktiver minst én.");
       return;
