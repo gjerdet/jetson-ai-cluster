@@ -205,12 +205,37 @@
 }
 
 .hud-panel {
-  background: color-mix(in oklab, var(--background) var(--hud-opacity, 30%), transparent);
-  backdrop-filter: blur(18px) saturate(130%);
-  border: 1px solid oklch(0.78 0.13 200 / 0.28);
+  background: color-mix(in oklab, var(--background) var(--hud-opacity, 14%), transparent);
+  backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid oklch(0.78 0.13 200 / 0.3);
   box-shadow:
     0 0 0 1px oklch(0.78 0.13 200 / 0.06),
-    0 24px 70px -24px oklch(0.78 0.13 200 / 0.4);
+    0 24px 70px -24px oklch(0.78 0.13 200 / 0.45);
+}
+
+/* ---- Sentermeny / kjerne ---- */
+.hud-core {
+  box-shadow:
+    0 0 30px -6px oklch(0.78 0.13 200 / 0.6),
+    inset 0 0 24px -6px oklch(0.78 0.13 200 / 0.7);
+}
+.hud-core-glow {
+  position: absolute;
+  inset: -18%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, oklch(0.78 0.13 200 / 0.35), transparent 70%);
+  animation: hud-core-pulse 3.2s ease-in-out infinite;
+}
+@keyframes hud-core-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
 }
 
 /* ---- Levende bakgrunn ---- */
@@ -218,8 +243,9 @@
   position: absolute;
   border-radius: 50%;
   filter: blur(70px);
-  opacity: 0.4;
+  opacity: 0.75;
 }
+
 .hud-aurora-1 {
   width: 46vw;
   height: 46vw;
