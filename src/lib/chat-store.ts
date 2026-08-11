@@ -33,3 +33,34 @@ export function clearChat() {
     /* ignore */
   }
 }
+
+// ---- Delt historikk via den lokale backend-en (agenten på Jetson) ----------
+// Når du er logget inn mot backend-en lagres samtalen der også, slik at den
+// er den samme på alle maskiner og i Telegram-boten. Lokal lagring beholdes
+// som reserve når agenten er nede.
+
+const THREAD_ID = "hud-main";
+
+/** Henter samtalen fra backend-en. Returnerer null når agenten ikke svarer. */
+export async function loadChatRemote(): Promise<ChatMsg[] | null> {
+  const { backend, backendToken, safe } = await import("./backend");
+  if (!backendToken()) return null;
+  const r = await safe(() => backend.hentSamtale(THREAD_ID));
+  if (r.error || !r.data) return null;
+  const msgs = r.data.samtale?.meldinger;
+  return Array.isArray(msgs) ? (msgs as ChatMsg[]).slice(-MAX) : [];
+}
+
+/** Lagrer samtalen i backend-en. Feiler stille når agenten er utilgjengelig. */
+export async function saveChatRemote(messages: ChatMsg[]): Promise<boolean> {
+  const { backend, backendToken, safe } = await import("./backend");
+  if (!backendToken()) return false;
+  const r = await safe(() =>
+    backend.lagreSamtale({
+      id: THREAD_ID,
+      tittel: "HUD-samtale",
+      meldinger: messages.slice(-MAX),
+    }),
+  );
+  return !r.error;
+}
