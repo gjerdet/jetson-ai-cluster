@@ -221,6 +221,8 @@ export function ReactorCore({ active }: { active: boolean }) {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", onMouse);
+
     };
   }, []);
 
