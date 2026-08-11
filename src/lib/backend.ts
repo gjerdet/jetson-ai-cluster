@@ -32,6 +32,7 @@ import {
   type TelegramConfig,
   type ThreadSummary,
   type AiChatReply,
+  type PoolStatus,
 } from "@/lib/contract";
 
 export type {
@@ -56,6 +57,7 @@ export type {
   TelegramConfig,
   ThreadSummary,
   AiChatReply,
+  PoolStatus,
 };
 
 const LS_URL = "jarvis.backend.url";
@@ -280,7 +282,13 @@ export const backend = {
 
   hentAi: () => call<AiConfig>(ROUTES.ai!),
   /** Lar backend-en (agenten) snakke med AI-noden – samme vei som Telegram-boten. */
-  aiChat: (meldinger: { role: string; content: string }[], o: { baseUrl?: string; model?: string } = {}) =>
+  /** Helsen til AI-poolen slik backend-en ser den (lastbalansering). */
+  aiPool: (oppgave = "chat") =>
+    call<PoolStatus>(`${ROUTES.aiPool}?oppgave=${encodeURIComponent(oppgave)}`, {}, { timeoutMs: 10_000 }),
+  aiChat: (
+    meldinger: { role: string; content: string }[],
+    o: { baseUrl?: string; model?: string; nodeId?: string; oppgave?: string } = {},
+  ) =>
     call<AiChatReply>(
       ROUTES.aiChat!,
       { method: "POST", body: JSON.stringify({ meldinger, ...o }) },
