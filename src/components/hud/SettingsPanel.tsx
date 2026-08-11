@@ -14,7 +14,10 @@ import {
   HardDrive,
   Scale,
   Terminal,
+  Database,
 } from "lucide-react";
+import { BackendPanel } from "@/components/hud/BackendPanel";
+
 import {
   agentCfg,
   agentHealth,
