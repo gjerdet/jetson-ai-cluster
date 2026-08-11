@@ -177,11 +177,20 @@ Tilgjengelige verktøy:
 - verktoy_liste {} – dine egendefinerte verktøy.
 - verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
 - verktoy_slett {"navn": "hent_vaer"} – slett et verktøy du har laget.
+- agent_status {} – status for lokal agent på Jetson (OS, last, minne, sandkasse, hviteliste).
+- os_kjor {"kommando": "df", "args": ["-h"]} – kjør hvitelistet OS-kommando via lokal agent.
+- skript_lag {"navn": "test.py", "innhold": "..."} – lagre skript i sandkassen.
+- skript_kjor {"navn": "test.py", "sprak": "python", "args": []} – kjør skript i sandkassen.
+- skript_test {"sprak": "python", "innhold": "..."} – skriv og kjør skript i ett steg.
+- skript_liste {} eller {"navn": "test.py"} – list eller les skript i sandkassen.
+- skript_slett {"navn": "test.py"} – slett skript fra sandkassen.
 
 Regler: kall bare verktøy når du faktisk trenger dataene. Du får resultatet tilbake og skal
 deretter svare brukeren på norsk bokmål. Ikke finn på verdier du ikke har hentet.
-Du har ikke tilgang til operativsystemet, filsystemet eller shell – bare verktøyene over.
+OS-tilgang går kun gjennom den lokale agenten: kun hvitelistede kommandoer, og skript kjøres
+alltid i sandkassen med tidsgrense. Test alltid nye skript med skript_test før du foreslår dem.
 Lag nye verktøy kun når brukeren ber om det, og fortell alltid hva du laget.`;
+
 
 /** Prompt-tillegg som beskriver de egendefinerte verktøyene som er slått på. */
 export function customToolPrompt(config: HudConfig): string {
