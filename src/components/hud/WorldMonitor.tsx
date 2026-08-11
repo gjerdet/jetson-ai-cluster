@@ -186,7 +186,7 @@ export function WorldMonitor() {
 
       <WorldMap events={shown} dayNight={dayNight} />
 
-      <div className="min-h-0 flex-1 overflow-auto pr-1">
+      <div className="min-h-0 flex-1 overflow-auto pr-1" style={{ minHeight: 120 }}>
         {showTop ? (
           <ol className="space-y-1">
             {top.map((e, i) => (
