@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { geoEquirectangular, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import type { FeatureCollection, Geometry } from "geojson";
-import { Minus, Plus, Maximize } from "lucide-react";
+import { Minus, Plus, Maximize, Expand, Shrink } from "lucide-react";
 import { LAYER_COLOR, type WorldEvent } from "@/lib/world-events";
 
 const W = 720;
 const H = 360;
 const MIN_Z = 1;
-const MAX_Z = 12;
+const MAX_Z = 24;
 
 let cache: FeatureCollection<Geometry> | null = null;
 
