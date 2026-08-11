@@ -131,6 +131,9 @@ export function WorldMap({
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  const activeLayers = useMemo(() => new Set(events.map((e) => e.layer)), [events]);
+
+
   const { path, projection } = useMemo(() => {
     const p = geoEquirectangular().fitSize([W, H], { type: "Sphere" });
     return { path: geoPath(p), projection: p };
