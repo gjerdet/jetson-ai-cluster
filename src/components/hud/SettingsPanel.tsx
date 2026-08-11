@@ -13,7 +13,16 @@ import {
   Pin,
   HardDrive,
   Scale,
+  Terminal,
 } from "lucide-react";
+import {
+  agentCfg,
+  agentHealth,
+  agentScripts,
+  agentDeleteScript,
+  type ScriptFile,
+} from "@/lib/local-agent";
+
 import {
   defaultConfig,
   defaultEvaluator,
