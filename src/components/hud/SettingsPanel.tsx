@@ -42,6 +42,7 @@ import { EspWizard } from "./EspWizard";
 type Tab =
   | "system"
   | "modeller"
+  | "agenter"
   | "evaluator"
   | "enheter"
   | "minne"
@@ -52,6 +53,7 @@ type Tab =
 const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "system", label: "SYSTEM", icon: Sliders },
   { id: "modeller", label: "MODELLER", icon: Cpu },
+  { id: "agenter", label: "AGENTER", icon: Bot },
   { id: "evaluator", label: "EVALUATOR", icon: Scale },
   { id: "enheter", label: "ENHETER", icon: HardDrive },
   { id: "minne", label: "MINNE", icon: Brain },
