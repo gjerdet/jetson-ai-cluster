@@ -11,6 +11,7 @@ export type ErrorCode =
   | "not_found"
   | "validation"
   | "unavailable"
+  | "rate_limit"
   | "network"
   | "timeout"
   | "tls"
@@ -48,6 +49,7 @@ export const ERROR_CODES: {
   NOT_FOUND: ErrorCode;
   VALIDATION: ErrorCode;
   UNAVAILABLE: ErrorCode;
+  RATE_LIMIT: ErrorCode;
   NETWORK: ErrorCode;
   TIMEOUT: ErrorCode;
   TLS: ErrorCode;
@@ -157,6 +159,12 @@ export interface RulesStatus {
   aktive: number;
   sisteHendelser: RuleEvent[];
   kjenteEmner?: number;
+}
+
+export interface BackupFile {
+  navn: string;
+  bytes: number;
+  tid: string;
 }
 
 export interface BackendStatus {
