@@ -141,7 +141,7 @@ async function call<T>(
         }
       }
       if (!res.ok) {
-        const err = new BackendError(codeFromStatus(res.status), String(data.error ?? ""), res.status);
+        const err = new BackendError(codeFromStatus(res.status), String(data["error"] ?? ""), res.status);
         if (err.code === ERROR_CODES.UNAUTHORIZED) setBackendToken(null);
         throw err;
       }
