@@ -65,6 +65,17 @@ export function ReactorCore({ active }: { active: boolean }) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
+    // musesporing (-1..1 relativt til vindussenter)
+    const mouse = { x: 0, y: 0 };
+    const ease = { x: 0, y: 0 };
+    const onMouse = (e: PointerEvent) => {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
+    };
+    if (!reduce) window.addEventListener("pointermove", onMouse);
+
+
+
     const project = (n: { x: number; y: number; z: number }, ca: number, sa: number, cb: number, sb: number, cx: number, cy: number, R: number) => {
       const x = n.x * ca - n.z * sa;
       let z = n.x * sa + n.z * ca;
@@ -77,17 +88,23 @@ export function ReactorCore({ active }: { active: boolean }) {
 
     const draw = () => {
       t += reduce ? 0 : 0.0035;
-      const cx = w / 2;
-      const cy = h / 2;
-      const R = Math.min(w, h) * 0.42;
+      // myk interpolering mot musepeker
+      ease.x += (mouse.x - ease.x) * 0.05;
+      ease.y += (mouse.y - ease.y) * 0.05;
+      const cx = w / 2 + ease.x * 26;
+      const cy = h / 2 + ease.y * 18;
+      const R = Math.min(w, h) * 0.42 * (1 + Math.sin(t * 2.2) * 0.012);
       ctx.clearRect(0, 0, w, h);
       ctx.globalCompositeOperation = "lighter";
 
-      const ca = Math.cos(t);
-      const sa = Math.sin(t);
-      const cb = Math.cos(t * 0.45);
-      const sb = Math.sin(t * 0.45);
+      const ta = t + ease.x * 0.5;
+      const tb = t * 0.45 + ease.y * 0.4;
+      const ca = Math.cos(ta);
+      const sa = Math.sin(ta);
+      const cb = Math.cos(tb);
+      const sb = Math.sin(tb);
       const boost = activeRef.current ? 1 : 0.65;
+
 
       // skannering som glir opp og ned gjennom sfæren
       const scanY = Math.sin(t * 1.6) * 0.9;
@@ -204,6 +221,8 @@ export function ReactorCore({ active }: { active: boolean }) {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", onMouse);
+
     };
   }, []);
 

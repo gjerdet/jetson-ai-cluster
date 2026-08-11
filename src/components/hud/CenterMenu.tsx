@@ -53,9 +53,10 @@ export function CenterMenu({
                   : "translate(-50%, -50%) scale(0.4)",
                 transitionDelay: `${i * 45}ms`,
               }}
-              className={`hud-title hud-btn hud-btn-hoverable absolute left-1/2 top-1/2 flex size-20 flex-col items-center justify-center gap-1 text-[8px] transition-all duration-300 ${
+              className={`hud-title absolute left-1/2 top-1/2 flex size-20 flex-col items-center justify-center gap-1 rounded-full border border-primary/15 bg-transparent text-[8px] transition-all duration-300 hover:border-primary/35 hover:text-primary/90 ${
                 open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-              } ${active.includes(it.id) ? "hud-btn-on" : ""}`}
+              } ${active.includes(it.id) ? "border-primary/35 text-primary/90" : "text-muted-foreground/70"}`}
+
 
             >
               <it.icon className="size-4" />
