@@ -26,6 +26,7 @@ import {
 } from "./auth.mjs";
 import { evaluate, listRules, logDoc, saveRules, rulesStatus } from "./rules.mjs";
 import { notifyAll, saveTelegram, sendMessage, telegramCfg } from "./telegram.mjs";
+import { validateCredentials } from "./contract.mjs";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -77,6 +78,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
       oppetidSek: Math.round(process.uptime()),
       brukere: userCount(),
       trengerOppsett: userCount() === 0,
+      tls: deps.tls === true,
       mqtt: deps.mqttStatus?.() ?? { tilkoblet: false },
       regler: rulesStatus(),
       emner: latest.size,
@@ -99,8 +101,9 @@ export async function handleApi(req, res, route, url, deps = {}) {
       return json(res, 403, { error: "Kun admin kan opprette nye brukere." });
     try {
       const b = await readBody(req);
-      const user = createUser({ email: b.epost ?? b.email, password: b.passord ?? b.password, role: b.rolle });
-      return json(res, 200, first ? login(user.email, b.passord ?? b.password) : { user });
+      const cred = validateCredentials(b.epost ?? b.email, b.passord ?? b.password);
+      const user = createUser({ email: cred.email, password: cred.password, role: b.rolle });
+      return json(res, 200, first ? login(cred.email, cred.password) : { user });
     } catch (e) {
       return json(res, 400, { error: String(e?.message || e) });
     }

@@ -236,3 +236,54 @@ og trykk «test tilkobling». Da får Jarvis verktøyene `agent_status`, `os_kjo
 
 Kun hvitelistede kommandoer kjøres, skript kjøres i mappen `agent/sandbox` med tidsgrense, og
 «bekreft kjøring» spør deg før hver kjøring. Full dokumentasjon: `agent/README.md`.
+
+## Deploy: Docker eller systemd
+
+### Alternativ A – Docker (enklest)
+
+```bash
+cd agent
+cp agent.env.example .env          # sett AGENT_TOKEN
+docker compose up -d --build
+docker compose logs -f
+```
+
+Data ligger i volumet `jarvis-data`. `network_mode: host` gjør at agenten når
+MQTT-megler og ESP32-enheter på LAN-et.
+
+### Alternativ B – systemd (kjører direkte på Jetson)
+
+```bash
+sudo useradd -r -s /usr/sbin/nologin jarvis || true
+sudo mkdir -p /opt/jarvis /var/lib/jarvis /etc/jarvis
+sudo cp -r agent /opt/jarvis/
+sudo cp agent/agent.env.example /etc/jarvis/agent.env
+sudo chmod 600 /etc/jarvis/agent.env      # sett AGENT_TOKEN her
+sudo chown -R jarvis:jarvis /opt/jarvis /var/lib/jarvis
+
+sudo cp agent/jarvis-agent.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now jarvis-agent
+journalctl -u jarvis-agent -f
+```
+
+## HTTPS/TLS
+
+HUD-en kjører på HTTPS, og nettlesere blokkerer kall fra HTTPS til HTTP.
+Slå derfor på TLS på agenten:
+
+```bash
+cd agent
+./scripts/make-cert.sh 192.168.1.50 jetson.local   # bytt til din IP
+```
+
+Sett så i `/etc/jarvis/agent.env` (eller docker-compose):
+
+```
+AGENT_TLS_CERT=/var/lib/jarvis/certs/agent.crt
+AGENT_TLS_KEY=/var/lib/jarvis/certs/agent.key
+```
+
+Start på nytt, åpne `https://<jetson-ip>:8787/api/status` én gang i nettleseren
+og godta det selvsignerte sertifikatet. Deretter setter du samme adresse i
+**SYSTEM → BACKEND**. `tls: true` i statusen bekrefter at det er kryptert.

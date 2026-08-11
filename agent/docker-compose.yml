@@ -1,0 +1,25 @@
+services:
+  jarvis-agent:
+    build: .
+    container_name: jarvis-agent
+    restart: unless-stopped
+    network_mode: host # trengs for MQTT/ESP32-oppdagelse på LAN
+    environment:
+      AGENT_PORT: "8787"
+      AGENT_TOKEN: "${AGENT_TOKEN:?Sett AGENT_TOKEN i .env}"
+      AGENT_DATA: /data
+      AGENT_SANDBOX: /data/sandbox
+      # HTTPS: kommenter inn når sertifikatene ligger i ./certs
+      # AGENT_TLS_CERT: /certs/agent.crt
+      # AGENT_TLS_KEY: /certs/agent.key
+    volumes:
+      - jarvis-data:/data
+      - ./certs:/certs:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  jarvis-data:

@@ -1,0 +1,32 @@
+[Unit]
+Description=Jarvis lokal agent og backend
+Documentation=file:///opt/jarvis/agent/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jarvis
+Group=jarvis
+WorkingDirectory=/opt/jarvis/agent
+EnvironmentFile=/etc/jarvis/agent.env
+ExecStart=/usr/bin/node /opt/jarvis/agent/server.mjs
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jarvis-agent
+
+# Herding – agenten skal bare nå sine egne mapper
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/jarvis
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

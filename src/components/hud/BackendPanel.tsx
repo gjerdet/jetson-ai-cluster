@@ -353,7 +353,11 @@ function TelegramSection() {
               enabled: cfg.enabled,
               token: cfg.token,
               allowlist: cfg.allowlist,
-              chatIds: cfg.chatIds.split(",").map((s) => s.trim()).filter(Boolean),
+              chatIds: cfg.chatIds
+                .split(",")
+                .map((s) => Number(s.trim()))
+                .filter((n) => Number.isFinite(n) && n !== 0),
+
             });
             setMelding("Lagret.");
           }}
