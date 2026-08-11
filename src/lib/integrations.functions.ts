@@ -27,15 +27,12 @@ export const fetchIntegration = createServerFn({ method: "POST" })
     try {
       const res = await fetch(url, { headers, signal: AbortSignal.timeout(12000) });
       const text = await res.text();
-      if (!res.ok) return { ok: false as const, error: `HTTP ${res.status}: ${text.slice(0, 300)}` };
-      try {
-        return { ok: true as const, data: JSON.parse(text) as unknown };
-      } catch {
-        return { ok: true as const, data: text.slice(0, 4000) as unknown };
-      }
+      if (!res.ok) return { ok: false as const, body: "", error: `HTTP ${res.status}: ${text.slice(0, 300)}` };
+        return { ok: true as const, body: text.slice(0, 20000), error: "" };
     } catch (err) {
       return {
         ok: false as const,
+        body: "",
         error: err instanceof Error ? err.message : "Ukjent nettverksfeil",
       };
     }
