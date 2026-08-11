@@ -34,15 +34,33 @@ export async function medFallback<T>(hent: () => Promise<T>, lokal: () => T): Pr
 
 // ---- regler: AlertRule (HUD) <-> BackendRule (agent) ----
 
-const OPERATOR: Record<AlertRule["kind"], BackendRule["operator"]> = {
-  above: ">",
-  below: "<",
-  equals: "==",
-  stale: "stale",
-};
-const KIND: Record<string, AlertRule["kind"]> = { ">": "above", "<": "below", "==": "equals", stale: "stale" };
+type AgentAction = BackendRule["handlinger"][number];
 
-const tilBackendHandling = (a: RuleAction): RuleAction & { type?: string } => a;
+const OPERATOR: Record<AlertRule["kind"], BackendRule["operator"]> = {
+  above: "over",
+  below: "under",
+  equals: "lik",
+  stale: "endres",
+};
+const KIND: Record<string, AlertRule["kind"]> = {
+  over: "above",
+  under: "below",
+  lik: "equals",
+  endres: "stale",
+};
+
+const tilAgentHandling = (a: RuleAction): AgentAction => {
+  if (a.kind === "mqtt") return { type: "mqtt", emne: a.topic, payload: a.payload };
+  if (a.kind === "telegram") return { type: "telegram", tekst: a.text };
+  return { type: "logg", tekst: a.text };
+};
+
+const fraAgentHandling = (a: AgentAction, i: number): RuleAction => {
+  const id = `a-${i}-${Math.random().toString(36).slice(2, 6)}`;
+  if (a.type === "mqtt") return { id, kind: "mqtt", topic: a.emne ?? "", payload: a.payload ?? "" };
+  if (a.type === "telegram") return { id, kind: "telegram", text: a.tekst ?? "" };
+  return { id, kind: "notify", text: a.tekst ?? "" };
+};
 
 export function tilBackendRegel(r: AlertRule): BackendRule {
   return {
@@ -50,10 +68,10 @@ export function tilBackendRegel(r: AlertRule): BackendRule {
     navn: r.name,
     aktiv: r.enabled,
     emne: r.topic,
-    operator: OPERATOR[r.kind] ?? ">",
+    operator: OPERATOR[r.kind] ?? "over",
     verdi: r.kind === "stale" ? (r.minutes ?? 15) : r.value,
     pauseSek: Math.round((r.cooldownMin ?? 10) * 60),
-    handlinger: (r.actions ?? []).map(tilBackendHandling) as BackendRule["handlinger"],
+    handlinger: (r.actions ?? []).map(tilAgentHandling),
   };
 }
 
@@ -68,9 +86,10 @@ export function fraBackendRegel(r: BackendRule): AlertRule {
     ...(kind === "stale" ? { minutes: Number(r.verdi) || 15 } : {}),
     cooldownMin: Math.max(1, Math.round((r.pauseSek ?? 600) / 60)),
     enabled: r.aktiv,
-    actions: (r.handlinger ?? []) as AlertRule["actions"],
+    actions: (r.handlinger ?? []).map(fraAgentHandling),
   };
 }
+
 
 /** Hent regler fra backend-en (regelmotoren som kjører 24/7), ellers lokale. */
 export const hentRegler = (lokale: AlertRule[]) =>
