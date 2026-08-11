@@ -4,20 +4,29 @@
 
 const NØKKEL = "jarvis.voice";
 
+export type VoiceEngine = "browser" | "piper";
+
 export type VoiceConfig = {
   på: boolean;
+  engine: VoiceEngine;
   rate: number; // 0.5 – 2
   pitch: number; // 0 – 2
   volume: number; // 0 – 1
-  voiceURI?: string; // overstyr automatisk valg
+  voiceURI?: string; // overstyr automatisk valg (nettleser)
+  piperUrl?: string; // f.eks. http://jetson.local:5000/api/tts
+  piperVoice?: string; // modellnavn, f.eks. en_GB-alan-medium
 };
 
 export const STANDARD_VOICE: VoiceConfig = {
   på: false,
+  engine: "browser",
   rate: 0.94,
   pitch: 0.82,
   volume: 1,
+  piperUrl: "http://localhost:5000/api/tts",
+  piperVoice: "en_GB-alan-medium",
 };
+
 
 export function loadVoiceConfig(): VoiceConfig {
   if (typeof localStorage === "undefined") return STANDARD_VOICE;
