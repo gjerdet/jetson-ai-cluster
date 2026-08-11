@@ -90,6 +90,14 @@ export const INTEGRATION_PRESETS: {
   },
 ];
 
+export type MemoryItem = {
+  id: string;
+  text: string;
+  tag: string;
+  pinned: boolean;
+  created: string;
+};
+
 export type HudConfig = {
   nodes: ModelNode[];
   collaboration: boolean;
@@ -100,6 +108,7 @@ export type HudConfig = {
   talents: Talent[];
   plugins: Plugin[];
   integrations: Integration[];
+  memories: MemoryItem[];
 };
 
 const STORAGE_KEY = "hud.config.v1";
