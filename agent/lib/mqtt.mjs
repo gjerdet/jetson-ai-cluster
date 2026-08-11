@@ -35,29 +35,87 @@ export class MqttClient extends EventEmitter {
     this.buffer = Buffer.alloc(0);
     this.packetId = 1;
     this.stopped = false;
-    this.retryMs = 2000;
+    this.retryMs = Number(opts.retryMs || 2000);
+    this.maxRetryMs = Number(opts.maxRetryMs || 60_000);
+    this.attempts = 0;
+    this.lastSeen = 0;
+    this.topics = [];
+  }
+
+  /** Ventetid før nytt forsøk: eksponentiell backoff med litt slingring. */
+  #backoff() {
+    const base = Math.min(this.retryMs * 2 ** Math.min(this.attempts, 6), this.maxRetryMs);
+    return Math.round(base * (0.7 + Math.random() * 0.6));
+  }
+
+  #scheduleReconnect() {
+    if (this.stopped || this.reconnectTimer) return;
+    const wait = this.#backoff();
+    this.attempts++;
+    this.emit("reconnect", { forsok: this.attempts, ventMs: wait });
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect();
+    }, wait);
+    this.reconnectTimer.unref?.();
   }
 
   connect() {
     this.stopped = false;
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
     const { host = "127.0.0.1", port = 1883 } = this.opts;
-    this.socket = net.connect({ host, port }, () => this.#sendConnect());
-    this.socket.on("data", (d) => this.#onData(d));
-    this.socket.on("error", (e) => this.emit("error", e));
-    this.socket.on("close", () => {
+
+    let settled = false;
+    const fail = (e) => {
+      if (settled) return;
+      settled = true;
       this.connected = false;
       clearInterval(this.pingTimer);
+      clearInterval(this.watchdog);
+      try {
+        this.socket?.destroy();
+      } catch {
+        /* ignorer */
+      }
+      if (e) this.emit("error", e);
       this.emit("close");
-      if (!this.stopped) setTimeout(() => this.connect(), this.retryMs);
+      this.#scheduleReconnect();
+    };
+
+    try {
+      this.socket = net.connect({ host, port }, () => this.#sendConnect());
+    } catch (e) {
+      fail(e);
+      return this;
+    }
+    this.socket.setNoDelay(true);
+    // Rekker vi ikke CONNACK på 10 s, regner vi forsøket som mislykket.
+    this.socket.setTimeout(10_000, () => {
+      if (!this.connected) fail(new Error("Tidsavbrudd mot MQTT-megler"));
     });
+    this.socket.on("data", (d) => {
+      this.lastSeen = Date.now();
+      this.#onData(d);
+    });
+    this.socket.on("error", (e) => fail(e));
+    this.socket.on("close", () => fail(null));
     return this;
   }
 
   stop() {
     this.stopped = true;
     clearInterval(this.pingTimer);
+    clearInterval(this.watchdog);
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
     this.socket?.destroy();
     this.connected = false;
+  }
+
+  /** Status for helsesjekk i API-et. */
+  state() {
+    return { tilkoblet: this.connected, forsok: this.attempts, sistSett: this.lastSeen };
   }
 
   #sendConnect() {
@@ -81,6 +139,7 @@ export class MqttClient extends EventEmitter {
 
   subscribe(topics) {
     const list = Array.isArray(topics) ? topics : [topics];
+    this.topics = list;
     const id = Buffer.alloc(2);
     id.writeUInt16BE(this.packetId++ & 0xffff);
     const payload = Buffer.concat([id, ...list.map((t) => Buffer.concat([encodeString(t), Buffer.from([0])]))]);
@@ -117,11 +176,30 @@ export class MqttClient extends EventEmitter {
   #handle(type, body) {
     if (type === 2) {
       this.connected = true;
+      this.attempts = 0;
+      this.lastSeen = Date.now();
+      this.socket.setTimeout(0);
       this.emit("connect");
       clearInterval(this.pingTimer);
+      clearInterval(this.watchdog);
       this.pingTimer = setInterval(() => {
-        if (this.connected) this.socket.write(Buffer.from([0xc0, 0x00]));
+        if (this.connected) {
+          try {
+            this.socket.write(Buffer.from([0xc0, 0x00]));
+          } catch {
+            /* håndteres av watchdog */
+          }
+        }
       }, 30_000);
+      this.pingTimer.unref?.();
+      // Hører vi ingenting på 90 s, er linja død – tving ny tilkobling.
+      this.watchdog = setInterval(() => {
+        if (this.connected && Date.now() - this.lastSeen > 90_000) {
+          this.emit("error", new Error("Ingen svar fra megler på 90 s – kobler til på nytt"));
+          this.socket.destroy();
+        }
+      }, 15_000);
+      this.watchdog.unref?.();
       return;
     }
     if (type === 3) {
