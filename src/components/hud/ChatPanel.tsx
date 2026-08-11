@@ -151,19 +151,32 @@ export function ChatPanel({
       const runs: ToolRun[] = [];
 
       // verktøykall-loop: modellen kan hente ekte data før den svarer
+      const direkte = (round: number) =>
+        config.loadBalance !== false
+          ? callBalanced(active, thread, { prefer: primary, duty: round === 0 ? "chat" : "verktoy" })
+          : callTracked(primary, thread).then((text) => ({ text, node: primary }));
+
       for (let round = 0; round < 4; round++) {
         // via backend-en (agenten) når det er valgt og du er innlogget – ellers rett til noden
         const viaBackend = config.chatViaBackend === true && !!backendToken();
         const call = viaBackend
           ? await (async () => {
-              const r = await backend.aiChat(
-                thread.map((m) => ({ role: m.role, content: m.content })),
-              );
-              return { text: r.svar, node: { ...primary, name: `BACKEND · ${r.model}` } };
+              try {
+                const r = await backend.aiChat(
+                  thread.map((m) => ({ role: m.role, content: m.content })),
+                );
+                // alle svar via backend merkes tydelig med BACKEND-prefiks
+                return { text: r.svar, node: { ...primary, name: `BACKEND · ${r.model || primary.model}` } };
+              } catch (e) {
+                // reserve: går rett til noden hvis backend-ruten feiler
+                const feil = e instanceof Error ? e.message : "ukjent feil";
+                logSelfEvent("warn", `Backend-chat feilet (${feil}) – falt tilbake til direkte node`);
+                const d = await direkte(round);
+                return { text: d.text, node: { ...d.node, name: `${d.node.name} · BACKEND NEDE` } };
+              }
             })()
-          : config.loadBalance !== false
-            ? await callBalanced(active, thread, { prefer: primary, duty: round === 0 ? "chat" : "verktoy" })
-            : { text: await callTracked(primary, thread), node: primary };
+          : await direkte(round);
+
         const raw = call.text;
         answeredBy = call.node.name;
         const calls = parseToolCalls(raw, customToolNames(config));
