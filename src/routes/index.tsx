@@ -108,7 +108,7 @@ function Index() {
               onFocus={() => focus(id)}
               onClose={() => toggle(id)}
             >
-              {id === "chat" ? <ChatPanel config={config} /> : null}
+              {id === "chat" ? <ChatPanel config={config} update={update} /> : null}
               {id === "nodes" ? <NodesPanel config={config} update={update} /> : null}
               {id === "world" ? <WorldMonitor /> : null}
               {id === "settings" ? <SettingsPanel config={config} update={update} /> : null}
