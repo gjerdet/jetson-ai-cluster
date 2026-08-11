@@ -367,9 +367,109 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
   return `Ukjent verktøy: ${call.name}`;
 }
 
+const LANGS = ["bash", "python", "node"] as const;
+type Lang = (typeof LANGS)[number];
+
+function langFor(raw: string, name: string): Lang {
+  const v = raw.toLowerCase();
+  if (v === "python" || v === "py") return "python";
+  if (v === "node" || v === "js" || v === "javascript") return "node";
+  if (v === "bash" || v === "sh") return "bash";
+  if (name.endsWith(".py")) return "python";
+  if (name.endsWith(".mjs") || name.endsWith(".js")) return "node";
+  return "bash";
+}
+
+function approve(cfg: ReturnType<typeof agentCfg>, what: string): boolean {
+  if (!cfg.confirm) return true;
+  if (typeof window === "undefined") return false;
+  return window.confirm(`Jarvis vil kjøre på Jetson:\n\n${what}\n\nGodkjenn?`);
+}
+
+/** Verktøy som går mot den lokale agent-tjenesten (OS-kommandoer og skript-sandkasse). */
+async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> {
+  const cfg = agentCfg(config);
+  if (!cfg.enabled || !cfg.baseUrl)
+    return "Lokal agent er ikke aktivert. Slå den på under SYSTEM → KOBLINGER → LOKAL AGENT (agent/server.mjs må kjøre på Jetson).";
+
+  try {
+    if (call.name === "agent_status") {
+      const h = await agentHealth(cfg);
+      return [
+        `Agent: ${h.host ?? "?"} · ${h.platform ?? "?"}`,
+        `Oppetid ${Math.round((h.uptimeSec ?? 0) / 3600)} t · last ${(h.loadavg ?? []).join(" / ")}`,
+        `Minne ${h.memFreeMb ?? "?"} / ${h.memTotalMb ?? "?"} MB fritt`,
+        `Sandkasse: ${h.sandbox ?? "?"} · nettverk ${h.network ? "på" : "av"}`,
+        `Hvitelistede kommandoer: ${(h.allowed ?? []).join(", ")}`,
+      ].join("\n");
+    }
+
+    if (call.name === "os_kjor") {
+      const cmd = str(call.args["kommando"] ?? call.args["cmd"]).trim();
+      if (!cmd) return "Mangler kommando.";
+      const rawArgs = call.args["args"];
+      const args = Array.isArray(rawArgs) ? rawArgs.map(str) : str(rawArgs) ? str(rawArgs).split(" ") : [];
+      if (!approve(cfg, `${cmd} ${args.join(" ")}`)) return "Brukeren avslo kjøringen.";
+      return formatResult(await agentExec(cfg, cmd, args));
+    }
+
+    if (call.name === "skript_lag") {
+      const name = str(call.args["navn"] ?? call.args["name"]);
+      const content = str(call.args["innhold"] ?? call.args["content"]);
+      if (!name || !content) return "Mangler navn eller innhold.";
+      const r = await agentWriteScript(cfg, name, content);
+      return `Lagret ${r.name} (${r.bytes} tegn) i sandkassen. Kjør det med skript_kjor.`;
+    }
+
+    if (call.name === "skript_kjor" || call.name === "skript_test") {
+      const name = str(call.args["navn"] ?? call.args["name"]);
+      const content = str(call.args["innhold"] ?? call.args["content"]);
+      if (call.name === "skript_test" && !content) return "Mangler innhold å teste.";
+      if (call.name === "skript_kjor" && !name && !content) return "Mangler skriptnavn.";
+      const lang = langFor(str(call.args["sprak"] ?? call.args["lang"]), name);
+      const rawArgs = call.args["args"];
+      const args = Array.isArray(rawArgs) ? rawArgs.map(str) : [];
+      if (!approve(cfg, `${lang}-skript ${name || "(midlertidig)"} i sandkassen`))
+        return "Brukeren avslo kjøringen.";
+      const r = await agentRun(cfg, {
+        lang,
+        ...(name ? { name } : {}),
+        ...(content ? { content } : {}),
+        args,
+      });
+      return `Sandkasse (${lang}, ${r.script ?? "?"}):\n${formatResult(r)}`;
+    }
+
+    if (call.name === "skript_liste") {
+      const name = str(call.args["navn"] ?? call.args["name"]);
+      if (name) {
+        const f = await agentReadScript(cfg, name);
+        return `${f.name}:\n${f.content.slice(0, 4000)}`;
+      }
+      const list = await agentScripts(cfg);
+      if (!list.files.length) return `Sandkassen (${list.sandbox}) er tom.`;
+      return list.files
+        .map((f) => `${f.name} – ${f.bytes} B, endret ${new Date(f.modified).toLocaleString("nb-NO")}`)
+        .join("\n");
+    }
+
+    if (call.name === "skript_slett") {
+      const name = str(call.args["navn"] ?? call.args["name"]);
+      if (!name) return "Mangler navn.";
+      await agentDeleteScript(cfg, name);
+      return `Slettet ${name} fra sandkassen.`;
+    }
+
+    return `Ukjent agent-verktøy: ${call.name}`;
+  } catch (e) {
+    return `Lokal agent svarte ikke: ${e instanceof Error ? e.message : "ukjent feil"}`;
+  }
+}
+
 function fill(tpl: string, args: Record<string, unknown>): string {
   return tpl.replace(/\{(\w+)\}/g, (_, k: string) => str(args[k]));
 }
+
 
 async function runCustomTool(tool: CustomTool, args: Record<string, unknown>): Promise<string> {
   if (tool.kind === "prompt") {
