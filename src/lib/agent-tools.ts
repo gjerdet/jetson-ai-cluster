@@ -382,9 +382,15 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     return `Slettet verktøyet «${name}».`;
   }
 
-  if (call.name.startsWith("os_") || call.name.startsWith("skript_") || call.name === "agent_status") {
+  if (
+    call.name.startsWith("os_") ||
+    call.name.startsWith("skript_") ||
+    call.name.startsWith("mal_") ||
+    call.name === "agent_status"
+  ) {
     return runAgentTool(call, config);
   }
+
 
 
   const custom = (config.customTools ?? []).find((t) => t.enabled && t.name === call.name);
