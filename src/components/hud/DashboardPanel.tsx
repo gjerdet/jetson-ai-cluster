@@ -291,6 +291,7 @@ export function DashboardPanel({
                     </div>
                   </>
                 ) : (
+                  <>
                   <input
                     value={m.topic ?? ""}
                     onChange={(e) => patch(m.id, { topic: e.target.value })}
@@ -299,6 +300,7 @@ export function DashboardPanel({
                     list={`topics-${m.id}`}
                   />
                   <datalist id={`topics-${m.id}`}>{topicSuggestions.map((topic) => <option key={topic} value={topic} />)}</datalist>
+                  </>
                 )}
               </div>
             ) : null}
