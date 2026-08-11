@@ -673,6 +673,29 @@ export function SettingsPanel({
               ))}
             </div>
 
+            <div className="rounded border border-primary/25 bg-primary/[0.03] p-2">
+              <p className="hud-title mb-1 text-[9px] text-primary">Node som tar AI-oppgaver</p>
+              <select
+                value={config.aiNodeId ?? ""}
+                onChange={(e) => update({ ...config, aiNodeId: e.target.value })}
+                className="hud-input w-full text-[10px]"
+              >
+                <option value="">Automatisk (lastbalansering)</option>
+                {config.nodes.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.name} — {n.model}
+                    {n.enabled ? "" : " (av)"}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[9px] text-muted-foreground">
+                Velg f.eks. Hermes-noden her, så tar den chat- og verktøyoppgavene. De andre nodene
+                brukes som reserve hvis den ikke svarer.
+              </p>
+            </div>
+
+
+
             {config.nodes.map((n) => (
               <div key={n.id} className="rounded border border-primary/25 bg-primary/[0.03] p-2">
                 <div className="mb-1.5 flex items-center gap-2">

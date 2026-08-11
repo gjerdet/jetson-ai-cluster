@@ -351,6 +351,8 @@ export type HudConfig = {
   /** husk samtalen mellom omstart av nettleseren (lokalt) */
   keepHistory: boolean;
   evaluator: EvaluatorConfig;
+  /** node-ID som skal ta AI-oppgavene (f.eks. Hermes). Tomt = automatisk valg */
+  aiNodeId?: string;
   /** lokal agent-tjeneste på Jetson (OS-kommandoer + skript-sandkasse) */
   localAgent?: import("./local-agent").LocalAgentConfig;
 };
@@ -495,6 +497,7 @@ export type CloudProvider =
   | "openrouter"
   | "anthropic"
   | "nous"
+  | "hermes-agent"
   | "hermes-lokal"
   | "custom";
 
@@ -541,6 +544,13 @@ export const CLOUD_PROVIDER_PRESETS: {
     hint: "API-nøkkel fra portal.nousresearch.com. OpenAI-kompatibelt endepunkt – Hermes-modellene kan samarbeide med de lokale nodene.",
   },
   {
+    id: "hermes-agent",
+    name: "Hermes Agent",
+    baseUrl: "https://hermes-agent.nousresearch.com/v1",
+    model: "Hermes-4-70B",
+    hint: "Hermes-agenten. Bytt adressen til din egen Hermes-URL om du kjører den selv. Sett noden som AI-node for at den skal ta oppgavene.",
+  },
+  {
     id: "hermes-lokal",
     name: "Hermes på egen node",
     baseUrl: "http://192.168.1.61:11434/v1",
@@ -564,7 +574,10 @@ export function newCloudNode(provider: CloudProvider = "openai", role: ModelNode
     baseUrl: preset.baseUrl,
     model: preset.model,
     role,
-    duties: provider === "hermes-lokal" || provider === "nous" ? ["chat", "verktoy", "evaluator"] : ["chat", "verktoy"],
+    duties:
+      provider === "hermes-lokal" || provider === "nous" || provider === "hermes-agent"
+        ? ["chat", "verktoy", "evaluator"]
+        : ["chat", "verktoy"],
     weight: 1,
     enabled: true,
     apiKey: "",
