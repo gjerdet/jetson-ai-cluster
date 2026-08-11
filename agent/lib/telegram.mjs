@@ -4,25 +4,34 @@
  * Ingen npm-avhengigheter – bruker innebygd fetch (Node 18+).
  */
 import { doc, saveDoc, latest } from "./store.mjs";
+import { decryptSecret, encryptSecret } from "./secrets.mjs";
 
 const API = (token, method) => `https://api.telegram.org/bot${token}/${method}`;
 
+/** Rå konfigurasjon – token ligger kryptert på disk. */
 export const telegramCfg = () =>
   doc("telegram", { enabled: false, token: "", chatIds: [], allowlist: true, offset: 0 });
 
+/** Klartekst-token, kun til internt bruk (aldri ut av API-et). */
+export const telegramToken = () => decryptSecret(telegramCfg().token);
+
 export function saveTelegram(patch) {
-  const cfg = { ...telegramCfg(), ...patch };
+  const next = { ...patch };
+  if (typeof next.token === "string" && next.token) next.token = encryptSecret(next.token);
+  const cfg = { ...telegramCfg(), ...next };
   saveDoc("telegram", cfg);
   return cfg;
 }
 
 export async function sendMessage(chatId, text) {
-  const cfg = telegramCfg();
-  if (!cfg.token) throw new Error("Telegram-token mangler");
-  const res = await fetch(API(cfg.token, "sendMessage"), {
+  const token = telegramToken();
+  if (!token) throw new Error("Telegram-token mangler");
+  const id = Number(chatId);
+  if (!Number.isFinite(id)) throw new Error("Ugyldig chat-ID");
+  const res = await fetch(API(token, "sendMessage"), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text: String(text).slice(0, 4000) }),
+    body: JSON.stringify({ chat_id: id, text: String(text).slice(0, 4000) }),
   });
   const data = await res.json();
   if (!data.ok) throw new Error(data.description || "Telegram avviste meldingen");
@@ -48,6 +57,7 @@ export async function notifyAll(text) {
 /** Spør den lokale AI-noden om et svar (OpenAI-kompatibelt chat-endepunkt). */
 async function askJarvis(question) {
   const ai = doc("ai", { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1", apiKey: "", system: "" });
+  const aiKey = decryptSecret(ai.apiKey);
   const topics = [...latest.entries()]
     .slice(0, 40)
     .map(([t, v]) => `${t}=${v.value}`)
@@ -59,7 +69,7 @@ async function askJarvis(question) {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...(ai.apiKey ? { authorization: `Bearer ${ai.apiKey}` } : {}),
+      ...(aiKey ? { authorization: `Bearer ${aiKey}` } : {}),
     },
     body: JSON.stringify({
       model: ai.model,
@@ -88,7 +98,7 @@ export function startTelegram(deps = {}) {
         continue;
       }
       try {
-        const res = await fetch(API(cfg.token, "getUpdates"), {
+        const res = await fetch(API(telegramToken(), "getUpdates"), {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ offset: cfg.offset || 0, timeout: 25, allowed_updates: ["message"] }),
