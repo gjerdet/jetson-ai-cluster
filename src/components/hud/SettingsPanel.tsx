@@ -14,7 +14,10 @@ import {
   HardDrive,
   Scale,
   Terminal,
+  Database,
 } from "lucide-react";
+import { BackendPanel } from "@/components/hud/BackendPanel";
+
 import {
   agentCfg,
   agentHealth,
@@ -71,6 +74,7 @@ const ROLE_LABEL: Record<ModelNode["role"], string> = {
 
 type Tab =
   | "system"
+  | "backend"
   | "modeller"
   | "agenter"
   | "evaluator"
@@ -82,6 +86,7 @@ type Tab =
 
 const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "system", label: "SYSTEM", icon: Sliders },
+  { id: "backend", label: "BACKEND", icon: Database },
   { id: "modeller", label: "MODELLER", icon: Cpu },
   { id: "agenter", label: "AGENTER", icon: Bot },
   { id: "evaluator", label: "EVALUATOR", icon: Scale },
@@ -91,6 +96,7 @@ const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "koblinger", label: "KOBLINGER", icon: Network },
   { id: "plugins", label: "PLUGINS", icon: Puzzle },
 ];
+
 
 export function SettingsPanel({
   config,
@@ -150,6 +156,8 @@ export function SettingsPanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-auto pr-1">
+        {tab === "backend" ? <BackendPanel /> : null}
+
         {tab === "system" ? (
           <>
             <Field label="Kallesignal">
