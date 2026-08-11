@@ -26,7 +26,18 @@ import {
 } from "./auth.mjs";
 import { evaluate, listRules, logDoc, saveRules, rulesStatus } from "./rules.mjs";
 import { notifyAll, saveTelegram, sendMessage, telegramCfg } from "./telegram.mjs";
-import { validateCredentials } from "./contract.mjs";
+import {
+  API_VERSION,
+  SETTINGS_DEFAULTS,
+  SETTINGS_SCHEMA,
+  validateCredentials,
+  validateNode,
+  validateSettings,
+} from "./contract.mjs";
+
+/** Gjeldende innstillinger = standardverdier overstyrt av lagrede verdier. */
+const currentSettings = () => ({ ...SETTINGS_DEFAULTS, ...(doc("settings", {}) || {}) });
+
 import { corsBlocked, corsHeaders, rateLimit } from "./security.mjs";
 import { decryptSecret, encryptSecret, maskSecret } from "./secrets.mjs";
 import { listBackups, runBackup } from "./backup.mjs";
@@ -97,13 +108,13 @@ export async function handleApi(req, res, route, url, deps = {}) {
     return json(req, res, 200, {
       ok: true,
       backend: "jarvis-agent",
-      versjon: "2.0.0",
+      versjon: API_VERSION,
       vert: os.hostname(),
       oppetidSek: Math.round(process.uptime()),
       brukere: userCount(),
       trengerOppsett: userCount() === 0,
       tls: deps.tls === true,
-      mqtt: deps.mqttStatus?.() ?? { tilkoblet: false },
+      mqtt: deps.mqttHelse?.() ?? deps.mqttStatus?.() ?? { tilkoblet: false },
       regler: rulesStatus(),
       emner: latest.size,
     });
@@ -132,6 +143,34 @@ export async function handleApi(req, res, route, url, deps = {}) {
       return json(req, res, 400, { error: String(e?.message || e) });
     }
   }
+
+  /**
+   * Selvregistrering av en node i klyngen.
+   * Krever agent-tokenet (samme hemmelighet som OS-rutene) og at
+   * «Tillat at noder melder seg inn selv» er på i innstillingene.
+   */
+  if (path === "/noder/registrer" && method === "POST") {
+    const settings = currentSettings();
+    if (!settings.autoRegistrering)
+      return json(req, res, 403, { error: "Selvregistrering av noder er slått av." });
+    const oppgitt = String(req.headers["x-agent-token"] || "");
+    const forventet = String(process.env.AGENT_TOKEN || "");
+    if (!forventet || oppgitt !== forventet)
+      return json(req, res, 401, { error: "Ugyldig agent-token." });
+    try {
+      const b = await readBody(req);
+      const node = validateNode({ ...b, kilde: "auto", sistSett: Date.now() });
+      const db = doc("nodes", { list: [] });
+      const eksisterende = db.list.find((n) => n.id === node.id || n.baseUrl === node.baseUrl);
+      const neste = eksisterende ? { ...eksisterende, ...node, id: eksisterende.id } : node;
+      db.list = [...db.list.filter((n) => n.id !== neste.id), neste];
+      saveDoc("nodes", db);
+      return json(req, res, 200, { node: neste, antall: db.list.length });
+    } catch (e) {
+      return json(req, res, 400, { error: String(e?.message || e) });
+    }
+  }
+
 
   // ---- alt under her krever innlogging ---------------------------------
   const user = userFromRequest(req);
@@ -271,12 +310,82 @@ export async function handleApi(req, res, route, url, deps = {}) {
       }
     }
 
+    if (path === "/mqtt/helse" && method === "GET")
+      return json(req, res, 200, deps.mqttHelse?.() ?? deps.mqttStatus?.() ?? { tilkoblet: false });
+
     if (path === "/mqtt/publiser" && method === "POST") {
       const b = await readBody(req);
       if (!deps.publish) return json(req, res, 503, { error: "MQTT er ikke tilkoblet" });
       await deps.publish(str(b.emne, "Emne", { maks: 256, min: 1 }), str(b.payload ?? "", "Nyttelast", { maks: 8000 }));
       return json(req, res, 200, { ok: true });
     }
+
+    // ---- klyngenoder ------------------------------------------------------
+    if (path === "/noder") {
+      const db = doc("nodes", { list: [] });
+      if (method === "GET") return json(req, res, 200, { noder: db.list, innstillinger: currentSettings() });
+      if (method === "PUT") {
+        if (!admin) return json(req, res, 403, { error: "Kun admin" });
+        const b = await readBody(req);
+        const list = (Array.isArray(b.noder) ? b.noder : []).map(validateNode);
+        saveDoc("nodes", { list });
+        return json(req, res, 200, { noder: list });
+      }
+      if (method === "POST") {
+        const b = await readBody(req);
+        const node = validateNode(b.node ?? b);
+        db.list = [...db.list.filter((n) => n.id !== node.id), node];
+        saveDoc("nodes", db);
+        return json(req, res, 200, { node, noder: db.list });
+      }
+    }
+
+    if (path.startsWith("/noder/") && path !== "/noder/registrer" && method === "DELETE") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      const id = decodeURIComponent(path.slice("/noder/".length));
+      const db = doc("nodes", { list: [] });
+      db.list = db.list.filter((n) => n.id !== id);
+      saveDoc("nodes", db);
+      return json(req, res, 200, { ok: true, noder: db.list });
+    }
+
+    // ---- innstillinger (skjemadrevet, tas i bruk uten omstart) -------------
+    if (path === "/innstillinger/skjema" && method === "GET")
+      return json(req, res, 200, { skjema: SETTINGS_SCHEMA, verdier: currentSettings() });
+
+    if (path === "/innstillinger") {
+      if (method === "GET") return json(req, res, 200, { verdier: currentSettings() });
+      if (method === "PUT") {
+        if (!admin) return json(req, res, 403, { error: "Kun admin" });
+        const b = await readBody(req);
+        let next;
+        try {
+          next = validateSettings(b.verdier ?? b, currentSettings());
+        } catch (e) {
+          return json(req, res, 400, { error: String(e?.message || e), felter: e?.felter ?? [] });
+        }
+        saveDoc("settings", next);
+        // MQTT-oppsettet speiles til mqtt-dokumentet og tas i bruk med én gang.
+        const mqttDoc = doc("mqtt", { url: next.mqttUrl, topics: ["#"], enabled: false });
+        const nyMqtt = {
+          ...mqttDoc,
+          url: next.mqttUrl,
+          topics: String(next.mqttTopics || "#")
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          enabled: !!next.mqttEnabled,
+        };
+        const endret =
+          nyMqtt.url !== mqttDoc.url ||
+          nyMqtt.enabled !== mqttDoc.enabled ||
+          String(nyMqtt.topics) !== String(mqttDoc.topics);
+        saveDoc("mqtt", nyMqtt);
+        if (endret) deps.restartMqtt?.();
+        return json(req, res, 200, { verdier: next, mqttOmstartet: endret });
+      }
+    }
+
 
     // ---- samtaler --------------------------------------------------------
     if (path === "/samtaler") {

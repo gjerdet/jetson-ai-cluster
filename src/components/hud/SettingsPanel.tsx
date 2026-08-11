@@ -63,6 +63,7 @@ import {
 } from "@/lib/hud-store";
 
 import { TOOL_CATALOG } from "@/lib/agent-tools";
+import { ClusterSection, DutyPicker } from "./ClusterSection";
 import { EspWizard } from "./EspWizard";
 
 const ROLE_LABEL: Record<ModelNode["role"], string> = {
@@ -729,6 +730,19 @@ export function SettingsPanel({
                     placeholder="api-nøkkel (valgfri)"
                     className="hud-input col-span-2"
                   />
+                  <label className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                    vekt
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={0.5}
+                      value={n.weight ?? 1}
+                      onChange={(e) => patchNode(n.id, { weight: Number(e.target.value) })}
+                      className="hud-input w-full"
+                    />
+                  </label>
+                  <DutyPicker node={n} onChange={(duties) => patchNode(n.id, { duties })} />
                 </div>
               </div>
             ))}
@@ -738,6 +752,7 @@ export function SettingsPanel({
             >
               <Plus className="size-3.5" /> legg til modell
             </button>
+            <ClusterSection config={config} update={update} />
           </>
         ) : null}
 

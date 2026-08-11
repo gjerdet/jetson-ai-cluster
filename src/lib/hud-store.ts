@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
+import { NODE_DUTIES, NODE_DUTY_LABELS, type NodeDuty } from "@/lib/contract";
+
+export { NODE_DUTIES, NODE_DUTY_LABELS };
+export type { NodeDuty };
 
 export type ModelNode = {
   id: string;
@@ -7,8 +11,13 @@ export type ModelNode = {
   model: string;
   apiKey?: string;
   role: "primary" | "worker" | "observer";
+  /** Hvilke AI-oppgaver noden skal ta. Tom liste = alle. */
+  duties?: NodeDuty[];
+  /** Relativ kapasitet – høyere vekt gir flere oppgaver. */
+  weight?: number;
   enabled: boolean;
 };
+
 
 export type Talent = {
   id: string;
@@ -480,7 +489,14 @@ export function useHudConfig() {
   return { config, update, loaded };
 }
 
-export type CloudProvider = "openai" | "google" | "openrouter" | "anthropic" | "custom";
+export type CloudProvider =
+  | "openai"
+  | "google"
+  | "openrouter"
+  | "anthropic"
+  | "nous"
+  | "hermes-lokal"
+  | "custom";
 
 export const CLOUD_PROVIDER_PRESETS: {
   id: CloudProvider;
@@ -518,6 +534,20 @@ export const CLOUD_PROVIDER_PRESETS: {
     hint: "Krever en OpenAI-til-Anthropic-proxy eller lite-llm-gateway. API-nøkkel fra console.anthropic.com.",
   },
   {
+    id: "nous",
+    name: "Nous Hermes (sky)",
+    baseUrl: "https://inference-api.nousresearch.com/v1",
+    model: "Hermes-4-70B",
+    hint: "API-nøkkel fra portal.nousresearch.com. OpenAI-kompatibelt endepunkt – Hermes-modellene kan samarbeide med de lokale nodene.",
+  },
+  {
+    id: "hermes-lokal",
+    name: "Hermes på egen node",
+    baseUrl: "http://192.168.1.61:11434/v1",
+    model: "hermes3:8b",
+    hint: "Hermes kjørt lokalt via Ollama/vLLM på en av Jetson-nodene. Ingen nøkkel nødvendig.",
+  },
+  {
     id: "custom",
     name: "OpenAI-kompatibel",
     baseUrl: "https://openai.example.com/v1",
@@ -534,6 +564,8 @@ export function newCloudNode(provider: CloudProvider = "openai", role: ModelNode
     baseUrl: preset.baseUrl,
     model: preset.model,
     role,
+    duties: provider === "hermes-lokal" || provider === "nous" ? ["chat", "verktoy", "evaluator"] : ["chat", "verktoy"],
+    weight: 1,
     enabled: true,
     apiKey: "",
   };
@@ -546,6 +578,8 @@ export function newNode(): ModelNode {
     baseUrl: "http://192.168.1.60:11434/v1",
     model: "llama3.2",
     role: "worker",
+    duties: ["chat", "verktoy"],
+    weight: 1,
     enabled: true,
   };
 }

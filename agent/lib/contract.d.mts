@@ -20,6 +20,47 @@ export type ErrorCode =
 export const RULE_OPERATORS: RuleOperator[];
 export const RULE_ACTION_TYPES: RuleActionType[];
 export const USER_ROLES: UserRole[];
+export type NodeDuty = "chat" | "verktoy" | "evaluator" | "bakgrunn" | "telegram";
+export const NODE_DUTIES: NodeDuty[];
+export const NODE_DUTY_LABELS: Record<NodeDuty, string>;
+
+export interface ClusterNode {
+  id: string;
+  navn: string;
+  baseUrl: string;
+  modell: string;
+  rolle: "primary" | "worker" | "observer";
+  oppgaver: NodeDuty[];
+  aktiv: boolean;
+  vekt: number;
+  sistSett: number;
+  kilde: "manuell" | "auto";
+  notat?: string;
+}
+
+export interface SettingsField {
+  id: string;
+  etikett: string;
+  type: "text" | "number" | "boolean";
+  min?: number;
+  maks?: number;
+  standard: string | number | boolean;
+  monster?: string;
+  hjelp?: string;
+}
+
+export interface SettingsGroup {
+  gruppe: string;
+  felter: SettingsField[];
+}
+
+export const SETTINGS_SCHEMA: SettingsGroup[];
+export const SETTINGS_DEFAULTS: Record<string, string | number | boolean>;
+export type BackendSettings = Record<string, string | number | boolean>;
+
+export function validateNode(node: unknown): ClusterNode;
+export function validateSettings(input: unknown, current?: BackendSettings): BackendSettings;
+
 export const ROUTES: {
   status: string;
   login: string;
@@ -38,6 +79,11 @@ export const ROUTES: {
   rulesLog: string;
   mqtt: string;
   mqttPublish: string;
+  mqttHealth: string;
+  nodes: string;
+  nodesRegister: string;
+  settings: string;
+  settingsSchema: string;
   threads: string;
   telegram: string;
   telegramTest: string;
@@ -126,6 +172,22 @@ export interface MqttStatus {
   aktiv?: boolean;
   emner?: string[];
   kjente?: number;
+  forsok?: number;
+  sistSett?: number;
+}
+
+export interface MqttHealth extends MqttStatus {
+  /** Siste årsak til at forbindelsen falt. */
+  sisteArsak: string | null;
+  sisteFrakobling: number | null;
+  sisteTilkobling: number | null;
+  /** Antall frakoblinger innenfor flapping-vinduet. */
+  frakoblingerIVindu: number;
+  frakoblingerTotalt: number;
+  flapper: boolean;
+  meldinger: number;
+  oppetidProsent: number;
+  hendelser: { tid: number; type: "opp" | "ned" | "flapping"; tekst: string }[];
 }
 
 export interface MqttConfig {

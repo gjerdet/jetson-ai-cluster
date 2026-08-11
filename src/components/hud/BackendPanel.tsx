@@ -14,6 +14,8 @@ import {
   type RuleEvent,
   type SampleSummary,
 } from "@/lib/backend";
+import { SettingsFormSection } from "./SettingsFormSection";
+import { MqttHealthSection } from "./MqttHealthSection";
 
 const field =
   "w-full rounded-full border border-primary/20 bg-primary/[0.04] px-4 py-2 text-xs text-foreground/90 outline-none transition focus:border-primary/50";
@@ -150,8 +152,10 @@ export function BackendPanel() {
               se agent/proxy/ og docs/JETSON-SETUP.md.
             </div>
           ) : null}
+          <SettingsFormSection />
           <AiSection />
           <MqttSection onChange={refresh} />
+          <MqttHealthSection />
           <RulesSection />
           <TelegramSection />
           <HistorySection />

@@ -1,5 +1,5 @@
 import { callNode, type ChatMsg } from "./hud-client";
-import type { ModelNode } from "./hud-store";
+import type { ModelNode, NodeDuty } from "./hud-store";
 import { healthSnapshot, logSelfEvent } from "./health";
 
 /**
@@ -27,17 +27,27 @@ export function poolStatus(nodes: ModelNode[]) {
   }));
 }
 
+/** Noder som er aktive og har fått ansvar for denne oppgavetypen. */
+export function dutyPool(nodes: ModelNode[], duty?: NodeDuty): ModelNode[] {
+  const active = nodes.filter((n) => n.enabled);
+  if (!duty) return active;
+  const matching = active.filter((n) => !n.duties?.length || n.duties.includes(duty));
+  // Ingen node er satt opp for oppgaven? Da brukes alle, så ingenting stopper opp.
+  return matching.length ? matching : active;
+}
+
 function cost(n: ModelNode): number {
   const busy = inflight.get(n.id) ?? 0;
+  const weight = Math.max(1, n.weight ?? 1);
   const health = healthSnapshot().nodes[n.id];
   const latency = lastMs.get(n.id) ?? health?.avg ?? health?.last ?? 800;
   const penalty = (failures.get(n.id)?.until ?? 0) > Date.now() ? 100_000 : 0;
-  return busy * 10_000 + latency + penalty;
+  return (busy * 10_000 + latency) / weight + penalty;
 }
 
 /** Velger den best egnede noden i poolen akkurat nå. */
-export function pickNode(nodes: ModelNode[]): ModelNode | undefined {
-  const pool = nodes.filter((n) => n.enabled);
+export function pickNode(nodes: ModelNode[], duty?: NodeDuty): ModelNode | undefined {
+  const pool = dutyPool(nodes, duty);
   if (!pool.length) return undefined;
   return pool.slice().sort((a, b) => cost(a) - cost(b))[0];
 }
@@ -76,9 +86,9 @@ export async function callTracked(node: ModelNode, messages: ChatMsg[]): Promise
 export async function callBalanced(
   nodes: ModelNode[],
   messages: ChatMsg[],
-  opts?: { prefer?: ModelNode },
+  opts?: { prefer?: ModelNode; duty?: NodeDuty },
 ): Promise<{ text: string; node: ModelNode }> {
-  const pool = nodes.filter((n) => n.enabled);
+  const pool = dutyPool(nodes, opts?.duty);
   if (!pool.length) throw new Error("Ingen aktive noder");
   const order: ModelNode[] = [];
   if (opts?.prefer && opts.prefer.enabled) order.push(opts.prefer);
