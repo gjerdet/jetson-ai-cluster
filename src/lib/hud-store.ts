@@ -27,6 +27,69 @@ export type Plugin = {
   enabled: boolean;
 };
 
+export type IntegrationKind =
+  | "truenas"
+  | "unifi-network"
+  | "unifi-protect"
+  | "proxmox"
+  | "homey"
+  | "custom";
+
+export type Integration = {
+  id: string;
+  name: string;
+  kind: IntegrationKind;
+  baseUrl: string;
+  token?: string;
+  username?: string;
+  notes?: string;
+  enabled: boolean;
+};
+
+export const INTEGRATION_PRESETS: {
+  kind: IntegrationKind;
+  name: string;
+  baseUrl: string;
+  hint: string;
+}[] = [
+  {
+    kind: "truenas",
+    name: "TrueNAS Scale",
+    baseUrl: "http://truenas.local/api/v2.0",
+    hint: "API-nøkkel lages i TrueNAS under Credentials → API Keys.",
+  },
+  {
+    kind: "unifi-network",
+    name: "UniFi Network",
+    baseUrl: "https://unifi.local/proxy/network/api",
+    hint: "Bruk lokal API-nøkkel fra UniFi OS (Settings → Control Plane → Integrations).",
+  },
+  {
+    kind: "unifi-protect",
+    name: "UniFi Protect",
+    baseUrl: "https://unifi.local/proxy/protect/api",
+    hint: "Samme UniFi OS-nøkkel; gir kameraliste, snapshots og hendelser.",
+  },
+  {
+    kind: "proxmox",
+    name: "Proxmox VE",
+    baseUrl: "https://proxmox.local:8006/api2/json",
+    hint: "Bruk API-token: PVEAPIToken=bruker@pam!tokenid=hemmelighet.",
+  },
+  {
+    kind: "homey",
+    name: "Homey",
+    baseUrl: "http://homey.local/api/manager",
+    hint: "Personlig adgangstoken fra my.homey.app.",
+  },
+  {
+    kind: "custom",
+    name: "Egendefinert",
+    baseUrl: "http://enhet.local/api",
+    hint: "Fritt HTTP-endepunkt med Bearer-token.",
+  },
+];
+
 export type HudConfig = {
   nodes: ModelNode[];
   collaboration: boolean;
@@ -36,6 +99,7 @@ export type HudConfig = {
   transparency: number;
   talents: Talent[];
   plugins: Plugin[];
+  integrations: Integration[];
 };
 
 const STORAGE_KEY = "hud.config.v1";
@@ -91,6 +155,7 @@ export const defaultConfig: HudConfig = {
       builtin: true,
     },
   ],
+  integrations: [],
   plugins: [
     {
       id: "p-telegram",
@@ -149,6 +214,17 @@ export function newTalent(): Talent {
   };
 }
 
+export function newIntegration(kind: IntegrationKind = "custom"): Integration {
+  const preset = INTEGRATION_PRESETS.find((p) => p.kind === kind);
+  return {
+    id: `i-${Math.random().toString(36).slice(2, 8)}`,
+    name: preset?.name ?? "Ny kobling",
+    kind,
+    baseUrl: preset?.baseUrl ?? "",
+    enabled: false,
+  };
+}
+
 export function newPlugin(): Plugin {
   return {
     id: `p-${Math.random().toString(36).slice(2, 8)}`,
@@ -161,9 +237,16 @@ export function newPlugin(): Plugin {
 
 export function systemPrompt(config: HudConfig): string {
   const talents = config.talents.filter((t) => t.enabled && t.prompt.trim());
+  const integrations = (config.integrations ?? []).filter((i) => i.enabled);
   return [
     config.persona,
     ...talents.map((t) => `Evne – ${t.name}: ${t.prompt}`),
+    integrations.length
+      ? `Tilkoblede systemer du kan referere til: ${integrations
+          .map((i) => `${i.name} (${i.kind} @ ${i.baseUrl})`)
+          .join(", ")}.`
+      : "",
+    "Du har tilgang til et World Monitor-situasjonsbilde. Når brukeren spør om nyheter, hendelser eller «topp 10», får du et datauttrekk i meldingen – bruk kun det, og ranger etter alvorlighet med kilde og tidspunkt.",
   ]
     .filter(Boolean)
     .join("\n");
