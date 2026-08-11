@@ -31,9 +31,11 @@ export function ChatPanel({
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState("");
   const [pending, setPending] = useState<PendingCommand[]>([]);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const mqtt = useMqtt();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -69,9 +71,16 @@ export function ChatPanel({
     setMessages(next);
     setInput("");
     setBusy(true);
+    setStage("tenker");
     try {
       const live = mqttBrief();
-      const sys = [systemPrompt(config), live, mqttOnline() ? MQTT_TOOL_PROMPT : ""]
+      const sys = [
+        systemPrompt(config),
+        live,
+        mqttOnline() ? MQTT_TOOL_PROMPT : "",
+        TOOL_PROMPT,
+        toolAvailability(config, Object.keys(mqtt.topics).length),
+      ]
         .filter(Boolean)
         .join("\n");
       let context = "";
@@ -79,15 +88,51 @@ export function ChatPanel({
         if (!snapshot().events.length) await refreshFeed();
         context = `\n\n[WORLD MONITOR-DATA]\n${briefingText(10)}`;
       }
-      const answer = await callNode(primary, [
+
+      const thread: ChatMsg[] = [
         ...(sys ? ([{ role: "system", content: sys }] as ChatMsg[]) : []),
         ...next.slice(0, -1),
         { role: "user", content: text + context },
-      ]);
-      const out: ChatMsg[] = [
-        ...next,
-        { role: "assistant", content: answer, node: primary.name },
       ];
+
+      const out: ChatMsg[] = [...next];
+      let answer = "";
+
+      // verktøykall-loop: modellen kan hente ekte data før den svarer
+      for (let round = 0; round < 4; round++) {
+        const raw = await callNode(primary, thread);
+        const calls = parseToolCalls(raw);
+        if (!calls.length) {
+          answer = raw.trim();
+          break;
+        }
+        const visible = stripToolCalls(raw);
+        if (visible) out.push({ role: "assistant", content: visible, node: primary.name });
+        thread.push({ role: "assistant", content: raw });
+        const results: string[] = [];
+        for (const c of calls) {
+          setStage(`verktøy: ${c.name}`);
+          let res: string;
+          try {
+            res = await runTool(c, { config, ...(update ? { update } : {}), topics: mqtt.topics });
+          } catch (e) {
+            res = `Feil: ${e instanceof Error ? e.message : "ukjent"}`;
+            logSelfEvent("warn", `Verktøy ${c.name} feilet`);
+          }
+          results.push(`[${c.name}]\n${res}`);
+          out.push({ role: "assistant", content: `${c.name} → ${res.slice(0, 600)}`, node: "VERKTØY" });
+        }
+        thread.push({
+          role: "user",
+          content: `VERKTØYRESULTAT:\n${results.join("\n\n")}\n\nSvar nå brukeren basert på disse dataene.`,
+        });
+        setStage("tenker");
+        answer = "";
+      }
+      if (!answer) answer = "(fikk ikke ferdig svar innen verktøygrensen)";
+
+      out.push({ role: "assistant", content: answer, node: primary.name });
+
       // lar modellen styre smarthuset direkte via MQTT-linjer i svaret
       const cmds = parseAiCommands(answer);
       const needConfirm = config.confirmCommands !== false && cmds.some((c) => c.risky);
@@ -110,19 +155,29 @@ export function ChatPanel({
         });
 
       if (config.collaboration && workers.length > 0) {
-        for (const w of workers) {
-          const review = await callNode(w, [
-            {
-              role: "system",
-              content:
-                "Du er en samarbeidende modell. Vurder og forbedre svaret fra primærmodellen. Vær kort og konkret.",
-            },
-            { role: "user", content: `Spørsmål: ${text}\n\nSvar fra primær:\n${answer}` },
-          ]);
-          out.push({ role: "assistant", content: review, node: w.name });
-        }
+        setStage("evaluerer");
+        const ev = await evaluate({ question: text, answer, primary, workers });
+        for (const r of ev.reviews)
+          out.push({
+            role: "assistant",
+            content: `Poeng ${r.score}/10 – ${r.critique}`,
+            node: `${r.node} (evaluator)`,
+          });
+        if (ev.final.trim() && ev.final.trim() !== answer.trim())
+          out.push({
+            role: "assistant",
+            content: ev.final,
+            node: `ENDELIG SVAR · ${ev.source} · beste poeng ${ev.bestScore}/10`,
+          });
       }
       setMessages(out);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ukjent feil");
+      logSelfEvent("crit", e instanceof Error ? e.message : "Ukjent feil i kommandolinjen");
+    } finally {
+      setBusy(false);
+      setStage("");
+    }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ukjent feil");
     } finally {
