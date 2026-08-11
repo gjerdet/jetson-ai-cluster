@@ -497,6 +497,7 @@ export type CloudProvider =
   | "openrouter"
   | "anthropic"
   | "nous"
+  | "hermes-agent"
   | "hermes-lokal"
   | "custom";
 
