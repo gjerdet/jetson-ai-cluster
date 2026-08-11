@@ -219,7 +219,7 @@ export function WorldMonitor() {
           </ol>
         ) : (
           <ul className="space-y-1">
-            {shown.slice(0, 120).map((e) => (
+            {feedList.map((e) => (
               <li key={e.id} className="flex gap-2 text-[11px]">
                 <span
                   className="mt-1 size-1.5 shrink-0 rounded-full"
