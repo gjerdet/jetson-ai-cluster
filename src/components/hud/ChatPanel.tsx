@@ -31,7 +31,11 @@ export function ChatPanel({ config }: { config: HudConfig }) {
     setInput("");
     setBusy(true);
     try {
-      const answer = await callNode(primary, next);
+      const sys = systemPrompt(config);
+      const answer = await callNode(primary, [
+        ...(sys ? ([{ role: "system", content: sys }] as ChatMsg[]) : []),
+        ...next,
+      ]);
       const out: ChatMsg[] = [
         ...next,
         { role: "assistant", content: answer, node: primary.name },
