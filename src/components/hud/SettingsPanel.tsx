@@ -22,6 +22,14 @@ import {
   agentDeleteScript,
   type ScriptFile,
 } from "@/lib/local-agent";
+import {
+  SCRIPT_TEMPLATES,
+  installTemplate,
+  testTemplate,
+  type ScriptTemplate,
+  type TemplateTestResult,
+} from "@/lib/script-templates";
+
 
 import {
   defaultConfig,
