@@ -645,6 +645,29 @@ export function SettingsPanel({
               Husk samtalen lokalt mellom omstart av nettleseren
             </label>
 
+            <label className="flex items-center gap-2 text-foreground/80">
+              <input
+                type="checkbox"
+                checked={config.chatViaBackend === true}
+                onChange={(e) => update({ ...config, chatViaBackend: e.target.checked })}
+                className="accent-[oklch(0.78_0.13_200)]"
+              />
+              Kjør chatten gjennom backend-en (samme AI-node som Telegram-boten)
+            </label>
+
+            <label className="flex items-center gap-2 text-foreground/80">
+              <input
+                type="checkbox"
+                checked={config.knowledge !== false}
+                onChange={(e) => update({ ...config, knowledge: e.target.checked })}
+                className="accent-[oklch(0.78_0.13_200)]"
+              />
+              Hent kontekst fra kunnskapsbasen før svar (RAG)
+            </label>
+
+
+
+
             <button
               onClick={() => patchEval(defaultEvaluator)}
               className="hud-btn hud-btn-hoverable hud-title text-[9px]"

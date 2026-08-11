@@ -32,6 +32,7 @@ export const ROUTES = {
   users: "/brukere",
   config: "/config",
   ai: "/ai",
+  aiChat: "/ai/chat",
   samples: "/maalinger",
   samplesLatest: "/maalinger/siste",
   samplesPrune: "/maalinger/rydd",

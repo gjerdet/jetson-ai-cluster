@@ -350,6 +350,8 @@ export type HudConfig = {
   loadBalance: boolean;
   /** husk samtalen mellom omstart av nettleseren (lokalt) */
   keepHistory: boolean;
+  /** send chat-kallet gjennom den lokale backend-en i stedet for rett til noden */
+  chatViaBackend?: boolean;
   /** hent kontekst fra den lokale kunnskapsbasen (RAG) før svar */
   knowledge?: boolean;
   evaluator: EvaluatorConfig;

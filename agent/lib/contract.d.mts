@@ -71,6 +71,7 @@ export const ROUTES: {
   users: string;
   config: string;
   ai: string;
+  aiChat: string;
   samples: string;
   samplesLatest: string;
   samplesPrune: string;
@@ -205,6 +206,15 @@ export interface TelegramConfig {
   token: string;
   chatIds: number[];
   allowlist: boolean;
+}
+
+export interface AiChatReply {
+  /** Selve svaret fra AI-noden. */
+  svar: string;
+  /** Modellen som svarte. */
+  model: string;
+  /** Adressen svaret kom fra (uten nøkkel). */
+  node: string;
 }
 
 export interface AiConfig {
