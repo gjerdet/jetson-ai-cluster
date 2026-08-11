@@ -405,7 +405,7 @@ export function ChatPanel({
           onClick={() => {
             setMessages([]);
             clearChat();
-              void saveChatRemote([]);
+            void saveChatRemote([]);
             setPending([]);
             setError(null);
           }}
