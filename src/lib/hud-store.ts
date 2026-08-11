@@ -574,7 +574,10 @@ export function newCloudNode(provider: CloudProvider = "openai", role: ModelNode
     baseUrl: preset.baseUrl,
     model: preset.model,
     role,
-    duties: provider === "hermes-lokal" || provider === "nous" ? ["chat", "verktoy", "evaluator"] : ["chat", "verktoy"],
+    duties:
+      provider === "hermes-lokal" || provider === "nous" || provider === "hermes-agent"
+        ? ["chat", "verktoy", "evaluator"]
+        : ["chat", "verktoy"],
     weight: 1,
     enabled: true,
     apiKey: "",
