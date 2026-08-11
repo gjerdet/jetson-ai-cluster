@@ -137,6 +137,10 @@ export function DashboardPanel({
   const nodes = config.nodes.filter((n) => n.enabled);
   const integrations = (config.integrations ?? []).filter((i) => i.enabled);
   const devices = (config.devices ?? []).filter((d) => d.enabled);
+  const topicSuggestions = [...new Set([
+    ...Object.keys(topics),
+    ...devices.flatMap((d) => d.topic ? [d.topic] : []),
+  ])];
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
@@ -171,6 +175,7 @@ export function DashboardPanel({
       </div>
 
       <div className="flex flex-wrap items-center gap-1">
+        {topicSuggestions.slice(0, 6).map((topic) => <button key={topic} onClick={() => { const m = { ...newModule("mqtt-graph"), title: topic.split("/").slice(-2).join(" · ").toUpperCase(), topic }; update({ ...config, modules: [...modules, m] }); }} className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px]">+ {topic}</button>)}
         <button
           onClick={() => add("mqtt-graph")}
           className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px]"
@@ -291,7 +296,9 @@ export function DashboardPanel({
                     onChange={(e) => patch(m.id, { topic: e.target.value })}
                     placeholder="MQTT-emne, f.eks. hjem/stue/temp"
                     className="hud-input h-6 w-full text-[11px]"
+                    list={`topics-${m.id}`}
                   />
+                  <datalist id={`topics-${m.id}`}>{topicSuggestions.map((topic) => <option key={topic} value={topic} />)}</datalist>
                 )}
               </div>
             ) : null}

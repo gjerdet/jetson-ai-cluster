@@ -216,7 +216,7 @@ export function WorldMonitor({ config, update }: { config?: HudConfig; update?: 
           <button
             key={d.id}
             onClick={() => {
-              setShowDevices(true);
+              setShowDevicesRaw(true);
               setPickedDevice(d.id);
             }}
             className={`hud-btn hud-btn-hoverable !py-0.5 text-[9px] ${pickedDevice === d.id ? "hud-btn-on text-primary" : ""}`}

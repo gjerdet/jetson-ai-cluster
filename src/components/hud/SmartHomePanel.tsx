@@ -12,6 +12,7 @@ import {
   Trash2,
   Sliders,
   Stethoscope,
+  FlaskConical,
 } from "lucide-react";
 import {
   DEVICE_KIND_LABEL,
@@ -21,6 +22,7 @@ import {
   type RuleAction,
   type AlertRule,
   type HudConfig,
+  type Device,
 } from "@/lib/hud-store";
 import {
   askNotificationPermission,
@@ -41,8 +43,10 @@ import {
   clearDiagnostics,
   useMqtt,
   type Sample,
+  simulateRule,
 } from "@/lib/mqtt-bridge";
 import { Sparkline } from "./Sparkline";
+import { DeviceDetailDialog } from "./DeviceDetailDialog";
 
 const STATUS_LABEL = {
   off: "FRAKOBLET",
@@ -73,9 +77,13 @@ export function SmartHomePanel({
   const devices = (config.devices ?? []).filter((d) => d.enabled && d.protocol === "mqtt");
   const mqtt = config.mqtt;
   const rules = config.rules ?? [];
-  const [tab, setTab] = useState<Tab>("enheter");
+  const [tab, setTabRaw] = useState<Tab>(config.smartHomeView?.tab ?? "enheter");
+  const setTab = (next: Tab) => { setTabRaw(next); update({ ...config, smartHomeView: { tab: next } }); };
   const [manual, setManual] = useState({ topic: "", payload: "" });
   const [levels, setLevels] = useState<Record<string, number>>({});
+  const [detailDevice, setDetailDevice] = useState<Device | null>(null);
+  const [simRule, setSimRule] = useState<string | null>(null);
+  const [scenario, setScenario] = useState({ topic: "", value: "35", minutes: 5 });
 
   const patch = (p: Partial<HudConfig["mqtt"]>) =>
     update({ ...config, mqtt: { ...mqtt, ...p } });
@@ -270,7 +278,7 @@ export function SmartHomePanel({
               const cmds = commandsFor(d.capabilities);
               const lvl = (k: string, def: number) => levels[`${d.id}-${k}`] ?? def;
               return (
-                <div key={d.id} className="rounded border border-primary/15 bg-primary/[0.03] p-2">
+                 <div key={d.id} className="cursor-pointer rounded border border-primary/15 bg-primary/[0.03] p-2 hover:border-primary/40" onClick={() => setDetailDevice(d)}>
                   <div className="flex items-center gap-2">
                     <span
                       className="size-1.5 shrink-0 rounded-full"
@@ -300,7 +308,7 @@ export function SmartHomePanel({
                           <button
                             key={cmd}
                             disabled={!base || status !== "online"}
-                            onClick={() => sendCommand(base, "switch", cmd)}
+                             onClick={(e) => { e.stopPropagation(); sendCommand(base, "switch", cmd); }}
                             className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px] disabled:opacity-40"
                           >
                             {cmd}
@@ -319,7 +327,7 @@ export function SmartHomePanel({
                         onChange={(e) =>
                           setLevels({ ...levels, [`${d.id}-dim`]: Number(e.target.value) })
                         }
-                        onPointerUp={() => sendCommand(base, "dim", String(lvl("dim", 50)))}
+                         onPointerUp={(e) => { e.stopPropagation(); sendCommand(base, "dim", String(lvl("dim", 50))); }}
                         disabled={!base || status !== "online"}
                         className="h-1 flex-1 accent-primary"
                       />
@@ -335,7 +343,7 @@ export function SmartHomePanel({
                         <button
                           key={s}
                           disabled={!base || status !== "online"}
-                          onClick={() => sendCommand(base, "fan", s)}
+                           onClick={(e) => { e.stopPropagation(); sendCommand(base, "fan", s); }}
                           className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px] disabled:opacity-40"
                         >
                           {s === "0" ? "AV" : `${s}%`}
@@ -356,7 +364,7 @@ export function SmartHomePanel({
                       />
                       <button
                         disabled={!base || status !== "online"}
-                        onClick={() => sendCommand(base, "threshold", String(lvl("th", 22)))}
+                         onClick={(e) => { e.stopPropagation(); sendCommand(base, "threshold", String(lvl("th", 22))); }}
                         className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px] disabled:opacity-40"
                       >
                         sett
@@ -616,6 +624,8 @@ export function SmartHomePanel({
                           />
                         </>
                       ) : (
+                        <>
+                        {a.kind === "telegram" ? <input value={a.chatId ?? ""} onChange={(e) => setRule(r.id, { actions: (r.actions ?? []).map((x) => x.id === a.id && x.kind === "telegram" ? { ...x, chatId: e.target.value } : x) })} placeholder={config.telegram?.chatId || "mottaker / chat-ID"} className="hud-input h-6 w-32 text-[11px]" /> : null}
                         <input
                           value={a.text}
                           onChange={(e) =>
@@ -625,9 +635,10 @@ export function SmartHomePanel({
                               ),
                             })
                           }
-                          placeholder="melding – {regel} {emne} {verdi}"
+                          placeholder="melding – {regel} {emne} {verdi} {terskel} {tid}"
                           className="hud-input h-6 flex-1 text-[11px]"
                         />
+                        </>
                       )}
                       <button
                         onClick={() =>
@@ -642,6 +653,10 @@ export function SmartHomePanel({
                       </button>
                     </div>
                   ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => { setSimRule(r.id); setScenario({ topic: r.topic.replace(/\/#$/, "/sensor"), value: r.value || "35", minutes: r.forMinutes ?? 0 }); }} className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px]"><FlaskConical className="size-3" /> test regel</button>
+                  <span className="text-[9px] text-muted-foreground">Variabler: {"{regel} {emne} {verdi} {terskel} {tid}"}</span>
                 </div>
               </div>
             ))}
@@ -804,6 +819,8 @@ export function SmartHomePanel({
           </p>
         ))}
       </div>
+      <DeviceDetailDialog device={detailDevice} onClose={() => setDetailDevice(null)} />
+      {simRule ? (() => { const rule = rules.find((r) => r.id === simRule); if (!rule) return null; const result = simulateRule(rule, scenario); return <div className="absolute inset-4 z-40 overflow-auto rounded border border-primary/30 bg-background/95 p-4"><button className="absolute right-3 top-3 text-muted-foreground" onClick={() => setSimRule(null)}>×</button><p className="hud-title text-xs text-primary">REGEL-SIMULATOR · DRY RUN</p><div className="mt-3 grid gap-2 md:grid-cols-3"><input value={scenario.topic} onChange={(e) => setScenario({ ...scenario, topic: e.target.value })} className="hud-input" placeholder="scenario-emne" /><input value={scenario.value} onChange={(e) => setScenario({ ...scenario, value: e.target.value })} className="hud-input" placeholder="scenario-verdi" /><input type="number" value={scenario.minutes} onChange={(e) => setScenario({ ...scenario, minutes: Number(e.target.value) })} className="hud-input" aria-label="varighet i minutter" /></div><div className={`mt-3 rounded border p-3 ${result.matched ? "border-primary/40 text-primary" : "border-destructive/40 text-destructive"}`}><p className="hud-title text-[10px]">{result.matched ? "VILLE UTLØST" : "VILLE IKKE UTLØST"}</p><p className="text-xs">{result.reason}</p></div><div className="mt-3 space-y-2">{result.actions.map((a, i) => <div key={`${a.kind}-${i}`} className="rounded border border-primary/15 p-2 text-xs"><span className="hud-title text-[9px] text-primary">{a.kind} → {a.target}</span><p className="mt-1 text-muted-foreground">{a.preview}</p></div>)}{result.matched && !result.actions.length ? <p className="text-xs text-muted-foreground">Regelen treffer, men har ingen handlinger.</p> : null}</div></div>; })() : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { MqttClient } from "mqtt";
-import type { AlertRule, Device, MqttConfig } from "./hud-store";
+import type { AlertRule, Device, MqttConfig, RuleAction } from "./hud-store";
 
 export type MqttStatus = "off" | "connecting" | "online" | "error";
 
