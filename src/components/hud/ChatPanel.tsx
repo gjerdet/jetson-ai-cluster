@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SendHorizonal, Loader2 } from "lucide-react";
 import { callNode, type ChatMsg } from "@/lib/hud-client";
-import type { HudConfig } from "@/lib/hud-store";
+import { systemPrompt, type HudConfig } from "@/lib/hud-store";
 
 export function ChatPanel({ config }: { config: HudConfig }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -31,7 +31,11 @@ export function ChatPanel({ config }: { config: HudConfig }) {
     setInput("");
     setBusy(true);
     try {
-      const answer = await callNode(primary, next);
+      const sys = systemPrompt(config);
+      const answer = await callNode(primary, [
+        ...(sys ? ([{ role: "system", content: sys }] as ChatMsg[]) : []),
+        ...next,
+      ]);
       const out: ChatMsg[] = [
         ...next,
         { role: "assistant", content: answer, node: primary.name },

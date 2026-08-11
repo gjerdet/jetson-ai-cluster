@@ -3,6 +3,7 @@ import { useState } from "react";
 import { MessageSquare, Cpu, Globe2, Settings2 } from "lucide-react";
 import { HudWindow } from "@/components/hud/HudWindow";
 import { ReactorCore } from "@/components/hud/ReactorCore";
+import { AmbientField } from "@/components/hud/AmbientField";
 import { ChatPanel } from "@/components/hud/ChatPanel";
 import { NodesPanel } from "@/components/hud/NodesPanel";
 import { WorldMonitor } from "@/components/hud/WorldMonitor";
@@ -61,10 +62,15 @@ function Index() {
   const activeNodes = config.nodes.filter((n) => n.enabled).length;
 
   return (
-    <main className="hud-root relative min-h-screen overflow-hidden">
+    <main
+      className="hud-root relative min-h-screen overflow-hidden"
+      style={{ ["--hud-opacity" as string]: `${config.transparency}%` }}
+    >
+      <AmbientField />
       <div className="hud-grid pointer-events-none absolute inset-0" />
       <div className="hud-scan pointer-events-none absolute inset-0" />
       <ReactorCore active={activeNodes > 0} />
+
 
       <header className="relative z-50 flex items-center justify-between px-5 py-4">
         <div>
