@@ -84,6 +84,10 @@ export function SmartHomePanel({
   const [detailDevice, setDetailDevice] = useState<Device | null>(null);
   const [simRule, setSimRule] = useState<string | null>(null);
   const [scenario, setScenario] = useState({ topic: "", value: "35", minutes: 5 });
+  const [regelKilde, setRegelKilde] = useState<{ kilde: Kilde; feil: string | null }>({
+    kilde: "lokal",
+    feil: null,
+  });
 
   const patch = (p: Partial<HudConfig["mqtt"]>) =>
     update({ ...config, mqtt: { ...mqtt, ...p } });
@@ -91,6 +95,33 @@ export function SmartHomePanel({
   useEffect(() => {
     setRules(rules);
   }, [rules]);
+
+  // Regler leses fra backend-en (regelmotoren som kjører 24/7) ved åpning,
+  // med lokale regler som reserve hvis ruten feiler.
+  useEffect(() => {
+    let avbrutt = false;
+    void (async () => {
+      const r = await hentRegler(config.rules ?? []);
+      if (avbrutt) return;
+      setRegelKilde({ kilde: r.kilde, feil: r.feil });
+      if (r.kilde === "backend") update({ ...config, rules: r.data });
+    })();
+    return () => {
+      avbrutt = true;
+    };
+    // kun ved montering
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ...og skrives tilbake når du endrer dem (lokal lagring består uansett).
+  useEffect(() => {
+    if (!paalogget()) return;
+    const t = setTimeout(() => {
+      void lagreRegler(rules).then((feil) => setRegelKilde((s) => ({ ...s, feil })));
+    }, 800);
+    return () => clearTimeout(t);
+  }, [rules]);
+
 
   useEffect(() => {
     if (mqtt.autoConnect && status === "off") void connectMqtt(mqtt, config.devices ?? []);
