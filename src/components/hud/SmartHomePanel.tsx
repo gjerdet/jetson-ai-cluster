@@ -45,8 +45,10 @@ import {
   type Sample,
   simulateRule,
 } from "@/lib/mqtt-bridge";
+import { hentRegler, lagreRegler, paalogget, type Kilde } from "@/lib/backend-sync";
 import { Sparkline } from "./Sparkline";
 import { DeviceDetailDialog } from "./DeviceDetailDialog";
+
 
 const STATUS_LABEL = {
   off: "FRAKOBLET",
