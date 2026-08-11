@@ -310,6 +310,9 @@ export const defaultConfig: HudConfig = {
   devices: [],
   mqtt: defaultMqtt,
   rules: [],
+  modules: [],
+  telegram: { chatId: "", enabled: false },
+  confirmCommands: true,
 
   plugins: [
     {
