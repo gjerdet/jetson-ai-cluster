@@ -40,6 +40,7 @@ const LAYOUT: Record<WinId, { x: number; y: number; w: number; h: number }> = {
   world: { x: 420, y: 110, w: 780, h: 640 },
   home: { x: 80, y: 140, w: 460, h: 520 },
   dash: { x: 120, y: 120, w: 640, h: 560 },
+  health: { x: 160, y: 130, w: 460, h: 560 },
   settings: { x: 0, y: 0, w: 0, h: 0 },
 };
 
