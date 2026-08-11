@@ -220,3 +220,19 @@ sudo tegrastats         # følg med på GPU/RAM
 ```
 
 Kjør Jetson med vifte og NVMe hvis du skal kjøre modeller over 7B.
+
+## Lokal agent (OS-tilgang + skript-sandkasse)
+
+Vil du at Jarvis skal kunne kjøre kommandoer og teste egne skript på Jetson, kjør agent-tjenesten:
+
+```bash
+cd jarvis/agent
+AGENT_TOKEN="$(openssl rand -hex 24)" node server.mjs
+```
+
+Lim URL (`http://<jetson-ip>:8787`) og token inn i HUD-en under **SYSTEM → KOBLINGER → LOKAL AGENT**,
+og trykk «test tilkobling». Da får Jarvis verktøyene `agent_status`, `os_kjor`, `skript_lag`,
+`skript_kjor`, `skript_test`, `skript_liste` og `skript_slett`.
+
+Kun hvitelistede kommandoer kjøres, skript kjøres i mappen `agent/sandbox` med tidsgrense, og
+«bekreft kjøring» spør deg før hver kjøring. Full dokumentasjon: `agent/README.md`.

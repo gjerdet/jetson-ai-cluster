@@ -1,0 +1,14 @@
+{
+  "name": "jarvis-local-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lokal agent-tjeneste for Jarvis HUD: hvitelistede kommandoer og sandkasse for skript.",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -4,6 +4,18 @@ import { historyFor, numericValue, mqttOnline, publishMqtt } from "./mqtt-bridge
 import { fetchIntegration } from "./integrations.functions";
 import { briefingText, refreshFeed, snapshot } from "./world-feed";
 import { pingNode } from "./hud-client";
+import {
+  agentCfg,
+  agentDeleteScript,
+  agentExec,
+  agentHealth,
+  agentReadScript,
+  agentRun,
+  agentScripts,
+  agentWriteScript,
+  formatResult,
+} from "./local-agent";
+
 
 export type ToolCall = { name: string; args: Record<string, unknown>; raw: string };
 
@@ -16,8 +28,9 @@ export type ToolContext = {
 
 export type ToolSpec = {
   name: string;
-  category: "smarthus" | "system" | "verden" | "minne" | "verktoy";
+  category: "smarthus" | "system" | "verden" | "minne" | "verktoy" | "os";
   summary: string;
+
   args: string;
   builtin: true;
 };
@@ -95,7 +108,57 @@ export const TOOL_CATALOG: ToolSpec[] = [
     args: '{"navn": "hent_vaer"}',
     builtin: true,
   },
+  {
+    name: "agent_status",
+    category: "os",
+    summary: "Status for den lokale agenten på Jetson: OS, last, minne, sandkasse og hviteliste.",
+    args: "{}",
+    builtin: true,
+  },
+  {
+    name: "os_kjor",
+    category: "os",
+    summary: "Kjører en hvitelistet OS-kommando via lokal agent (f.eks. df, nvidia-smi, systemctl status).",
+    args: '{"kommando": "df", "args": ["-h"]}',
+    builtin: true,
+  },
+  {
+    name: "skript_lag",
+    category: "os",
+    summary: "Skriver et skript til sandkassen på Jetson (bash, python eller node).",
+    args: '{"navn": "test.py", "innhold": "print(1+1)"}',
+    builtin: true,
+  },
+  {
+    name: "skript_kjor",
+    category: "os",
+    summary: "Kjører et skript i sandkassen med tidsgrense og returnerer stdout/stderr.",
+    args: '{"navn": "test.py", "sprak": "python", "args": []}',
+    builtin: true,
+  },
+  {
+    name: "skript_test",
+    category: "os",
+    summary: "Skriver og kjører et skript i sandkassen i én operasjon (rask test).",
+    args: '{"sprak": "python", "innhold": "print(1+1)"}',
+    builtin: true,
+  },
+  {
+    name: "skript_liste",
+    category: "os",
+    summary: "Lister skript i sandkassen, eventuelt leser innholdet i ett av dem.",
+    args: '{"navn": "test.py"}',
+    builtin: true,
+  },
+  {
+    name: "skript_slett",
+    category: "os",
+    summary: "Sletter et skript fra sandkassen.",
+    args: '{"navn": "test.py"}',
+    builtin: true,
+  },
 ];
+
 
 export const TOOL_NAMES = TOOL_CATALOG.map((t) => t.name);
 
@@ -114,11 +177,20 @@ Tilgjengelige verktøy:
 - verktoy_liste {} – dine egendefinerte verktøy.
 - verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
 - verktoy_slett {"navn": "hent_vaer"} – slett et verktøy du har laget.
+- agent_status {} – status for lokal agent på Jetson (OS, last, minne, sandkasse, hviteliste).
+- os_kjor {"kommando": "df", "args": ["-h"]} – kjør hvitelistet OS-kommando via lokal agent.
+- skript_lag {"navn": "test.py", "innhold": "..."} – lagre skript i sandkassen.
+- skript_kjor {"navn": "test.py", "sprak": "python", "args": []} – kjør skript i sandkassen.
+- skript_test {"sprak": "python", "innhold": "..."} – skriv og kjør skript i ett steg.
+- skript_liste {} eller {"navn": "test.py"} – list eller les skript i sandkassen.
+- skript_slett {"navn": "test.py"} – slett skript fra sandkassen.
 
 Regler: kall bare verktøy når du faktisk trenger dataene. Du får resultatet tilbake og skal
 deretter svare brukeren på norsk bokmål. Ikke finn på verdier du ikke har hentet.
-Du har ikke tilgang til operativsystemet, filsystemet eller shell – bare verktøyene over.
+OS-tilgang går kun gjennom den lokale agenten: kun hvitelistede kommandoer, og skript kjøres
+alltid i sandkassen med tidsgrense. Test alltid nye skript med skript_test før du foreslår dem.
 Lag nye verktøy kun når brukeren ber om det, og fortell alltid hva du laget.`;
+
 
 /** Prompt-tillegg som beskriver de egendefinerte verktøyene som er slått på. */
 export function customToolPrompt(config: HudConfig): string {
@@ -284,15 +356,120 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     return `Slettet verktøyet «${name}».`;
   }
 
+  if (call.name.startsWith("os_") || call.name.startsWith("skript_") || call.name === "agent_status") {
+    return runAgentTool(call, config);
+  }
+
+
   const custom = (config.customTools ?? []).find((t) => t.enabled && t.name === call.name);
   if (custom) return runCustomTool(custom, call.args);
 
   return `Ukjent verktøy: ${call.name}`;
 }
 
+const LANGS = ["bash", "python", "node"] as const;
+type Lang = (typeof LANGS)[number];
+
+function langFor(raw: string, name: string): Lang {
+  const v = raw.toLowerCase();
+  if (v === "python" || v === "py") return "python";
+  if (v === "node" || v === "js" || v === "javascript") return "node";
+  if (v === "bash" || v === "sh") return "bash";
+  if (name.endsWith(".py")) return "python";
+  if (name.endsWith(".mjs") || name.endsWith(".js")) return "node";
+  return "bash";
+}
+
+function approve(cfg: ReturnType<typeof agentCfg>, what: string): boolean {
+  if (!cfg.confirm) return true;
+  if (typeof window === "undefined") return false;
+  return window.confirm(`Jarvis vil kjøre på Jetson:\n\n${what}\n\nGodkjenn?`);
+}
+
+/** Verktøy som går mot den lokale agent-tjenesten (OS-kommandoer og skript-sandkasse). */
+async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> {
+  const cfg = agentCfg(config);
+  if (!cfg.enabled || !cfg.baseUrl)
+    return "Lokal agent er ikke aktivert. Slå den på under SYSTEM → KOBLINGER → LOKAL AGENT (agent/server.mjs må kjøre på Jetson).";
+
+  try {
+    if (call.name === "agent_status") {
+      const h = await agentHealth(cfg);
+      return [
+        `Agent: ${h.host ?? "?"} · ${h.platform ?? "?"}`,
+        `Oppetid ${Math.round((h.uptimeSec ?? 0) / 3600)} t · last ${(h.loadavg ?? []).join(" / ")}`,
+        `Minne ${h.memFreeMb ?? "?"} / ${h.memTotalMb ?? "?"} MB fritt`,
+        `Sandkasse: ${h.sandbox ?? "?"} · nettverk ${h.network ? "på" : "av"}`,
+        `Hvitelistede kommandoer: ${(h.allowed ?? []).join(", ")}`,
+      ].join("\n");
+    }
+
+    if (call.name === "os_kjor") {
+      const cmd = str(call.args["kommando"] ?? call.args["cmd"]).trim();
+      if (!cmd) return "Mangler kommando.";
+      const rawArgs = call.args["args"];
+      const args = Array.isArray(rawArgs) ? rawArgs.map(str) : str(rawArgs) ? str(rawArgs).split(" ") : [];
+      if (!approve(cfg, `${cmd} ${args.join(" ")}`)) return "Brukeren avslo kjøringen.";
+      return formatResult(await agentExec(cfg, cmd, args));
+    }
+
+    if (call.name === "skript_lag") {
+      const name = str(call.args["navn"] ?? call.args["name"]);
+      const content = str(call.args["innhold"] ?? call.args["content"]);
+      if (!name || !content) return "Mangler navn eller innhold.";
+      const r = await agentWriteScript(cfg, name, content);
+      return `Lagret ${r.name} (${r.bytes} tegn) i sandkassen. Kjør det med skript_kjor.`;
+    }
+
+    if (call.name === "skript_kjor" || call.name === "skript_test") {
+      const name = str(call.args["navn"] ?? call.args["name"]);
+      const content = str(call.args["innhold"] ?? call.args["content"]);
+      if (call.name === "skript_test" && !content) return "Mangler innhold å teste.";
+      if (call.name === "skript_kjor" && !name && !content) return "Mangler skriptnavn.";
+      const lang = langFor(str(call.args["sprak"] ?? call.args["lang"]), name);
+      const rawArgs = call.args["args"];
+      const args = Array.isArray(rawArgs) ? rawArgs.map(str) : [];
+      if (!approve(cfg, `${lang}-skript ${name || "(midlertidig)"} i sandkassen`))
+        return "Brukeren avslo kjøringen.";
+      const r = await agentRun(cfg, {
+        lang,
+        ...(name ? { name } : {}),
+        ...(content ? { content } : {}),
+        args,
+      });
+      return `Sandkasse (${lang}, ${r.script ?? "?"}):\n${formatResult(r)}`;
+    }
+
+    if (call.name === "skript_liste") {
+      const name = str(call.args["navn"] ?? call.args["name"]);
+      if (name) {
+        const f = await agentReadScript(cfg, name);
+        return `${f.name}:\n${f.content.slice(0, 4000)}`;
+      }
+      const list = await agentScripts(cfg);
+      if (!list.files.length) return `Sandkassen (${list.sandbox}) er tom.`;
+      return list.files
+        .map((f) => `${f.name} – ${f.bytes} B, endret ${new Date(f.modified).toLocaleString("nb-NO")}`)
+        .join("\n");
+    }
+
+    if (call.name === "skript_slett") {
+      const name = str(call.args["navn"] ?? call.args["name"]);
+      if (!name) return "Mangler navn.";
+      await agentDeleteScript(cfg, name);
+      return `Slettet ${name} fra sandkassen.`;
+    }
+
+    return `Ukjent agent-verktøy: ${call.name}`;
+  } catch (e) {
+    return `Lokal agent svarte ikke: ${e instanceof Error ? e.message : "ukjent feil"}`;
+  }
+}
+
 function fill(tpl: string, args: Record<string, unknown>): string {
   return tpl.replace(/\{(\w+)\}/g, (_, k: string) => str(args[k]));
 }
+
 
 async function runCustomTool(tool: CustomTool, args: Record<string, unknown>): Promise<string> {
   if (tool.kind === "prompt") {
