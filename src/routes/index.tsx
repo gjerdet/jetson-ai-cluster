@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HudWindow } from "@/components/hud/HudWindow";
 import { AmbientField } from "@/components/hud/AmbientField";
 import { CenterMenu, type WinId } from "@/components/hud/CenterMenu";
@@ -9,6 +9,7 @@ import { WorldMonitor } from "@/components/hud/WorldMonitor";
 import { SmartHomePanel } from "@/components/hud/SmartHomePanel";
 import { SettingsPanel } from "@/components/hud/SettingsPanel";
 import { useHudConfig } from "@/lib/hud-store";
+import { setRules } from "@/lib/mqtt-bridge";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -53,6 +54,11 @@ function Index() {
   const [open, setOpen] = useState<WinId[]>([]);
   const [order, setOrder] = useState<WinId[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // regler skal gjelde selv om SMARTHUS-vinduet er lukket
+  useEffect(() => {
+    setRules(config.rules ?? []);
+  }, [config.rules]);
 
   const toggle = (id: WinId) => {
     setOpen((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]));
