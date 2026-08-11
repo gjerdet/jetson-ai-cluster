@@ -15,25 +15,14 @@ export function listRules() {
 }
 
 export function saveRules(list) {
-  const clean = (Array.isArray(list) ? list : []).map((r) => ({
-    id: r.id || randomUUID(),
-    navn: String(r.navn || "Regel"),
-    aktiv: r.aktiv !== false,
-    emne: String(r.emne || ""),
-    operator: ["over", "under", "lik", "endres"].includes(r.operator) ? r.operator : "over",
-    verdi: r.verdi ?? "",
-    pauseSek: Number(r.pauseSek) || 300,
-    handlinger: (Array.isArray(r.handlinger) ? r.handlinger : []).map((h) => ({
-      type: ["mqtt", "telegram", "logg"].includes(h.type) ? h.type : "logg",
-      emne: String(h.emne || ""),
-      payload: String(h.payload ?? ""),
-      tekst: String(h.tekst ?? ""),
-    })),
-    sistUtlost: r.sistUtlost || 0,
-  }));
+  const clean = (Array.isArray(list) ? list : []).map((r) => {
+    const v = validateRule(r);
+    return { ...v, id: v.id || randomUUID() };
+  });
   saveDoc("rules", { list: clean });
   return clean;
 }
+
 
 export function logEvent(entry) {
   const db = logDoc();
