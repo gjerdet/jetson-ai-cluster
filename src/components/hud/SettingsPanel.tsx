@@ -22,6 +22,14 @@ import {
   agentDeleteScript,
   type ScriptFile,
 } from "@/lib/local-agent";
+import {
+  SCRIPT_TEMPLATES,
+  installTemplate,
+  testTemplate,
+  type ScriptTemplate,
+  type TemplateTestResult,
+} from "@/lib/script-templates";
+
 
 import {
   defaultConfig,
@@ -1280,9 +1288,125 @@ function LocalAgentSection({
           ))}
         </div>
       ) : null}
+      <TemplateLibrary config={config} onChanged={test} />
     </div>
   );
 }
+
+function TemplateLibrary({
+  config,
+  onChanged,
+}: {
+  config: HudConfig;
+  onChanged: () => void;
+}) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [values, setValues] = useState<Record<string, Record<string, string>>>({});
+  const [results, setResults] = useState<Record<string, TemplateTestResult | { error: string }>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const paramsOf = (t: ScriptTemplate) =>
+    values[t.id] ?? Object.fromEntries(t.params.map((p) => [p.key, p.value]));
+
+  const run = async (t: ScriptTemplate, install: boolean) => {
+    setBusy(t.id);
+    try {
+      const r = install
+        ? (await installTemplate(config, t, paramsOf(t))).test
+        : await testTemplate(config, t, paramsOf(t));
+      setResults((s) => ({ ...s, [t.id]: r }));
+      if (install && r.passed) onChanged();
+    } catch (e) {
+      setResults((s) => ({ ...s, [t.id]: { error: e instanceof Error ? e.message : "ukjent feil" } }));
+    }
+    setBusy(null);
+  };
+
+  return (
+    <div className="mt-2 space-y-1">
+      <div className="hud-title text-[9px] text-primary/80">SKRIPTMALER (med innebygd mal-test)</div>
+      <p className="text-[9px] text-muted-foreground/80">
+        Hver mal har en <code>--selftest</code> som kjøres i sandkassen og verifiserer forventninger
+        (exit-kode, forventet utdata, svartid) før skriptet lagres eller kjøres på ekte.
+      </p>
+      {SCRIPT_TEMPLATES.map((t) => {
+        const res = results[t.id];
+        const open = openId === t.id;
+        return (
+          <div key={t.id} className="rounded border border-primary/15 px-2 py-1">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setOpenId(open ? null : t.id)}
+                className="flex-1 text-left text-[10px] text-muted-foreground hover:text-primary"
+              >
+                <span className="text-primary/90">{t.name}</span> · {t.lang}
+              </button>
+              <button
+                onClick={() => run(t, false)}
+                disabled={busy === t.id}
+                className="hud-title hud-btn hud-btn-hoverable !py-0.5 text-[9px]"
+              >
+                mal-test
+              </button>
+              <button
+                onClick={() => run(t, true)}
+                disabled={busy === t.id}
+                className="hud-title hud-btn hud-btn-hoverable !py-0.5 text-[9px]"
+              >
+                test + lagre
+              </button>
+            </div>
+            {open ? (
+              <div className="mt-1 space-y-1">
+                <p className="text-[9px] text-muted-foreground/80">{t.summary}</p>
+                {t.params.map((p) => (
+                  <div key={p.key} className="flex items-center gap-2">
+                    <span className="w-28 shrink-0 text-[9px] text-muted-foreground/70">{p.label}</span>
+                    <input
+                      value={paramsOf(t)[p.key] ?? ""}
+                      onChange={(e) =>
+                        setValues((s) => ({
+                          ...s,
+                          [t.id]: { ...paramsOf(t), [p.key]: e.target.value },
+                        }))
+                      }
+                      className="hud-input flex-1"
+                    />
+                  </div>
+                ))}
+                <div className="text-[9px] text-muted-foreground/70">
+                  Forventninger: {t.checks.map((c) => c.label).join(" · ")}
+                </div>
+              </div>
+            ) : null}
+            {res ? (
+              "error" in res ? (
+                <p className="mt-1 text-[9px] text-destructive">feil: {res.error}</p>
+              ) : (
+                <div className="mt-1 space-y-0.5">
+                  <p className={`text-[9px] ${res.passed ? "text-primary" : "text-destructive"}`}>
+                    {res.passed ? "BESTÅTT" : "IKKE BESTÅTT"} · {res.run.ms ?? 0} ms
+                  </p>
+                  {res.results.map((r) => (
+                    <p key={r.label} className="text-[9px] text-muted-foreground/80">
+                      {r.ok ? "✓" : "✗"} {r.label}
+                    </p>
+                  ))}
+                  {res.run.stdout?.trim() ? (
+                    <pre className="max-h-24 overflow-auto whitespace-pre-wrap text-[9px] text-muted-foreground/70">
+                      {res.run.stdout.trim().slice(0, 800)}
+                    </pre>
+                  ) : null}
+                </div>
+              )
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

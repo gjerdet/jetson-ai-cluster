@@ -15,6 +15,14 @@ import {
   agentWriteScript,
   formatResult,
 } from "./local-agent";
+import {
+  SCRIPT_TEMPLATES,
+  formatTemplateTest,
+  installTemplate,
+  templateById,
+  testTemplate,
+} from "./script-templates";
+
 
 
 export type ToolCall = { name: string; args: Record<string, unknown>; raw: string };
@@ -157,7 +165,30 @@ export const TOOL_CATALOG: ToolSpec[] = [
     args: '{"navn": "test.py"}',
     builtin: true,
   },
+  {
+    name: "mal_liste",
+    category: "os",
+    summary: "Lister innebygde skriptmaler (service-start, docker healthcheck, logg-innhenting m.fl.).",
+    args: "{}",
+    builtin: true,
+  },
+  {
+    name: "mal_test",
+    category: "os",
+    summary:
+      "Kjører malens innebygde selvtest i sandkassen og verifiserer grunnleggende forventninger før kjøring.",
+    args: '{"mal": "docker-health", "parametre": {"container": "ollama"}}',
+    builtin: true,
+  },
+  {
+    name: "mal_installer",
+    category: "os",
+    summary: "Tester malen og lagrer den i sandkassen kun hvis alle forventninger holder.",
+    args: '{"mal": "service-start", "parametre": {"tjeneste": "ollama"}}',
+    builtin: true,
+  },
 ];
+
 
 
 export const TOOL_NAMES = TOOL_CATALOG.map((t) => t.name);
@@ -184,6 +215,9 @@ Tilgjengelige verktøy:
 - skript_test {"sprak": "python", "innhold": "..."} – skriv og kjør skript i ett steg.
 - skript_liste {} eller {"navn": "test.py"} – list eller les skript i sandkassen.
 - skript_slett {"navn": "test.py"} – slett skript fra sandkassen.
+- mal_liste {} – innebygde skriptmaler (service-start, docker-health, logg-innhenting, disk-varsel, gpu-telemetri, http-helsesjekk).
+- mal_test {"mal": "docker-health", "parametre": {"container": "ollama"}} – kjører malens selvtest i sandkassen og verifiserer forventninger.
+- mal_installer {"mal": "service-start", "parametre": {"tjeneste": "ollama"}} – tester og lagrer malen i sandkassen kun hvis testen består.
 
 Regler: kall bare verktøy når du faktisk trenger dataene. Du får resultatet tilbake og skal
 deretter svare brukeren på norsk bokmål. Ikke finn på verdier du ikke har hentet.
@@ -356,9 +390,15 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     return `Slettet verktøyet «${name}».`;
   }
 
-  if (call.name.startsWith("os_") || call.name.startsWith("skript_") || call.name === "agent_status") {
+  if (
+    call.name.startsWith("os_") ||
+    call.name.startsWith("skript_") ||
+    call.name.startsWith("mal_") ||
+    call.name === "agent_status"
+  ) {
     return runAgentTool(call, config);
   }
+
 
 
   const custom = (config.customTools ?? []).find((t) => t.enabled && t.name === call.name);
@@ -459,6 +499,34 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       await agentDeleteScript(cfg, name);
       return `Slettet ${name} fra sandkassen.`;
     }
+
+    if (call.name === "mal_liste") {
+      return SCRIPT_TEMPLATES.map(
+        (t) =>
+          `${t.id} (${t.lang}) – ${t.summary} Parametre: ${t.params.map((p) => `${p.key}=${p.value}`).join(", ") || "ingen"}`,
+      ).join("\n");
+    }
+
+    if (call.name === "mal_test" || call.name === "mal_installer") {
+      const id = str(call.args["mal"] ?? call.args["id"] ?? call.args["navn"]);
+      const tpl = templateById(id);
+      if (!tpl) return `Fant ingen mal med id «${id}». Bruk mal_liste for oversikt.`;
+      const raw = call.args["parametre"] ?? call.args["params"];
+      const overrides: Record<string, string> = {};
+      if (raw && typeof raw === "object")
+        for (const [k, v] of Object.entries(raw as Record<string, unknown>)) overrides[k] = str(v);
+      if (!approve(cfg, `selvtest av malen «${tpl.name}» i sandkassen`))
+        return "Brukeren avslo kjøringen.";
+      if (call.name === "mal_test") {
+        return formatTemplateTest(tpl, await testTemplate(config, tpl, overrides));
+      }
+      const r = await installTemplate(config, tpl, overrides);
+      return `${formatTemplateTest(tpl, r.test)}\n${
+        r.saved ? `Lagret som ${r.saved} i sandkassen.` : "Ikke lagret – testen må bestå først."
+      }`;
+    }
+
+
 
     return `Ukjent agent-verktøy: ${call.name}`;
   } catch (e) {
