@@ -277,6 +277,43 @@ export function WorldMap({
               </g>
             );
           })}
+
+          {markers.map((m) => {
+            const pt = projection([m.lon, m.lat]);
+            if (!pt) return null;
+            const on = highlightId === m.id;
+            const color = on ? "oklch(0.85 0.18 90)" : "oklch(0.82 0.14 165)";
+            return (
+              <g key={m.id} transform={`translate(${pt[0]}, ${pt[1]}) scale(${1 / zoom})`}>
+                <rect x={-2.2} y={-2.2} width={4.4} height={4.4} fill={color} opacity={0.9} />
+                <rect
+                  x={-4}
+                  y={-4}
+                  width={8}
+                  height={8}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={0.6}
+                  opacity={on ? 1 : 0.5}
+                >
+                  {on ? (
+                    <animate
+                      attributeName="opacity"
+                      values="1;0.15;1"
+                      dur="1.4s"
+                      repeatCount="indefinite"
+                    />
+                  ) : null}
+                </rect>
+                {zoom >= 2 || on ? (
+                  <text x={5} y={2.5} fontSize={4} fill={color} className="hud-title pointer-events-none">
+                    {m.name}
+                  </text>
+                ) : null}
+                <title>{`${m.name}${m.detail ? ` — ${m.detail}` : ""}`}</title>
+              </g>
+            );
+          })}
         </g>
       </svg>
       <div className="hud-radar-sweep pointer-events-none absolute inset-0" />
