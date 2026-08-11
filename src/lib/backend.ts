@@ -31,6 +31,7 @@ import {
   type SampleSummary,
   type TelegramConfig,
   type ThreadSummary,
+  type AiChatReply,
 } from "@/lib/contract";
 
 export type {
@@ -54,6 +55,7 @@ export type {
   SampleSummary,
   TelegramConfig,
   ThreadSummary,
+  AiChatReply,
 };
 
 const LS_URL = "jarvis.backend.url";
@@ -277,6 +279,13 @@ export const backend = {
   lagreConfig: (data: unknown) => call(ROUTES.config!, { method: "PUT", body: JSON.stringify({ data }) }),
 
   hentAi: () => call<AiConfig>(ROUTES.ai!),
+  /** Lar backend-en (agenten) snakke med AI-noden – samme vei som Telegram-boten. */
+  aiChat: (meldinger: { role: string; content: string }[], o: { baseUrl?: string; model?: string } = {}) =>
+    call<AiChatReply>(
+      ROUTES.aiChat!,
+      { method: "POST", body: JSON.stringify({ meldinger, ...o }) },
+      { timeoutMs: 180_000, retries: 0 },
+    ),
   lagreAi: (v: Partial<AiConfig>) => call(ROUTES.ai!, { method: "PUT", body: JSON.stringify(v) }),
 
   maalinger: (p: { emne?: string; fra?: number; til?: number; maks?: number } = {}) => {

@@ -207,6 +207,15 @@ export interface TelegramConfig {
   allowlist: boolean;
 }
 
+export interface AiChatReply {
+  /** Selve svaret fra AI-noden. */
+  svar: string;
+  /** Modellen som svarte. */
+  model: string;
+  /** Adressen svaret kom fra (uten nøkkel). */
+  node: string;
+}
+
 export interface AiConfig {
   baseUrl: string;
   model: string;

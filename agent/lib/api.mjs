@@ -248,6 +248,42 @@ export async function handleApi(req, res, route, url, deps = {}) {
       }
     }
 
+    // ---- AI-proxy: HUD-en kan la backend-en snakke med AI-noden ----------
+    if (path === "/ai/chat" && method === "POST") {
+      const b = await readBody(req);
+      const meldinger = Array.isArray(b.meldinger) ? b.meldinger : [];
+      if (!meldinger.length) return json(req, res, 400, { error: "Ingen meldinger" });
+      const cfg = doc("ai", { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1", apiKey: "", system: "" });
+      const baseUrl = str(b.baseUrl || cfg.baseUrl, "Adresse", { maks: 300 }).replace(/\/+$/, "");
+      const model = str(b.model || cfg.model, "Modell", { maks: 120 });
+      const key = decryptSecret(cfg.apiKey);
+      const messages = meldinger
+        .filter((m) => m && typeof m.content === "string")
+        .slice(-40)
+        .map((m) => ({
+          role: ["system", "user", "assistant"].includes(m.role) ? m.role : "user",
+          content: String(m.content).slice(0, 24000),
+        }));
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 120_000);
+      try {
+        const r = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...(key ? { authorization: `Bearer ${key}` } : {}) },
+          body: JSON.stringify({ model, messages, stream: false, temperature: Number(b.temperatur) || 0.7 }),
+          signal: ctrl.signal,
+        });
+        if (!r.ok) return json(req, res, 502, { error: `AI-noden svarte ${r.status}`, kode: "unavailable" });
+        const data = await r.json();
+        const svar = data?.choices?.[0]?.message?.content?.trim() || "";
+        return json(req, res, 200, { svar, model, node: baseUrl });
+      } catch (e) {
+        return json(req, res, 502, { error: `Nådde ikke AI-noden: ${e?.message || "ukjent"}`, kode: "unavailable" });
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
     // ---- tidsserier ------------------------------------------------------
     if (path === "/maalinger" && method === "GET") {
       const q = url.searchParams;
