@@ -287,3 +287,47 @@ AGENT_TLS_KEY=/var/lib/jarvis/certs/agent.key
 Start på nytt, åpne `https://<jetson-ip>:8787/api/status` én gang i nettleseren
 og godta det selvsignerte sertifikatet. Deretter setter du samme adresse i
 **SYSTEM → BACKEND**. `tls: true` i statusen bekrefter at det er kryptert.
+
+## HTTPS/TLS
+
+Tre veier – velg én.
+
+**1) Caddy (enklest, fornyer sertifikat selv)**
+```bash
+sudo apt install caddy
+sudo cp agent/proxy/Caddyfile /etc/caddy/Caddyfile   # bytt ut domenet
+sudo systemctl restart caddy
+```
+Sett `AGENT_TRUST_PROXY=1` i `agent.env` så rate-limiting ser riktig klient-IP.
+
+**2) Nginx + certbot**
+```bash
+sudo cp agent/proxy/jarvis.nginx.conf /etc/nginx/sites-available/jarvis
+sudo ln -s /etc/nginx/sites-available/jarvis /etc/nginx/sites-enabled/
+sudo certbot --nginx -d jarvis.dittdomene.no
+sudo nginx -t && sudo systemctl reload nginx
+```
+Også her: `AGENT_TRUST_PROXY=1`.
+
+**3) TLS direkte i agenten (bare LAN)**
+```bash
+./agent/scripts/make-cert.sh jarvis.local
+# i agent.env:
+AGENT_TLS_CERT=/opt/jarvis/agent/certs/cert.pem
+AGENT_TLS_KEY=/opt/jarvis/agent/certs/key.pem
+AGENT_HTTP_REDIRECT_PORT=8786    # valgfri: http → https
+```
+Selvsignert gir nettleseradvarsel første gang. Godta den, eller importer
+`certs/cert.pem` som klarert sertifikat på maskinene dine.
+
+Agenten setter `Strict-Transport-Security` automatisk når trafikken er
+kryptert – enten direkte, eller når proxyen sender `X-Forwarded-Proto: https`.
+
+## Tester
+
+```bash
+npm test           # hele pakken: kontrakt, backend-klient, sikkerhet, ende-til-ende
+npx vitest         # watch-modus
+```
+Ende-til-ende-testen starter en ekte agent på en tilfeldig port med midlertidig
+datamappe, og sjekker CORS, innlogging, rate-limiting, krypterte nøkler og backup.
