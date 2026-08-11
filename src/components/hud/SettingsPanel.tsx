@@ -1151,6 +1151,131 @@ export function SettingsPanel({
   );
 }
 
+function LocalAgentSection({
+  config,
+  update,
+}: {
+  config: HudConfig;
+  update: (c: HudConfig) => void;
+}) {
+  const cfg = agentCfg(config);
+  const [status, setStatus] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  const [files, setFiles] = useState<ScriptFile[]>([]);
+  const patch = (p: Partial<typeof cfg>) => update({ ...config, localAgent: { ...cfg, ...p } });
+
+  const test = async () => {
+    setBusy(true);
+    setStatus("kobler til …");
+    try {
+      const h = await agentHealth(cfg);
+      const list = await agentScripts(cfg).catch(() => ({ files: [] as ScriptFile[] }));
+      setFiles(list.files);
+      setStatus(
+        `${h.host ?? "?"} · ${h.platform ?? "?"} · minne ${h.memFreeMb}/${h.memTotalMb} MB · sandkasse ${h.sandbox} · ${(h.allowed ?? []).length} hvitelistede kommandoer`,
+      );
+    } catch (e) {
+      setFiles([]);
+      setStatus(`feil: ${e instanceof Error ? e.message : "ukjent"}`);
+    }
+    setBusy(false);
+  };
+
+  const removeFile = async (name: string) => {
+    try {
+      await agentDeleteScript(cfg, name);
+      setFiles((f) => f.filter((x) => x.name !== name));
+    } catch (e) {
+      setStatus(`feil: ${e instanceof Error ? e.message : "ukjent"}`);
+    }
+  };
+
+  return (
+    <div className="rounded border border-primary/25 bg-primary/[0.04] p-2">
+      <div className="mb-1.5 flex items-center gap-2">
+        <Terminal className="size-3 text-primary" />
+        <div className="hud-title flex-1 text-[10px] text-primary">LOKAL AGENT (OS + SANDKASSE)</div>
+        <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={cfg.enabled}
+            onChange={(e) => patch({ enabled: e.target.checked })}
+            className="accent-[oklch(0.78_0.13_200)]"
+          />
+          på
+        </label>
+      </div>
+      <p className="mb-1.5 text-[10px] text-muted-foreground">
+        Kjør <code>agent/server.mjs</code> på Jetson. Da kan Jarvis kjøre hvitelistede
+        OS-kommandoer og skrive/teste egne skript i en sandkasse med tidsgrense.
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        <input
+          value={cfg.baseUrl}
+          onChange={(e) => patch({ baseUrl: e.target.value })}
+          placeholder="http://192.168.1.50:8787"
+          className="hud-input col-span-2"
+        />
+        <input
+          type="number"
+          value={cfg.timeoutMs}
+          onChange={(e) => patch({ timeoutMs: Number(e.target.value) || 15000 })}
+          placeholder="timeout ms"
+          className="hud-input"
+        />
+        <input
+          value={cfg.token}
+          onChange={(e) => patch({ token: e.target.value })}
+          placeholder="AGENT_TOKEN"
+          type="password"
+          className="hud-input col-span-2"
+        />
+        <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={cfg.confirm}
+            onChange={(e) => patch({ confirm: e.target.checked })}
+            className="accent-[oklch(0.78_0.13_200)]"
+          />
+          bekreft kjøring
+        </label>
+      </div>
+      <div className="mt-1.5 flex items-center gap-2">
+        <button
+          onClick={test}
+          disabled={busy}
+          className="hud-title hud-btn hud-btn-hoverable !py-0.5 text-[9px]"
+        >
+          <Terminal className="size-3" /> test tilkobling
+        </button>
+        <span className="flex-1 truncate text-[9px] text-muted-foreground">{status}</span>
+      </div>
+      {files.length ? (
+        <div className="mt-1.5 space-y-1">
+          <div className="hud-title text-[9px] text-primary/80">SANDKASSE</div>
+          {files.map((f) => (
+            <div
+              key={f.name}
+              className="flex items-center gap-2 rounded border border-primary/15 px-2 py-1"
+            >
+              <span className="flex-1 truncate text-[10px] text-muted-foreground">{f.name}</span>
+              <span className="text-[9px] text-muted-foreground/70">{f.bytes} B</span>
+              <button
+                onClick={() => removeFile(f.name)}
+                aria-label="Slett skript"
+                className="rounded p-0.5 text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="size-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
