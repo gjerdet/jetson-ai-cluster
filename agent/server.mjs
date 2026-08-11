@@ -366,7 +366,7 @@ function startMqtt() {
   mqtt.connect();
 }
 
-const apiDeps = { publish, mqttStatus, restartMqtt: startMqtt, rulesStatus };
+const apiDeps = { publish, mqttStatus, restartMqtt: startMqtt, rulesStatus, tls: !!TLS_OPTIONS };
 
 await ensureSandbox();
 await initStore();
@@ -375,10 +375,27 @@ startMqtt();
 startTelegram({ rulesStatus });
 setInterval(() => pruneSamples().catch(() => {}), 6 * 60 * 60 * 1000);
 
+const scheme = TLS_OPTIONS ? "https" : "http";
 server.listen(PORT, HOST, () => {
-  console.log(`[jarvis-agent] lytter på http://${HOST}:${PORT}`);
+  console.log(`[jarvis-agent] lytter på ${scheme}://${HOST}:${PORT}`);
   console.log(`[jarvis-agent] sandkasse: ${SANDBOX}`);
-  console.log(`[jarvis-agent] backend-API: http://${HOST}:${PORT}/api/status`);
+  console.log(`[jarvis-agent] backend-API: ${scheme}://${HOST}:${PORT}/api/status`);
+  if (!TLS_OPTIONS) console.warn("[jarvis-agent] Kjører uten TLS. Sett AGENT_TLS_CERT/AGENT_TLS_KEY for HTTPS.");
   if (!TOKEN) console.warn("[jarvis-agent] ADVARSEL: AGENT_TOKEN er ikke satt – alle kan kalle agenten.");
 });
+
+// Ryddig avslutning slik at systemd/Docker kan restarte uten datatap.
+for (const sig of ["SIGINT", "SIGTERM"]) {
+  process.on(sig, () => {
+    console.log(`[jarvis-agent] avslutter (${sig}) …`);
+    try {
+      mqtt?.stop();
+    } catch {
+      /* ignorert */
+    }
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 3000).unref();
+  });
+}
+
 
