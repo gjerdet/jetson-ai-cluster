@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { pingNode } from "./hud-client";
 import type { HudConfig, ModelNode } from "./hud-store";
 
