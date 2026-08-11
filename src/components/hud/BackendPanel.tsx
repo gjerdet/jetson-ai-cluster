@@ -55,6 +55,13 @@ export function BackendPanel() {
     }
   }, []);
 
+  const oppdaterMqttStatus = useCallback((health: import("@/lib/backend").MqttHealth) => {
+    setStatus((current) => current ? {
+      ...current,
+      mqtt: { ...current.mqtt, tilkoblet: health.tilkoblet },
+    } : current);
+  }, []);
+
   useEffect(() => {
     void refresh();
     const t = setInterval(() => void refresh(), 15_000);
@@ -155,10 +162,7 @@ export function BackendPanel() {
           <SettingsFormSection />
           <AiSection />
           <MqttSection onChange={refresh} />
-          <MqttHealthSection onHealth={(health) => setStatus((current) => current ? {
-            ...current,
-            mqtt: { ...current.mqtt, tilkoblet: health.tilkoblet },
-          } : current)} />
+          <MqttHealthSection onHealth={oppdaterMqttStatus} />
           <RulesSection />
           <TelegramSection />
           <HistorySection />
