@@ -156,6 +156,46 @@ export function ChatPanel({
           </p>
         ) : null}
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        {pending.length ? (
+          <div className="space-y-1 rounded border border-amber-400/40 bg-amber-400/5 p-2">
+            <p className="hud-title text-[9px] text-amber-300">
+              BEKREFT KOMMANDOER (tørrkjøring)
+            </p>
+            {pending.map((c, i) => (
+              <p key={`${c.topic}-${i}`} className="text-[11px] text-foreground/85">
+                {c.risky ? "⚠ " : ""}
+                {c.topic} ← {c.payload}
+              </p>
+            ))}
+            <div className="flex gap-1">
+              <button
+                onClick={() => {
+                  const done = runCommands(pending);
+                  setPending([]);
+                  setMessages((m) => [
+                    ...m,
+                    {
+                      role: "assistant",
+                      content: done
+                        .map((c) => `${c.ok ? "✓" : "✕"} ${c.topic} ← ${c.payload}`)
+                        .join("\n"),
+                      node: "MQTT",
+                    },
+                  ]);
+                }}
+                className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px] text-primary"
+              >
+                kjør
+              </button>
+              <button
+                onClick={() => setPending([])}
+                className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px]"
+              >
+                avbryt
+              </button>
+            </div>
+          </div>
+        ) : null}
         <div ref={endRef} />
       </div>
       <div className="flex items-center gap-2 border-t border-primary/20 pt-2">
