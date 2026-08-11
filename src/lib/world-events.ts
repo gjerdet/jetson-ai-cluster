@@ -7,7 +7,12 @@ export type LayerId =
   | "climate"
   | "war"
   | "protest"
-  | "disease";
+  | "disease"
+  | "landslide"
+  | "drought"
+  | "displacement"
+  | "terror"
+  | "cyber";
 
 export type WorldEvent = {
   id: string;
@@ -30,6 +35,11 @@ export const LAYERS: { id: LayerId; label: string; hue: number }[] = [
   { id: "war", label: "Krig", hue: 25 },
   { id: "protest", label: "Protest", hue: 320 },
   { id: "disease", label: "Sykdom", hue: 130 },
+  { id: "landslide", label: "Skred", hue: 80 },
+  { id: "drought", label: "Tørke", hue: 95 },
+  { id: "displacement", label: "Flukt", hue: 280 },
+  { id: "terror", label: "Terror", hue: 10 },
+  { id: "cyber", label: "Cyber", hue: 180 },
 ];
 
 export const LAYER_COLOR: Record<LayerId, string> = {
@@ -42,6 +52,11 @@ export const LAYER_COLOR: Record<LayerId, string> = {
   war: "oklch(0.68 0.22 25)",
   protest: "oklch(0.75 0.18 320)",
   disease: "oklch(0.8 0.16 130)",
+  landslide: "oklch(0.74 0.13 80)",
+  drought: "oklch(0.82 0.15 95)",
+  displacement: "oklch(0.72 0.16 280)",
+  terror: "oklch(0.62 0.22 10)",
+  cyber: "oklch(0.84 0.14 180)",
 };
 
 function eonetLayer(id: string): LayerId | null {
@@ -49,8 +64,10 @@ function eonetLayer(id: string): LayerId | null {
   if (id.includes("severeStorms")) return "storm";
   if (id.includes("floods")) return "flood";
   if (id.includes("volcanoes")) return "volcano";
+  if (id.includes("landslides")) return "landslide";
+  if (id.includes("drought")) return "drought";
   if (
-    id.includes("drought") ||
+    id.includes("manmade") ||
     id.includes("seaLakeIce") ||
     id.includes("tempExtremes") ||
     id.includes("snow") ||
@@ -193,13 +210,18 @@ function geocode(text: string): [number, number] | null {
   return null;
 }
 
-const NEWS_QUERIES: Record<"war" | "protest" | "disease", string> = {
+type NewsLayer = "war" | "protest" | "disease" | "displacement" | "terror" | "cyber";
+
+const NEWS_QUERIES: Record<NewsLayer, string> = {
   war: '("armed conflict" OR airstrike OR "military offensive")',
   protest: '("mass protest" OR demonstration OR "civil unrest")',
   disease: '("disease outbreak" OR epidemic OR cholera OR measles OR "bird flu")',
+  displacement: '("refugees flee" OR "displaced people" OR "refugee camp" OR evacuation)',
+  terror: '("terror attack" OR bombing OR "suicide attack" OR insurgents)',
+  cyber: '("cyber attack" OR ransomware OR "data breach" OR "hacking campaign")',
 };
 
-async function fetchNews(layer: "war" | "protest" | "disease"): Promise<WorldEvent[]> {
+async function fetchNews(layer: NewsLayer): Promise<WorldEvent[]> {
   const url =
     "https://api.gdeltproject.org/api/v2/doc/doc?format=json&mode=artlist&maxrecords=40&timespan=7d&sort=datedesc&query=" +
     encodeURIComponent(`${NEWS_QUERIES[layer]} sourcelang:eng`);
@@ -239,6 +261,9 @@ export async function fetchWorldEvents(): Promise<WorldEvent[]> {
     fetchNews("war"),
     fetchNews("protest"),
     fetchNews("disease"),
+    fetchNews("displacement"),
+    fetchNews("terror"),
+    fetchNews("cyber"),
   ]);
   return parts.flat().sort((a, b) => (a.time < b.time ? 1 : -1));
 }
