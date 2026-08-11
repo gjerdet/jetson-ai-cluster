@@ -192,6 +192,7 @@ export const defaultConfig: HudConfig = {
   ],
   integrations: [],
   memories: [],
+  devices: [],
   plugins: [
     {
       id: "p-telegram",
