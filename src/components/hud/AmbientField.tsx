@@ -35,12 +35,35 @@ export function AmbientField() {
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // musepeker påvirker feltet
+    const m = { x: -9999, y: -9999 };
+    const onMouse = (e: PointerEvent) => {
+      const r = canvas.getBoundingClientRect();
+      m.x = e.clientX - r.left;
+      m.y = e.clientY - r.top;
+    };
+    if (!reduce) window.addEventListener("pointermove", onMouse);
+
     const draw = () => {
       ctx.clearRect(0, 0, w, h);
       for (const p of points) {
         if (!reduce) {
           p.x += p.vx;
           p.y += p.vy;
+          // svak dragning mot musa
+          const dx = m.x - p.x;
+          const dy = m.y - p.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < 260 * 260 && d2 > 1) {
+            const f = 0.035 / Math.sqrt(d2);
+            p.vx += dx * f;
+            p.vy += dy * f;
+          }
+          const sp = Math.hypot(p.vx, p.vy);
+          if (sp > 0.6) {
+            p.vx = (p.vx / sp) * 0.6;
+            p.vy = (p.vy / sp) * 0.6;
+          }
         }
         if (p.x < 0) p.x = w;
         if (p.x > w) p.x = 0;
@@ -64,6 +87,19 @@ export function AmbientField() {
             ctx.stroke();
           }
         }
+        // tråd til musepekeren
+        const mdx = a.x - m.x;
+        const mdy = a.y - m.y;
+        const md2 = mdx * mdx + mdy * mdy;
+        if (md2 < 200 * 200) {
+          const o = (1 - Math.sqrt(md2) / 200) * 0.28;
+          ctx.strokeStyle = `oklch(0.85 0.14 190 / ${o.toFixed(3)})`;
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(m.x, m.y);
+          ctx.stroke();
+        }
         ctx.fillStyle = "oklch(0.78 0.13 200 / 0.45)";
         ctx.beginPath();
         ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2);
@@ -78,8 +114,10 @@ export function AmbientField() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", onMouse);
     };
   }, []);
+
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
