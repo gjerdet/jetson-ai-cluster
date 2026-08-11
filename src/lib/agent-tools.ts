@@ -4,6 +4,18 @@ import { historyFor, numericValue, mqttOnline, publishMqtt } from "./mqtt-bridge
 import { fetchIntegration } from "./integrations.functions";
 import { briefingText, refreshFeed, snapshot } from "./world-feed";
 import { pingNode } from "./hud-client";
+import {
+  agentCfg,
+  agentDeleteScript,
+  agentExec,
+  agentHealth,
+  agentReadScript,
+  agentRun,
+  agentScripts,
+  agentWriteScript,
+  formatResult,
+} from "./local-agent";
+
 
 export type ToolCall = { name: string; args: Record<string, unknown>; raw: string };
 
