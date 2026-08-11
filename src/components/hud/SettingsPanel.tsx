@@ -15,8 +15,10 @@ import {
   Scale,
   Terminal,
   Database,
+  BookOpen,
 } from "lucide-react";
 import { BackendPanel } from "@/components/hud/BackendPanel";
+import { KnowledgePanel } from "@/components/hud/KnowledgePanel";
 
 import {
   agentCfg,
@@ -78,6 +80,7 @@ type Tab =
   | "backend"
   | "modeller"
   | "agenter"
+  | "kunnskap"
   | "evaluator"
   | "enheter"
   | "minne"
@@ -90,6 +93,7 @@ const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "backend", label: "BACKEND", icon: Database },
   { id: "modeller", label: "MODELLER", icon: Cpu },
   { id: "agenter", label: "AGENTER", icon: Bot },
+  { id: "kunnskap", label: "KUNNSKAP", icon: BookOpen },
   { id: "evaluator", label: "EVALUATOR", icon: Scale },
   { id: "enheter", label: "ENHETER", icon: HardDrive },
   { id: "minne", label: "MINNE", icon: Brain },
@@ -158,6 +162,7 @@ export function SettingsPanel({
 
       <div className="min-h-0 flex-1 space-y-3 overflow-auto pr-1">
         {tab === "backend" ? <BackendPanel /> : null}
+        {tab === "kunnskap" ? <KnowledgePanel /> : null}
 
         {tab === "system" ? (
           <>

@@ -17,6 +17,9 @@ import {
   type BackendStatus,
   type BackendUser,
   type ErrorCode,
+  type KnowledgeDoc,
+  type KnowledgeHit,
+  type RagConfig,
   type BackendSettings,
   type ClusterNode,
   type MqttConfig,
@@ -32,6 +35,9 @@ import {
 
 export type {
   AiConfig,
+  KnowledgeDoc,
+  KnowledgeHit,
+  RagConfig,
   BackendSettings,
   ClusterNode,
   MqttHealth,
@@ -329,6 +335,38 @@ export const backend = {
 
   hentBackuper: () => call<{ kopier: BackupFile[] }>(ROUTES.backup!).then((r) => r.kopier),
   taBackup: () => call<{ ok: boolean; navn: string }>(ROUTES.backup!, { method: "POST" }, { timeoutMs: 30_000, retries: 0 }),
+
+  // ---- kunnskapsbase (RAG) ----
+  hentKunnskap: () =>
+    call<{ dokumenter: KnowledgeDoc[]; statistikk: { dokumenter: number; biter: number; vektorer: number; model?: string; feil?: string } }>(
+      ROUTES.knowledge!,
+    ),
+  leggTilKunnskap: (d: { tittel: string; tekst: string; kilde?: string; type?: string }) =>
+    call<{ dokument: KnowledgeDoc; biter: number; embedFeil: string | null }>(
+      ROUTES.knowledge!,
+      { method: "POST", body: JSON.stringify(d) },
+      { timeoutMs: 180_000, retries: 0 },
+    ),
+  slettKunnskap: (id: string) =>
+    call<{ ok: boolean }>(`${ROUTES.knowledge}/dok/${encodeURIComponent(id)}`, { method: "DELETE" }, { retries: 0 }),
+  sokKunnskap: (sporsmal: string, topK?: number) =>
+    call<{ treff: KnowledgeHit[]; metode: string }>(
+      ROUTES.knowledgeSearch!,
+      { method: "POST", body: JSON.stringify({ sporsmal, topK }) },
+      { timeoutMs: 60_000, retries: 0 },
+    ),
+  hentRagConfig: () =>
+    call<{ config: RagConfig; statistikk: { dokumenter: number; biter: number; vektorer: number } }>(
+      ROUTES.knowledgeConfig!,
+    ),
+  lagreRagConfig: (v: Partial<RagConfig>) =>
+    call<{ config: RagConfig }>(ROUTES.knowledgeConfig!, { method: "PUT", body: JSON.stringify(v) }, { retries: 0 }),
+  reindekserKunnskap: () =>
+    call<{ oppdatert: number; totalt: number; model: string }>(
+      ROUTES.knowledgeReindex!,
+      { method: "POST" },
+      { timeoutMs: 300_000, retries: 0 },
+    ),
 
   samtaler: () => call<{ samtaler: ThreadSummary[] }>(ROUTES.threads!).then((r) => r.samtaler),
   lagreSamtale: (t: { id?: string; tittel: string; meldinger: unknown[] }) =>

@@ -88,6 +88,10 @@ export const ROUTES: {
   telegram: string;
   telegramTest: string;
   backup: string;
+  knowledge: string;
+  knowledgeSearch: string;
+  knowledgeConfig: string;
+  knowledgeReindex: string;
 };
 export const ERROR_CODES: {
   UNAUTHORIZED: ErrorCode;
@@ -253,3 +257,36 @@ export interface ThreadSummary {
 export function validateRule(rule: unknown): BackendRule;
 export function validateCredentials(epost: unknown, passord: unknown): { email: string; password: string };
 export function codeFromStatus(status: number): ErrorCode;
+
+export interface RagConfig {
+  aktiv: boolean;
+  baseUrl: string;
+  model: string;
+  apiKey?: string;
+  bitStorrelse: number;
+  overlapp: number;
+  topK: number;
+  minPoeng: number;
+}
+
+export interface KnowledgeDoc {
+  id: string;
+  tittel: string;
+  kilde: string;
+  type: string;
+  tegn: number;
+  opprettet: number;
+  biter: number;
+  vektorer: number;
+}
+
+export interface KnowledgeHit {
+  id: string;
+  dokId: string;
+  nr: number;
+  tittel: string;
+  kilde: string;
+  type: string;
+  tekst: string;
+  poeng: number;
+}
