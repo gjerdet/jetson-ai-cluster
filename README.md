@@ -12,7 +12,31 @@ Et minimalistisk, Jarvis-inspirert HUD som kjører i nettleseren og snakker dire
 - **Enhetsregister**: ESP32/ESP8266/Raspberry Pi med autogenerert kode, koblingsskjema og dokumentasjon.
 - **Graf-dashbord**: Bygg moduler for MQTT-data og systemintegrasjoner (TrueNAS, Proxmox, UniFi, Homey).
 
+## Hurtigstart på Jetson (ett skript)
+
+Alt-i-ett-installasjonen setter opp Ollama, henter modellene (`llama3.2`, `hermes3`, `nomic-embed-text`), installerer backend-agenten som systemd-tjeneste og lager innlogging:
+
+```sh
+git clone <din-github-url> && cd <repository-name>
+sudo bash agent/scripts/install-jetson.sh
+```
+
+Innloggingen legges i `/root/jarvis-innlogging.txt`. Åpne deretter HUD-en, gå til **NODER → HURTIGOPPSETT**, skriv inn Jetson-IP-en, og den registrerer `JETSON-01` + `HERMES` og tester tilkoblingen automatisk.
+
+Full guide: [docs/JETSON-SETUP.md](docs/JETSON-SETUP.md)
+
+## Stemme
+
+JARVIS kan lese svarene høyt. Trykk på høyttaler-ikonet nederst i kommandolinjen.
+
+- Bruker nettleserens innebygde talesyntese — **ingen sky, ingen API-nøkkel**.
+- Velger automatisk en Iron Man-aktig stemme: britisk engelsk mann (`Daniel`, `Arthur`, `Google UK English Male`), tonehøyde 0.82 og tempo 0.94 for den rolige butler-klangen.
+- Vil du ha enda nærmere filmstemmen kan du kjøre en lokal nevral TTS på Jetson (f.eks. [Piper](https://github.com/rhasspy/piper) med `en_GB-alan-medium`) og peke HUD-en dit senere.
+
+På Linux/Jetson må du ha stemmer installert i systemet (`sudo apt install speech-dispatcher espeak-ng`), ellers har Chrome ingen stemmer å velge blant. macOS og Windows har britiske stemmer innebygd.
+
 ## Kjør lokalt på Jetson
+
 
 > Full steg-for-steg-guide: [docs/JETSON-SETUP.md](docs/JETSON-SETUP.md)
 
