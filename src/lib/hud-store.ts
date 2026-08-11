@@ -146,6 +146,19 @@ export const defaultMqtt: MqttConfig = {
   discoveryTopic: "",
 };
 
+/** Handling som kjøres når en regel utløses. */
+export type RuleAction =
+  | { id: string; kind: "mqtt"; topic: string; payload: string }
+  | { id: string; kind: "telegram"; text: string }
+  | { id: string; kind: "notify"; text: string };
+
+export function newAction(kind: RuleAction["kind"] = "mqtt"): RuleAction {
+  const id = `a-${Math.random().toString(36).slice(2, 8)}`;
+  if (kind === "mqtt") return { id, kind, topic: "hjem/stue/vifte/set", payload: "ON" };
+  if (kind === "telegram") return { id, kind, text: "Varsel fra JARVIS: {regel} – {emne} = {verdi}" };
+  return { id, kind: "notify", text: "{regel}: {emne} = {verdi}" };
+}
+
 /** Varselregel for sensordata. */
 export type AlertRule = {
   id: string;
@@ -156,10 +169,14 @@ export type AlertRule = {
   value: string;
   /** minutter uten signal før «stale» utløser */
   minutes?: number;
+  /** minutter tilstanden må holde seg før regelen utløser (0 = med én gang) */
+  forMinutes?: number;
   /** minutter mellom gjentatte varsler */
   cooldownMin?: number;
   level?: "warn" | "crit";
   enabled: boolean;
+  /** handlingskjede som kjøres når regelen utløses */
+  actions?: RuleAction[];
 };
 
 export function newRule(topic = ""): AlertRule {
@@ -170,12 +187,50 @@ export function newRule(topic = ""): AlertRule {
     kind: "above",
     value: "30",
     minutes: 15,
+    forMinutes: 0,
     cooldownMin: 10,
     level: "warn",
     enabled: true,
+    actions: [],
   };
 }
 
+/** Modul på dashbordet (GRAFER). */
+export type DashModule = {
+  id: string;
+  title: string;
+  kind: "mqtt-graph" | "mqtt-value" | "integration";
+  /** MQTT-emne for mqtt-moduler */
+  topic?: string;
+  /** integrasjons-id for integration-moduler */
+  integrationId?: string;
+  /** API-sti, f.eks. /pool/dataset */
+  path?: string;
+  /** felt å hente ut, f.eks. used.parsed eller 0.available.parsed */
+  field?: string;
+  /** valgfri maksverdi for progresjonsvisning */
+  max?: string;
+  unit?: string;
+  /** sekunder mellom oppdateringer */
+  refreshSec?: number;
+  w?: 1 | 2;
+};
+
+export function newModule(kind: DashModule["kind"] = "mqtt-graph"): DashModule {
+  return {
+    id: `mod-${Math.random().toString(36).slice(2, 8)}`,
+    title: kind === "integration" ? "NY MODUL" : "NY GRAF",
+    kind,
+    topic: "",
+    path: "/pool/dataset",
+    field: "",
+    unit: "",
+    refreshSec: 60,
+    w: 1,
+  };
+}
+
+export type TelegramConfig = { chatId: string; enabled: boolean };
 
 export type HudConfig = {
   nodes: ModelNode[];
@@ -191,7 +246,10 @@ export type HudConfig = {
   devices: Device[];
   mqtt: MqttConfig;
   rules: AlertRule[];
-
+  modules: DashModule[];
+  telegram: TelegramConfig;
+  /** krev bekreftelse før Jarvis publiserer MQTT-kommandoer */
+  confirmCommands: boolean;
 };
 
 const STORAGE_KEY = "hud.config.v1";
