@@ -1,14 +1,15 @@
-import { MessageSquare, Cpu, Globe2, Settings2, Home } from "lucide-react";
+import { MessageSquare, Cpu, Globe2, Settings2, Home, LineChart } from "lucide-react";
 import { ReactorCore } from "./ReactorCore";
 
-export type WinId = "chat" | "nodes" | "world" | "home" | "settings";
+export type WinId = "chat" | "nodes" | "world" | "home" | "dash" | "settings";
 
 const ITEMS: { id: WinId; label: string; icon: typeof Cpu; angle: number }[] = [
   { id: "chat", label: "KOMMANDO", icon: MessageSquare, angle: -90 },
-  { id: "nodes", label: "NODER", icon: Cpu, angle: -18 },
-  { id: "world", label: "WORLD", icon: Globe2, angle: 46 },
-  { id: "home", label: "SMARTHUS", icon: Home, angle: 110 },
-  { id: "settings", label: "SYSTEM", icon: Settings2, angle: 174 },
+  { id: "nodes", label: "NODER", icon: Cpu, angle: -30 },
+  { id: "world", label: "WORLD", icon: Globe2, angle: 30 },
+  { id: "home", label: "SMARTHUS", icon: Home, angle: 90 },
+  { id: "dash", label: "GRAFER", icon: LineChart, angle: 150 },
+  { id: "settings", label: "SYSTEM", icon: Settings2, angle: 210 },
 ];
 
 export function CenterMenu({

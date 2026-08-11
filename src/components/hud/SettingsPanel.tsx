@@ -120,6 +120,46 @@ export function SettingsPanel({
                 className="w-full accent-[oklch(0.78_0.13_200)]"
               />
             </Field>
+            <Field label="Telegram-varsler (chat-ID)">
+              <div className="flex items-center gap-2">
+                <input
+                  value={config.telegram?.chatId ?? ""}
+                  onChange={(e) =>
+                    update({
+                      ...config,
+                      telegram: { ...(config.telegram ?? { enabled: false, chatId: "" }), chatId: e.target.value },
+                    })
+                  }
+                  placeholder="f.eks. 123456789"
+                  className="hud-input flex-1"
+                />
+                <label className="hud-title flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={config.telegram?.enabled ?? false}
+                    onChange={(e) =>
+                      update({
+                        ...config,
+                        telegram: { ...(config.telegram ?? { chatId: "" }), enabled: e.target.checked },
+                      })
+                    }
+                    className="accent-primary"
+                  />
+                  på
+                </label>
+              </div>
+            </Field>
+            <Field label="Bekreft MQTT-kommandoer fra AI (tørrkjøring)">
+              <label className="hud-title flex items-center gap-1 text-[10px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={config.confirmCommands !== false}
+                  onChange={(e) => update({ ...config, confirmCommands: e.target.checked })}
+                  className="accent-primary"
+                />
+                krev bekreftelse før risikable kommandoer publiseres
+              </label>
+            </Field>
             <Field label={`Panelfyll (lavere = mer gjennomsiktig) – ${config.transparency}%`}>
               <input
                 type="range"
@@ -199,7 +239,7 @@ export function SettingsPanel({
                     onChange={(e) =>
                       patchNode(n.id, { role: e.target.value as ModelNode["role"] })
                     }
-                    className="hud-input"
+                    className="hud-select h-6"
                   >
                     <option value="primary">primær</option>
                     <option value="worker">arbeider</option>
@@ -264,7 +304,7 @@ export function SettingsPanel({
                   <select
                     value={d.kind}
                     onChange={(e) => patchDevice(d.id, { kind: e.target.value as DeviceKind })}
-                    className="hud-input text-[11px]"
+                    className="hud-select h-6"
                   >
                     {(Object.keys(DEVICE_KIND_LABEL) as DeviceKind[]).map((k) => (
                       <option key={k} value={k} className="bg-background">
@@ -289,7 +329,7 @@ export function SettingsPanel({
                     onChange={(e) =>
                       patchDevice(d.id, { protocol: e.target.value as Device["protocol"] })
                     }
-                    className="hud-input text-[11px]"
+                    className="hud-select h-6"
                   >
                     <option value="mqtt" className="bg-background">
                       MQTT
@@ -311,6 +351,28 @@ export function SettingsPanel({
                     value={d.firmware}
                     onChange={(e) => patchDevice(d.id, { firmware: e.target.value })}
                     placeholder="firmware (ESPHome, Arduino…)"
+                    className="hud-input text-[11px]"
+                  />
+                </div>
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                  <input
+                    value={d.lat ?? ""}
+                    onChange={(e) =>
+                      patchDevice(d.id, {
+                        lat: Number(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="breddegrad (kart)"
+                    className="hud-input text-[11px]"
+                  />
+                  <input
+                    value={d.lon ?? ""}
+                    onChange={(e) =>
+                      patchDevice(d.id, {
+                        lon: Number(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="lengdegrad (kart)"
                     className="hud-input text-[11px]"
                   />
                 </div>
@@ -525,7 +587,7 @@ export function SettingsPanel({
                       onChange={(e) =>
                         patchIntegration(i.id, { kind: e.target.value as IntegrationKind })
                       }
-                      className="hud-input"
+                      className="hud-select h-6"
                     >
                       {INTEGRATION_PRESETS.map((p) => (
                         <option key={p.kind} value={p.kind}>
@@ -604,7 +666,7 @@ export function SettingsPanel({
                   <select
                     value={p.kind}
                     onChange={(e) => patchPlugin(p.id, { kind: e.target.value as Plugin["kind"] })}
-                    className="hud-input"
+                    className="hud-select h-6"
                   >
                     <option value="http">http</option>
                     <option value="webhook">webhook</option>

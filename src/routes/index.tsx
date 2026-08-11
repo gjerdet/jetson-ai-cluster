@@ -8,8 +8,9 @@ import { NodesPanel } from "@/components/hud/NodesPanel";
 import { WorldMonitor } from "@/components/hud/WorldMonitor";
 import { SmartHomePanel } from "@/components/hud/SmartHomePanel";
 import { SettingsPanel } from "@/components/hud/SettingsPanel";
+import { DashboardPanel } from "@/components/hud/DashboardPanel";
 import { useHudConfig } from "@/lib/hud-store";
-import { setRules } from "@/lib/mqtt-bridge";
+import { setRules, setTelegramChat } from "@/lib/mqtt-bridge";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,6 +39,7 @@ const LAYOUT: Record<WinId, { x: number; y: number; w: number; h: number }> = {
   nodes: { x: 500, y: 80, w: 400, h: 500 },
   world: { x: 420, y: 110, w: 780, h: 640 },
   home: { x: 80, y: 140, w: 460, h: 520 },
+  dash: { x: 120, y: 120, w: 640, h: 560 },
   settings: { x: 0, y: 0, w: 0, h: 0 },
 };
 
@@ -46,6 +48,7 @@ const TITLES: Record<WinId, { title: string; subtitle: string }> = {
   nodes: { title: "NODER", subtitle: "modeller og tilkoblinger" },
   world: { title: "WORLD MONITOR", subtitle: "global telemetri" },
   home: { title: "SMARTHUS", subtitle: "MQTT-bro mot ESP32 og Pi" },
+  dash: { title: "GRAFER", subtitle: "moduler for alt som er tilkoblet" },
   settings: { title: "SYSTEM", subtitle: "innstillinger, evner og plugins" },
 };
 
@@ -59,6 +62,10 @@ function Index() {
   useEffect(() => {
     setRules(config.rules ?? []);
   }, [config.rules]);
+
+  useEffect(() => {
+    setTelegramChat(config.telegram?.enabled ? (config.telegram?.chatId ?? "") : "");
+  }, [config.telegram]);
 
   const toggle = (id: WinId) => {
     setOpen((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]));
@@ -119,8 +126,9 @@ function Index() {
             >
               {id === "chat" ? <ChatPanel config={config} update={update} /> : null}
               {id === "nodes" ? <NodesPanel config={config} update={update} /> : null}
-              {id === "world" ? <WorldMonitor /> : null}
+              {id === "world" ? <WorldMonitor config={config} /> : null}
               {id === "home" ? <SmartHomePanel config={config} update={update} /> : null}
+              {id === "dash" ? <DashboardPanel config={config} update={update} /> : null}
               {id === "settings" ? <SettingsPanel config={config} update={update} /> : null}
             </HudWindow>
           ))

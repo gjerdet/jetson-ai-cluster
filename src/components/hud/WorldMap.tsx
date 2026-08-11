@@ -36,17 +36,24 @@ function nightPath(): string {
   return `M${pts.join(" L")} L${W},${closeTop ? 0 : H} L0,${closeTop ? 0 : H} Z`;
 }
 
+export type MapMarker = { id: string; name: string; lat: number; lon: number; detail?: string };
+
 export function WorldMap({
   events,
   onSelect,
   dayNight = false,
   fill = false,
+  markers = [],
+  highlightId = null,
 }: {
   events: WorldEvent[];
   onSelect?: (e: WorldEvent) => void;
   dayNight?: boolean;
   /** fyller tilgjengelig høyde i stedet for fast 2:1-forhold */
   fill?: boolean;
+  /** egne markører, f.eks. smarthus-enheter */
+  markers?: MapMarker[];
+  highlightId?: string | null;
 }) {
   const [land, setLand] = useState<FeatureCollection<Geometry> | null>(cache);
   const [zoom, setZoom] = useState(1);
@@ -267,6 +274,43 @@ export function WorldMap({
                   </text>
                 ) : null}
                 <title>{e.title}</title>
+              </g>
+            );
+          })}
+
+          {markers.map((m) => {
+            const pt = projection([m.lon, m.lat]);
+            if (!pt) return null;
+            const on = highlightId === m.id;
+            const color = on ? "oklch(0.85 0.18 90)" : "oklch(0.82 0.14 165)";
+            return (
+              <g key={m.id} transform={`translate(${pt[0]}, ${pt[1]}) scale(${1 / zoom})`}>
+                <rect x={-2.2} y={-2.2} width={4.4} height={4.4} fill={color} opacity={0.9} />
+                <rect
+                  x={-4}
+                  y={-4}
+                  width={8}
+                  height={8}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={0.6}
+                  opacity={on ? 1 : 0.5}
+                >
+                  {on ? (
+                    <animate
+                      attributeName="opacity"
+                      values="1;0.15;1"
+                      dur="1.4s"
+                      repeatCount="indefinite"
+                    />
+                  ) : null}
+                </rect>
+                {zoom >= 2 || on ? (
+                  <text x={5} y={2.5} fontSize={4} fill={color} className="hud-title pointer-events-none">
+                    {m.name}
+                  </text>
+                ) : null}
+                <title>{`${m.name}${m.detail ? ` — ${m.detail}` : ""}`}</title>
               </g>
             );
           })}

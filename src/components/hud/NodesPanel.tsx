@@ -71,7 +71,7 @@ export function NodesPanel({
             <select
               value={n.role}
               onChange={(e) => patch(n.id, { role: e.target.value as ModelNode["role"] })}
-              className="hud-input"
+              className="hud-select h-6"
             >
               <option value="primary">primær</option>
               <option value="worker">arbeider</option>
