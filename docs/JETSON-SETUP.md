@@ -331,3 +331,21 @@ npx vitest         # watch-modus
 ```
 Ende-til-ende-testen starter en ekte agent på en tilfeldig port med midlertidig
 datamappe, og sjekker CORS, innlogging, rate-limiting, krypterte nøkler og backup.
+
+## Kunnskapsbase (lokal RAG)
+
+Jarvis kan lese dine egne dokumenter og bruke dem som kontekst i chatten.
+
+1. Hent en embedding-modell på Jetson-en:
+   ```bash
+   ollama pull nomic-embed-text
+   ```
+2. Åpne **SYSTEM → KUNNSKAP** i HUD-en (krever innlogging mot backend-en).
+3. Last opp PDF-er, tekstfiler eller notater, eller lim inn en nettadresse.
+4. Dokumentene deles i biter, får vektorer fra modellen og lagres i SQLite
+   (`AGENT_DATA/kunnskap.db`, standard `agent/data/kunnskap.db`).
+5. I chatten henter Jarvis automatisk de mest relevante bitene før svaret,
+   og viser kildene under svaret. Slås av med bryteren i KUNNSKAP-fanen.
+
+Uten embedding-modell fungerer basen fortsatt – da faller søket tilbake på
+nøkkelord. Kjør «Reindekser alt» etter at modellen er på plass.
