@@ -205,13 +205,109 @@
 }
 
 .hud-panel {
-  background: color-mix(in oklab, var(--background) 45%, transparent);
-  backdrop-filter: blur(14px);
-  border: 1px solid oklch(0.78 0.13 200 / 0.35);
+  background: color-mix(in oklab, var(--background) var(--hud-opacity, 30%), transparent);
+  backdrop-filter: blur(18px) saturate(130%);
+  border: 1px solid oklch(0.78 0.13 200 / 0.28);
   box-shadow:
-    0 0 0 1px oklch(0.78 0.13 200 / 0.08),
-    0 20px 60px -20px oklch(0.78 0.13 200 / 0.35);
+    0 0 0 1px oklch(0.78 0.13 200 / 0.06),
+    0 24px 70px -24px oklch(0.78 0.13 200 / 0.4);
 }
+
+/* ---- Levende bakgrunn ---- */
+.hud-aurora {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.4;
+}
+.hud-aurora-1 {
+  width: 46vw;
+  height: 46vw;
+  left: -8vw;
+  top: -10vw;
+  background: radial-gradient(circle, oklch(0.7 0.14 210 / 0.5), transparent 70%);
+  animation: hud-drift-1 34s ease-in-out infinite alternate;
+}
+.hud-aurora-2 {
+  width: 54vw;
+  height: 54vw;
+  right: -12vw;
+  bottom: -18vw;
+  background: radial-gradient(circle, oklch(0.62 0.13 255 / 0.45), transparent 70%);
+  animation: hud-drift-2 46s ease-in-out infinite alternate;
+}
+.hud-aurora-3 {
+  width: 38vw;
+  height: 38vw;
+  left: 35%;
+  top: 30%;
+  background: radial-gradient(circle, oklch(0.75 0.12 185 / 0.35), transparent 70%);
+  animation: hud-drift-3 40s ease-in-out infinite alternate;
+}
+
+@keyframes hud-drift-1 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(12vw, 8vh, 0) scale(1.2);
+  }
+}
+@keyframes hud-drift-2 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  to {
+    transform: translate3d(-14vw, -10vh, 0) scale(0.9);
+  }
+}
+@keyframes hud-drift-3 {
+  from {
+    transform: translate3d(-6vw, 4vh, 0) scale(0.95);
+  }
+  to {
+    transform: translate3d(8vw, -8vh, 0) scale(1.25);
+  }
+}
+
+.hud-sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 40%,
+    oklch(0.78 0.13 200 / 0.06) 50%,
+    transparent 60%
+  );
+  animation: hud-sweep 9s linear infinite;
+}
+@keyframes hud-sweep {
+  from {
+    transform: translateX(-60%);
+  }
+  to {
+    transform: translateX(60%);
+  }
+}
+
+.hud-radar-sweep {
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0deg,
+    oklch(0.78 0.13 200 / 0.12) 20deg,
+    transparent 60deg
+  );
+  animation: spin 8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-aurora,
+  .hud-sweep,
+  .hud-radar-sweep {
+    animation: none;
+  }
+}
+
 
 .hud-input {
   background: oklch(0.78 0.13 200 / 0.06);
