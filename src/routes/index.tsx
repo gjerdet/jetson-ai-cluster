@@ -61,10 +61,15 @@ function Index() {
   const activeNodes = config.nodes.filter((n) => n.enabled).length;
 
   return (
-    <main className="hud-root relative min-h-screen overflow-hidden">
+    <main
+      className="hud-root relative min-h-screen overflow-hidden"
+      style={{ ["--hud-opacity" as string]: `${config.transparency}%` }}
+    >
+      <AmbientField />
       <div className="hud-grid pointer-events-none absolute inset-0" />
       <div className="hud-scan pointer-events-none absolute inset-0" />
       <ReactorCore active={activeNodes > 0} />
+
 
       <header className="relative z-50 flex items-center justify-between px-5 py-4">
         <div>
