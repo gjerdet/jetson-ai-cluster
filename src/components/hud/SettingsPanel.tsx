@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Plus, Trash2, Sparkles, Puzzle, Sliders, Cpu, Network } from "lucide-react";
+import { Plus, Trash2, Sparkles, Puzzle, Sliders, Cpu, Network, Brain, Pin } from "lucide-react";
 import {
   defaultConfig,
   newNode,
   newIntegration,
+  newMemory,
   newPlugin,
   newTalent,
   INTEGRATION_PRESETS,
   type HudConfig,
+  type MemoryItem,
   type ModelNode,
   type Plugin,
   type Talent,
@@ -15,11 +17,12 @@ import {
   type IntegrationKind,
 } from "@/lib/hud-store";
 
-type Tab = "system" | "modeller" | "evner" | "koblinger" | "plugins";
+type Tab = "system" | "modeller" | "minne" | "evner" | "koblinger" | "plugins";
 
 const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "system", label: "SYSTEM", icon: Sliders },
   { id: "modeller", label: "MODELLER", icon: Cpu },
+  { id: "minne", label: "MINNE", icon: Brain },
   { id: "evner", label: "EVNER", icon: Sparkles },
   { id: "koblinger", label: "KOBLINGER", icon: Network },
   { id: "plugins", label: "PLUGINS", icon: Puzzle },
