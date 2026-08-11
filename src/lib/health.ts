@@ -133,7 +133,7 @@ export function useHealth(): HealthState {
 
 /** Starter periodisk selvovervåking så lenge komponenten lever. */
 export function useHealthMonitor(config: HudConfig, intervalSec = 60) {
-  const nodesRef = useRef(config.nodes);
+  const nodesRef = useRef<ModelNode[]>(config.nodes);
   nodesRef.current = config.nodes;
   useEffect(() => {
     const run = () => {
