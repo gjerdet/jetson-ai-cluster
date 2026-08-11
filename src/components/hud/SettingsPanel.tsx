@@ -199,7 +199,7 @@ export function SettingsPanel({
                     onChange={(e) =>
                       patchNode(n.id, { role: e.target.value as ModelNode["role"] })
                     }
-                    className="hud-input"
+                    className="hud-select h-6"
                   >
                     <option value="primary">primær</option>
                     <option value="worker">arbeider</option>
@@ -264,7 +264,7 @@ export function SettingsPanel({
                   <select
                     value={d.kind}
                     onChange={(e) => patchDevice(d.id, { kind: e.target.value as DeviceKind })}
-                    className="hud-input text-[11px]"
+                    className="hud-select h-6"
                   >
                     {(Object.keys(DEVICE_KIND_LABEL) as DeviceKind[]).map((k) => (
                       <option key={k} value={k} className="bg-background">
@@ -289,7 +289,7 @@ export function SettingsPanel({
                     onChange={(e) =>
                       patchDevice(d.id, { protocol: e.target.value as Device["protocol"] })
                     }
-                    className="hud-input text-[11px]"
+                    className="hud-select h-6"
                   >
                     <option value="mqtt" className="bg-background">
                       MQTT
@@ -525,7 +525,7 @@ export function SettingsPanel({
                       onChange={(e) =>
                         patchIntegration(i.id, { kind: e.target.value as IntegrationKind })
                       }
-                      className="hud-input"
+                      className="hud-select h-6"
                     >
                       {INTEGRATION_PRESETS.map((p) => (
                         <option key={p.kind} value={p.kind}>
@@ -604,7 +604,7 @@ export function SettingsPanel({
                   <select
                     value={p.kind}
                     onChange={(e) => patchPlugin(p.id, { kind: e.target.value as Plugin["kind"] })}
-                    className="hud-input"
+                    className="hud-select h-6"
                   >
                     <option value="http">http</option>
                     <option value="webhook">webhook</option>

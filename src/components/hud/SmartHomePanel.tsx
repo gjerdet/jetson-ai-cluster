@@ -558,7 +558,7 @@ export function SmartHomePanel({
                   <select
                     value={r.kind}
                     onChange={(e) => setRule(r.id, { kind: e.target.value as AlertRule["kind"] })}
-                    className="hud-input h-6 text-[11px]"
+                    className="hud-select h-6"
                   >
                     <option value="above">over</option>
                     <option value="below">under</option>
@@ -584,7 +584,7 @@ export function SmartHomePanel({
                   <select
                     value={r.level ?? "warn"}
                     onChange={(e) => setRule(r.id, { level: e.target.value as "warn" | "crit" })}
-                    className="hud-input h-6 text-[11px]"
+                    className="hud-select h-6"
                   >
                     <option value="warn">advarsel</option>
                     <option value="crit">kritisk</option>
