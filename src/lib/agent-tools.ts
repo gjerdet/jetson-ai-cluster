@@ -492,6 +492,34 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       return `Slettet ${name} fra sandkassen.`;
     }
 
+    if (call.name === "mal_liste") {
+      return SCRIPT_TEMPLATES.map(
+        (t) =>
+          `${t.id} (${t.lang}) – ${t.summary} Parametre: ${t.params.map((p) => `${p.key}=${p.value}`).join(", ") || "ingen"}`,
+      ).join("\n");
+    }
+
+    if (call.name === "mal_test" || call.name === "mal_installer") {
+      const id = str(call.args["mal"] ?? call.args["id"] ?? call.args["navn"]);
+      const tpl = templateById(id);
+      if (!tpl) return `Fant ingen mal med id «${id}». Bruk mal_liste for oversikt.`;
+      const raw = call.args["parametre"] ?? call.args["params"];
+      const overrides: Record<string, string> = {};
+      if (raw && typeof raw === "object")
+        for (const [k, v] of Object.entries(raw as Record<string, unknown>)) overrides[k] = str(v);
+      if (!approve(cfg, `selvtest av malen «${tpl.name}» i sandkassen`))
+        return "Brukeren avslo kjøringen.";
+      if (call.name === "mal_test") {
+        return formatTemplateTest(tpl, await testTemplate(config, tpl, overrides));
+      }
+      const r = await installTemplate(config, tpl, overrides);
+      return `${formatTemplateTest(tpl, r.test)}\n${
+        r.saved ? `Lagret som ${r.saved} i sandkassen.` : "Ikke lagret – testen må bestå først."
+      }`;
+    }
+
+
+
     return `Ukjent agent-verktøy: ${call.name}`;
   } catch (e) {
     return `Lokal agent svarte ikke: ${e instanceof Error ? e.message : "ukjent feil"}`;
