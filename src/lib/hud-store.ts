@@ -413,6 +413,7 @@ export const defaultConfig: HudConfig = {
   ],
   integrations: [],
   memories: [],
+  customTools: [],
   devices: [],
   mqtt: defaultMqtt,
   rules: [],
