@@ -429,7 +429,7 @@ export async function connectMqtt(cfg: MqttConfig, devices: Device[]) {
   knownTopics = devices
     .filter((d) => d.protocol === "mqtt" && d.topic?.trim())
     .map((d) => d.topic!.trim().replace(/\/#$/, ""));
-  set({ status: "connecting", error: "" });
+  set({ status: "connecting", error: "", url: cfg.url.trim() });
   try {
     const mqtt = (await import("mqtt")).default;
     const c = mqtt.connect(cfg.url.trim(), {
@@ -443,25 +443,44 @@ export async function connectMqtt(cfg: MqttConfig, devices: Device[]) {
     client = c;
 
     c.on("connect", () => {
-      set({ status: "online", error: "" });
       const topics = deviceTopics(devices, cfg.baseTopic);
       if (cfg.discovery !== false) {
         topics.push("homeassistant/#");
         if (cfg.discoveryTopic?.trim()) topics.push(cfg.discoveryTopic.trim());
       }
+      topics.push(PING_TOPIC);
       const uniq = [...new Set(topics)];
       if (uniq.length) c.subscribe(uniq, { qos: 0 });
+      set({ status: "online", error: "", connectedAt: Date.now(), subscriptions: uniq });
       log("sys", `Tilkoblet ${cfg.url} · abonnerer på ${uniq.join(", ") || "ingenting"}`);
+      pingBroker();
     });
-    c.on("reconnect", () => set({ status: "connecting" }));
+    c.on("reconnect", () => {
+      set({ status: "connecting", reconnects: state.reconnects + 1 });
+      log("sys", `Kobler til på nytt (forsøk ${state.reconnects})`);
+    });
     c.on("close", () => set({ status: state.status === "error" ? "error" : "off" }));
     c.on("error", (err: Error) => {
-      set({ status: "error", error: err.message });
+      set({
+        status: "error",
+        error: err.message,
+        errors: [{ text: err.message, time: Date.now() }, ...state.errors].slice(0, 30),
+      });
       log("sys", `Feil: ${err.message}`);
     });
     c.on("message", (topic: string, payload: Uint8Array) => {
       const value = new TextDecoder().decode(payload).slice(0, 400);
-      set({ topics: { ...state.topics, [topic]: { topic, value, time: Date.now() } } });
+      if (topic === PING_TOPIC) {
+        if (pingSent && value.includes(String(pingSent))) {
+          set({ pingMs: Date.now() - pingSent, pingAt: Date.now(), lastRx: Date.now() });
+          pingSent = 0;
+        }
+        return;
+      }
+      set({
+        topics: { ...state.topics, [topic]: { topic, value, time: Date.now() } },
+        lastRx: Date.now(),
+      });
       record(topic, value);
       noteDiscovery(topic, value);
       evaluateValue(topic, value);
@@ -470,8 +489,31 @@ export async function connectMqtt(cfg: MqttConfig, devices: Device[]) {
 
     if (!staleTimer) staleTimer = setInterval(checkStale, 30000);
   } catch (err) {
-    set({ status: "error", error: err instanceof Error ? err.message : "Ukjent feil" });
+    const text = err instanceof Error ? err.message : "Ukjent feil";
+    set({
+      status: "error",
+      error: text,
+      errors: [{ text, time: Date.now() }, ...state.errors].slice(0, 30),
+    });
   }
+}
+
+/** Måler rundtur mot brokeren via et eget ping-emne. */
+export function pingBroker() {
+  if (!client || state.status !== "online") return false;
+  pingSent = Date.now();
+  client.publish(PING_TOPIC, `jarvis-ping ${pingSent}`, { qos: 0 });
+  setTimeout(() => {
+    if (pingSent) {
+      set({ pingMs: null, pingAt: Date.now() });
+      pingSent = 0;
+    }
+  }, 5000);
+  return true;
+}
+
+export function clearDiagnostics() {
+  set({ published: [], errors: [] });
 }
 
 export function disconnectMqtt() {
@@ -483,14 +525,25 @@ export function disconnectMqtt() {
     clearInterval(staleTimer);
     staleTimer = null;
   }
-  set({ status: "off" });
+  set({ status: "off", subscriptions: [] });
 }
 
 export function publishMqtt(topic: string, payload: string) {
-  if (!client || state.status !== "online") return false;
-  client.publish(topic, payload, { qos: 0 });
-  log("out", `${topic} ← ${payload}`);
-  return true;
+  const ok = !!client && state.status === "online";
+  if (ok) client!.publish(topic, payload, { qos: 0 });
+  set({
+    published: [{ topic, payload, time: Date.now(), ok }, ...state.published].slice(0, 40),
+    ...(ok
+      ? {}
+      : {
+          errors: [
+            { text: `Publisering feilet (frakoblet): ${topic}`, time: Date.now() },
+            ...state.errors,
+          ].slice(0, 30),
+        }),
+  });
+  if (ok) log("out", `${topic} ← ${payload}`);
+  return ok;
 }
 
 export function mqttOnline() {
