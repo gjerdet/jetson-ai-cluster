@@ -324,6 +324,8 @@ export type HudConfig = {
   transparency: number;
   talents: Talent[];
   plugins: Plugin[];
+  /** verktøy laget av Jarvis eller deg selv */
+  customTools: CustomTool[];
   integrations: Integration[];
   memories: MemoryItem[];
   devices: Device[];
