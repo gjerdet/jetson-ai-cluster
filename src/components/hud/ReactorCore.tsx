@@ -65,6 +65,17 @@ export function ReactorCore({ active }: { active: boolean }) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
+    // musesporing (-1..1 relativt til vindussenter)
+    const mouse = { x: 0, y: 0 };
+    const ease = { x: 0, y: 0 };
+    const onMouse = (e: PointerEvent) => {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
+    };
+    if (!reduce) window.addEventListener("pointermove", onMouse);
+
+
+
     const project = (n: { x: number; y: number; z: number }, ca: number, sa: number, cb: number, sb: number, cx: number, cy: number, R: number) => {
       const x = n.x * ca - n.z * sa;
       let z = n.x * sa + n.z * ca;
