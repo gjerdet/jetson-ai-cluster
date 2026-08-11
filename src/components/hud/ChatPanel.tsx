@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { SendHorizonal, Loader2, Radar, Cpu } from "lucide-react";
 import { callNode, type ChatMsg } from "@/lib/hud-client";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
-import { mqttBrief } from "@/lib/mqtt-bridge";
+import { executeAiCommands, MQTT_TOOL_PROMPT, mqttBrief, mqttOnline } from "@/lib/mqtt-bridge";
 import { briefingText, refreshFeed, snapshot } from "@/lib/world-feed";
 
 const BRIEF_TRIGGERS =
