@@ -13,6 +13,11 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { handleApi } from "./lib/api.mjs";
+import { addSample, doc, initStore, latest, pruneSamples, warmLatest } from "./lib/store.mjs";
+import { MqttClient, parseMqttUrl } from "./lib/mqtt.mjs";
+import { evaluate, rulesStatus } from "./lib/rules.mjs";
+import { notifyAll, startTelegram } from "./lib/telegram.mjs";
 
 const PORT = Number(process.env.AGENT_PORT || 8787);
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
@@ -21,6 +26,7 @@ const SANDBOX = path.resolve(process.env.AGENT_SANDBOX || "./sandbox");
 const MAX_TIMEOUT = Number(process.env.AGENT_MAX_TIMEOUT || 60_000);
 const MAX_OUTPUT = Number(process.env.AGENT_MAX_OUTPUT || 200_000);
 const ALLOW_NETWORK = process.env.AGENT_ALLOW_NETWORK !== "0";
+
 
 /** Kommandoer agenten får kjøre. Utvid bevisst – dette er sikkerhetsgrensen. */
 const DEFAULT_ALLOW = [
