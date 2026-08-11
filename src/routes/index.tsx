@@ -3,6 +3,7 @@ import { useState } from "react";
 import { MessageSquare, Cpu, Globe2, Settings2 } from "lucide-react";
 import { HudWindow } from "@/components/hud/HudWindow";
 import { ReactorCore } from "@/components/hud/ReactorCore";
+import { AmbientField } from "@/components/hud/AmbientField";
 import { ChatPanel } from "@/components/hud/ChatPanel";
 import { NodesPanel } from "@/components/hud/NodesPanel";
 import { WorldMonitor } from "@/components/hud/WorldMonitor";
