@@ -19,8 +19,40 @@ export type ErrorCode =
 export const RULE_OPERATORS: RuleOperator[];
 export const RULE_ACTION_TYPES: RuleActionType[];
 export const USER_ROLES: UserRole[];
-export const ROUTES: Record<string, string>;
-export const ERROR_CODES: Record<string, ErrorCode>;
+export const ROUTES: {
+  status: string;
+  login: string;
+  register: string;
+  me: string;
+  logout: string;
+  password: string;
+  users: string;
+  config: string;
+  ai: string;
+  samples: string;
+  samplesLatest: string;
+  samplesPrune: string;
+  devices: string;
+  rules: string;
+  rulesLog: string;
+  mqtt: string;
+  mqttPublish: string;
+  threads: string;
+  telegram: string;
+  telegramTest: string;
+};
+export const ERROR_CODES: {
+  UNAUTHORIZED: ErrorCode;
+  FORBIDDEN: ErrorCode;
+  NOT_FOUND: ErrorCode;
+  VALIDATION: ErrorCode;
+  UNAVAILABLE: ErrorCode;
+  NETWORK: ErrorCode;
+  TIMEOUT: ErrorCode;
+  TLS: ErrorCode;
+  SERVER: ErrorCode;
+};
+
 export const ERROR_TEXTS: Record<ErrorCode, string>;
 export const DEFAULTS: {
   port: number;
