@@ -120,6 +120,11 @@ export async function checkNodes(nodes: ModelNode[]) {
   save();
 }
 
+/** Leser gjeldende helsetilstand utenfor React. */
+export function healthSnapshot(): HealthState {
+  return state;
+}
+
 export function useHealth(): HealthState {
   return useSyncExternalStore(
     (cb) => {
