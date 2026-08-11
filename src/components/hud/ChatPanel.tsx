@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { SendHorizonal, Loader2, Radar, Cpu, Eraser, Wrench } from "lucide-react";
+import { SendHorizonal, Loader2, Radar, Cpu, Eraser, Wrench, BookOpen } from "lucide-react";
 import { type ChatMsg, type ToolRun } from "@/lib/hud-client";
 import { callBalanced, callTracked } from "@/lib/balancer";
 import { clearChat, loadChat, saveChat } from "@/lib/chat-store";
@@ -25,6 +25,7 @@ import {
 } from "@/lib/agent-tools";
 import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
+import { retrieveContext, type Citation } from "@/lib/knowledge";
 
 const BRIEF_TRIGGERS =
   /(topp\s*10|top\s*10|nyhet|hendels|world ?monitor|situasjonsbilde|verden|defcon|pizza|hva skjer|brief)/i;
@@ -109,6 +110,14 @@ export function ChatPanel({
         .filter(Boolean)
         .join("\n");
       let context = "";
+      // kunnskapsinnhenting: hent relevante biter fra den lokale kunnskapsbasen
+      let sources: Citation[] = [];
+      if (config.knowledge !== false) {
+        setStage("henter kunnskap");
+        const rag = await retrieveContext(text);
+        context += rag.context;
+        sources = rag.sources;
+      }
       if (BRIEF_TRIGGERS.test(text)) {
         if (!snapshot().events.length) await refreshFeed();
         context = `\n\n[WORLD MONITOR-DATA]\n${briefingText(10)}`;
@@ -178,6 +187,7 @@ export function ChatPanel({
         node: answeredBy,
         time: Date.now(),
         ...(runs.length ? { runs } : {}),
+        ...(sources.length ? { sources } : {}),
       });
 
 
@@ -260,6 +270,25 @@ export function ChatPanel({
             >
               {m.content}
             </div>
+            {m.sources?.length ? (
+              <details className="mt-1 rounded border border-primary/20 bg-primary/[0.03] px-2 py-1 text-left">
+                <summary className="hud-title flex cursor-pointer items-center gap-1 text-[9px] text-primary/70">
+                  <BookOpen className="size-3" /> {m.sources.length} kilde
+                  {m.sources.length > 1 ? "r" : ""} fra kunnskapsbasen
+                </summary>
+                <ol className="mt-1 space-y-1">
+                  {m.sources.map((s, si) => (
+                    <li key={si} className="text-[10px] text-foreground/75">
+                      <span className="hud-title text-primary/70">
+                        [{si + 1}] {s.tittel}
+                        {s.kilde ? ` · ${s.kilde}` : ""} · {s.poeng}
+                      </span>
+                      <p className="line-clamp-3 whitespace-pre-wrap">{s.utdrag}</p>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            ) : null}
             {m.scores?.length ? (
               <div className="mt-1 flex flex-wrap gap-1">
                 {m.scores.map((sc) => (
