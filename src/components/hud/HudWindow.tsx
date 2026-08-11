@@ -14,6 +14,9 @@ type Props = {
   className?: string;
 };
 
+const MIN_W = 280;
+const MIN_H = 200;
+
 export function HudWindow({
   title,
   subtitle,
@@ -26,7 +29,9 @@ export function HudWindow({
   className,
 }: Props) {
   const [pos, setPos] = useState({ x: initial.x, y: initial.y });
+  const [size, setSize] = useState({ w: initial.w, h: initial.h });
   const drag = useRef<{ dx: number; dy: number } | null>(null);
+  const resize = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
   const onPointerDown = (e: React.PointerEvent) => {
     onFocus();
@@ -45,13 +50,31 @@ export function HudWindow({
     drag.current = null;
   };
 
+  const onResizeDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    onFocus();
+    resize.current = { x: e.clientX, y: e.clientY, w: size.w, h: size.h };
+    (e.target as Element).setPointerCapture(e.pointerId);
+  };
+  const onResizeMove = (e: React.PointerEvent) => {
+    const r = resize.current;
+    if (!r) return;
+    setSize({
+      w: Math.max(MIN_W, r.w + (e.clientX - r.x)),
+      h: Math.max(MIN_H, r.h + (e.clientY - r.y)),
+    });
+  };
+  const onResizeUp = () => {
+    resize.current = null;
+  };
+
   return (
     <div
       onMouseDown={onFocus}
       style={
         fullscreen
           ? { zIndex: z }
-          : { left: pos.x, top: pos.y, width: initial.w, height: initial.h, zIndex: z }
+          : { left: pos.x, top: pos.y, width: size.w, height: size.h, zIndex: z }
       }
       className={cn(
         "hud-panel flex flex-col overflow-hidden rounded-lg animate-hud-in",
@@ -77,12 +100,22 @@ export function HudWindow({
         <button
           onClick={onClose}
           aria-label={`Lukk ${title}`}
-          className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/20 hover:text-destructive"
+          className="hud-btn hud-btn-hoverable size-7 !p-0 hover:!border-destructive/60 hover:!text-destructive"
         >
           <X className="size-3.5" />
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-3">{children}</div>
+      {!fullscreen ? (
+        <div
+          role="separator"
+          aria-label={`Endre størrelse på ${title}`}
+          onPointerDown={onResizeDown}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeUp}
+          className="hud-resize"
+        />
+      ) : null}
     </div>
   );
 }
