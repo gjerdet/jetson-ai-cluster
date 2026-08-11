@@ -8,10 +8,12 @@ import {
   pickJarvisVoice,
   speakBrowser,
   speakPiper,
+  speakBackend,
   stopSpeak,
   voiceSupported,
   type VoiceConfig,
 } from "@/lib/voice";
+import { VoiceTraining } from "./VoiceTraining";
 
 const TESTTEKST = "Systemene er på nett, sir. Alle noder rapporterer normal drift.";
 
@@ -32,6 +34,7 @@ export function VoiceSection() {
     setStatus("spiller av…");
     try {
       if (cfg.engine === "piper") await speakPiper(TESTTEKST, cfg);
+      else if (cfg.engine === "backend") await speakBackend(TESTTEKST, cfg);
       else speakBrowser(TESTTEKST, cfg);
       setStatus("ok");
     } catch (e) {
@@ -58,7 +61,7 @@ export function VoiceSection() {
 
       <Row label="Motor">
         <div className="flex gap-1">
-          {(["browser", "piper"] as const).map((m) => (
+          {(["browser", "piper", "backend"] as const).map((m) => (
             <button
               key={m}
               onClick={() => patch({ engine: m })}
@@ -68,11 +71,22 @@ export function VoiceSection() {
                   : "border-primary/20 text-muted-foreground hover:text-primary"
               }`}
             >
-              {m === "browser" ? "NETTLESER" : "PIPER (lokal)"}
+              {m === "browser" ? "NETTLESER" : m === "piper" ? "PIPER (direkte)" : "AGENT (Jetson)"}
             </button>
           ))}
         </div>
       </Row>
+
+      {cfg.engine === "backend" ? (
+        <Row label="Piper-modell">
+          <input
+            value={cfg.piperVoice ?? ""}
+            onChange={(e) => patch({ piperVoice: e.target.value })}
+            placeholder="en_GB-alan-medium"
+            className="hud-input w-full"
+          />
+        </Row>
+      ) : null}
 
       {cfg.engine === "browser" ? (
         <>
