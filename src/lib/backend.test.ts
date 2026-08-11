@@ -58,14 +58,18 @@ describe("backend-klient", () => {
     expect(backendToken()).toBeNull();
   });
 
-  it("tolker 429 som rate-limit og leser Retry-After", async () => {
-    mockFetch([{ status: 429, body: { error: "For mange forespørsler." }, headers: { "retry-after": "7" } }]);
+  it("tolker 429 som rate-limit, prøver igjen og leser Retry-After", async () => {
+    // retry-after 1 s holder testen rask; klienten prøver på nytt før den gir opp.
+    const kall = mockFetch([
+      { status: 429, body: { error: "For mange forespørsler." }, headers: { "retry-after": "1" } },
+    ]);
     const { error } = await safe(() => backend.hentRegler());
     expect(error).toBeInstanceOf(BackendError);
     expect(error?.code).toBe(ERROR_CODES.RATE_LIMIT);
-    expect(error?.retryAfter).toBe(7);
-    expect(error?.raad).toContain("7 sekunder");
-  });
+    expect(error?.retryAfter).toBe(1);
+    expect(error?.raad).toContain("1 sekunder");
+    expect(kall.length).toBeGreaterThan(1);
+  }, 15_000);
 
   it("gir nettverksfeil med råd når agenten er nede", async () => {
     vi.stubGlobal(
