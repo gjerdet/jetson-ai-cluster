@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { SendHorizonal, Loader2, Radar, Cpu } from "lucide-react";
 import { callNode, type ChatMsg } from "@/lib/hud-client";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
-import { executeAiCommands, MQTT_TOOL_PROMPT, mqttBrief, mqttOnline } from "@/lib/mqtt-bridge";
+import {
+  parseAiCommands,
+  runCommands,
+  MQTT_TOOL_PROMPT,
+  mqttBrief,
+  mqttOnline,
+  type PendingCommand,
+} from "@/lib/mqtt-bridge";
 import { briefingText, refreshFeed, snapshot } from "@/lib/world-feed";
 
 const BRIEF_TRIGGERS =
@@ -20,6 +27,7 @@ export function ChatPanel({
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<PendingCommand[]>([]);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -77,7 +85,17 @@ export function ChatPanel({
         { role: "assistant", content: answer, node: primary.name },
       ];
       // lar modellen styre smarthuset direkte via MQTT-linjer i svaret
-      const done = executeAiCommands(answer);
+      const cmds = parseAiCommands(answer);
+      const needConfirm = config.confirmCommands !== false && cmds.some((c) => c.risky);
+      if (needConfirm) {
+        setPending(cmds);
+        out.push({
+          role: "assistant",
+          content: `Tørrkjøring – ${cmds.length} kommando(er) venter på bekreftelse.`,
+          node: "MQTT",
+        });
+      }
+      const done = needConfirm ? [] : runCommands(cmds);
       if (done.length)
         out.push({
           role: "assistant",
