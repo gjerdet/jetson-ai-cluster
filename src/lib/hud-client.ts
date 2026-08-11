@@ -16,6 +16,8 @@ export type ChatMsg = {
   node?: string;
   /** verktøy som ble kjørt for å produsere dette svaret */
   runs?: ToolRun[];
+  /** kilder fra kunnskapsbasen som svaret bygger på */
+  sources?: { tittel: string; kilde: string; utdrag: string; poeng: number }[];
   /** poeng fra evaluatoren, når svaret er vurdert */
   scores?: { label: string; score: number }[];
   time?: number;
