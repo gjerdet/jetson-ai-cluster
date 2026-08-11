@@ -31,12 +31,22 @@ export function HudWindow({
   const [pos, setPos] = useState({ x: initial.x, y: initial.y });
   const [size, setSize] = useState({ w: initial.w, h: initial.h });
   const [min, setMin] = useState(false);
+  // på mobil legger vi vinduene i fullskjerm slik at de faktisk er brukbare
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const sync = () => setNarrow(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  const locked = fullscreen || narrow;
   const drag = useRef<{ dx: number; dy: number } | null>(null);
   const resize = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
   const onPointerDown = (e: React.PointerEvent) => {
     onFocus();
-    if (fullscreen) return;
+    if (locked) return;
     drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
     (e.target as Element).setPointerCapture(e.pointerId);
   };
@@ -53,6 +63,7 @@ export function HudWindow({
 
   const onResizeDown = (e: React.PointerEvent) => {
     e.stopPropagation();
+    if (locked) return;
     onFocus();
     resize.current = { x: e.clientX, y: e.clientY, w: size.w, h: size.h };
     (e.target as Element).setPointerCapture(e.pointerId);
@@ -73,20 +84,28 @@ export function HudWindow({
     <div
       onMouseDown={onFocus}
       style={
-        min
-          ? {
-              left: Math.max(pos.x, 24),
-              top: Math.max(pos.y, 72),
-              width: fullscreen ? 320 : size.w,
-              zIndex: z,
-            }
-          : fullscreen
-            ? { zIndex: z }
-            : { left: pos.x, top: pos.y, width: size.w, height: size.h, zIndex: z }
+        narrow
+          ? { zIndex: z }
+          : min
+            ? {
+                left: Math.max(pos.x, 24),
+                top: Math.max(pos.y, 72),
+                width: fullscreen ? 320 : size.w,
+                zIndex: z,
+              }
+            : fullscreen
+              ? { zIndex: z }
+              : { left: pos.x, top: pos.y, width: size.w, height: size.h, zIndex: z }
       }
       className={cn(
         "hud-panel flex flex-col overflow-hidden rounded-lg animate-hud-in",
-        !min && fullscreen ? "fixed inset-3 md:inset-8" : "absolute",
+        narrow
+          ? min
+            ? "fixed inset-x-2 top-16"
+            : "fixed inset-x-2 top-16 bottom-2"
+          : !min && fullscreen
+            ? "fixed inset-3 md:inset-8"
+            : "absolute",
         className,
       )}
     >
@@ -96,7 +115,7 @@ export function HudWindow({
         onPointerUp={onPointerUp}
         className={cn(
           "flex items-center justify-between gap-3 border-b border-primary/25 bg-primary/5 px-3 py-2",
-          fullscreen && !min ? "" : "cursor-grab active:cursor-grabbing",
+          locked && !min ? "" : "cursor-grab active:cursor-grabbing",
         )}
       >
         <div className="min-w-0">
