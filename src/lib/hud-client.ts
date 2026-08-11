@@ -9,7 +9,7 @@ export async function callNode(
 ): Promise<string> {
   const res = await fetch(`${node.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
-    signal,
+    ...(signal ? { signal } : {}),
     headers: {
       "Content-Type": "application/json",
       ...(node.apiKey ? { Authorization: `Bearer ${node.apiKey}` } : {}),
@@ -31,7 +31,7 @@ export async function pingNode(node: ModelNode): Promise<number | null> {
   const t0 = performance.now();
   try {
     const res = await fetch(`${node.baseUrl.replace(/\/$/, "")}/models`, {
-      headers: node.apiKey ? { Authorization: `Bearer ${node.apiKey}` } : undefined,
+      ...(node.apiKey ? { headers: { Authorization: `Bearer ${node.apiKey}` } } : {}),
     });
     if (!res.ok) return null;
     return Math.round(performance.now() - t0);
