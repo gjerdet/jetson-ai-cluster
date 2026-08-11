@@ -133,13 +133,15 @@ export function useHealth(): HealthState {
 
 /** Starter periodisk selvovervåking så lenge komponenten lever. */
 export function useHealthMonitor(config: HudConfig, intervalSec = 60) {
-  const [nodes] = useState<() => ModelNode[]>(() => () => config.nodes.filter((n) => n.enabled));
+  const nodesRef = useRef(config.nodes);
+  nodesRef.current = config.nodes;
   useEffect(() => {
-    const active = config.nodes.filter((n) => n.enabled);
-    if (!active.length) return;
-    void checkNodes(active);
-    const t = setInterval(() => void checkNodes(config.nodes.filter((n) => n.enabled)), intervalSec * 1000);
+    const run = () => {
+      const active = nodesRef.current.filter((n) => n.enabled);
+      if (active.length) void checkNodes(active);
+    };
+    run();
+    const t = setInterval(run, intervalSec * 1000);
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.nodes, intervalSec, nodes]);
+  }, [intervalSec]);
 }
