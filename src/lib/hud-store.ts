@@ -351,6 +351,8 @@ export type HudConfig = {
   /** husk samtalen mellom omstart av nettleseren (lokalt) */
   keepHistory: boolean;
   evaluator: EvaluatorConfig;
+  /** node-ID som skal ta AI-oppgavene (f.eks. Hermes). Tomt = automatisk valg */
+  aiNodeId?: string;
   /** lokal agent-tjeneste på Jetson (OS-kommandoer + skript-sandkasse) */
   localAgent?: import("./local-agent").LocalAgentConfig;
 };
