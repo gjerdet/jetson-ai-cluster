@@ -335,3 +335,22 @@ export interface KnowledgeHit {
   tekst: string;
   poeng: number;
 }
+
+export interface TtsConfig {
+  piperUrl: string;
+  voicesUrl: string;
+  modell: string;
+  lengthScale: number;
+  noiseScale: number;
+}
+
+export interface VoiceClip {
+  id: string;
+  navn: string;
+  tekst: string;
+  fil: string;
+  mime: string;
+  bytes: number;
+  sekunder: number;
+  opprettet: string;
+}
