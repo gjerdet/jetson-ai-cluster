@@ -83,7 +83,7 @@ export function SettingsPanel({
             <Field label={`Panelfyll (lavere = mer gjennomsiktig) – ${config.transparency}%`}>
               <input
                 type="range"
-                min={5}
+                min={2}
                 max={70}
                 step={1}
                 value={config.transparency}
