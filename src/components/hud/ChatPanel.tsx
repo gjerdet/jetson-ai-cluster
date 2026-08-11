@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { SendHorizonal, Loader2, Radar, Cpu, Eraser, Wrench, BookOpen } from "lucide-react";
 import { type ChatMsg, type ToolRun } from "@/lib/hud-client";
 import { callBalanced, callTracked } from "@/lib/balancer";
-import { clearChat, loadChat, saveChat } from "@/lib/chat-store";
+import { clearChat, loadChat, loadChatRemote, saveChat, saveChatRemote } from "@/lib/chat-store";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
 import {
   parseAiCommands,
@@ -48,17 +48,32 @@ export function ChatPanel({
   const endRef = useRef<HTMLDivElement>(null);
   const mqtt = useMqtt();
 
-  // henter forrige samtale fra maskinen din, slik at omstart av nettleseren ikke nullstiller noe
+  const [synced, setSynced] = useState(false);
+
+  // henter forrige samtale: først lokalt (raskt), deretter fra backend-en om
+  // du er logget inn – slik at historikken er delt mellom maskiner
   useEffect(() => {
     if (config.keepHistory === false) return;
     const prev = loadChat();
     if (prev.length) setMessages(prev);
+    let alive = true;
+    void loadChatRemote().then((remote) => {
+      if (!alive) return;
+      if (remote && remote.length >= prev.length) setMessages(remote);
+      setSynced(true);
+    });
+    return () => {
+      alive = false;
+    };
   }, [config.keepHistory]);
 
   useEffect(() => {
     if (config.keepHistory === false) return;
     saveChat(messages);
-  }, [messages, config.keepHistory]);
+    if (!synced || !messages.length) return;
+    const t = setTimeout(() => void saveChatRemote(messages), 800);
+    return () => clearTimeout(t);
+  }, [messages, config.keepHistory, synced]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -390,6 +405,7 @@ export function ChatPanel({
           onClick={() => {
             setMessages([]);
             clearChat();
+            void saveChatRemote([]);
             setPending([]);
             setError(null);
           }}
