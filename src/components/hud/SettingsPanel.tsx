@@ -359,7 +359,7 @@ export function SettingsPanel({
                     value={d.lat ?? ""}
                     onChange={(e) =>
                       patchDevice(d.id, {
-                        lat: e.target.value === "" ? undefined : Number(e.target.value),
+                        lat: Number(e.target.value) || 0,
                       })
                     }
                     placeholder="breddegrad (kart)"
@@ -369,7 +369,7 @@ export function SettingsPanel({
                     value={d.lon ?? ""}
                     onChange={(e) =>
                       patchDevice(d.id, {
-                        lon: e.target.value === "" ? undefined : Number(e.target.value),
+                        lon: Number(e.target.value) || 0,
                       })
                     }
                     placeholder="lengdegrad (kart)"
