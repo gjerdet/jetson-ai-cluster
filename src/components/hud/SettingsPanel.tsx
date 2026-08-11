@@ -120,6 +120,46 @@ export function SettingsPanel({
                 className="w-full accent-[oklch(0.78_0.13_200)]"
               />
             </Field>
+            <Field label="Telegram-varsler (chat-ID)">
+              <div className="flex items-center gap-2">
+                <input
+                  value={config.telegram?.chatId ?? ""}
+                  onChange={(e) =>
+                    update({
+                      ...config,
+                      telegram: { ...(config.telegram ?? { enabled: false, chatId: "" }), chatId: e.target.value },
+                    })
+                  }
+                  placeholder="f.eks. 123456789"
+                  className="hud-input flex-1"
+                />
+                <label className="hud-title flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={config.telegram?.enabled ?? false}
+                    onChange={(e) =>
+                      update({
+                        ...config,
+                        telegram: { ...(config.telegram ?? { chatId: "" }), enabled: e.target.checked },
+                      })
+                    }
+                    className="accent-primary"
+                  />
+                  på
+                </label>
+              </div>
+            </Field>
+            <Field label="Bekreft MQTT-kommandoer fra AI (tørrkjøring)">
+              <label className="hud-title flex items-center gap-1 text-[10px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={config.confirmCommands !== false}
+                  onChange={(e) => update({ ...config, confirmCommands: e.target.checked })}
+                  className="accent-primary"
+                />
+                krev bekreftelse før risikable kommandoer publiseres
+              </label>
+            </Field>
             <Field label={`Panelfyll (lavere = mer gjennomsiktig) – ${config.transparency}%`}>
               <input
                 type="range"
@@ -311,6 +351,28 @@ export function SettingsPanel({
                     value={d.firmware}
                     onChange={(e) => patchDevice(d.id, { firmware: e.target.value })}
                     placeholder="firmware (ESPHome, Arduino…)"
+                    className="hud-input text-[11px]"
+                  />
+                </div>
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                  <input
+                    value={d.lat ?? ""}
+                    onChange={(e) =>
+                      patchDevice(d.id, {
+                        lat: e.target.value === "" ? undefined : Number(e.target.value),
+                      })
+                    }
+                    placeholder="breddegrad (kart)"
+                    className="hud-input text-[11px]"
+                  />
+                  <input
+                    value={d.lon ?? ""}
+                    onChange={(e) =>
+                      patchDevice(d.id, {
+                        lon: e.target.value === "" ? undefined : Number(e.target.value),
+                      })
+                    }
+                    placeholder="lengdegrad (kart)"
                     className="hud-input text-[11px]"
                   />
                 </div>
