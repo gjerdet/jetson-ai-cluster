@@ -9,6 +9,7 @@
  */
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import { DATA_DIR, doc, saveDoc } from "./store.mjs";
 
 const DB_FILE = path.join(DATA_DIR, "kunnskap.db");
@@ -44,9 +45,22 @@ const clamp = (n, min, maks) => (Number.isFinite(n) ? Math.min(maks, Math.max(mi
 
 // ---------------------------------------------------------------- database
 let db = null;
+let sqliteMod = null;
+
+/** node:sqlite er innebygd fra Node 22 og krever ingen npm-pakke. */
+function loadSqlite() {
+  if (sqliteMod) return sqliteMod;
+  try {
+    sqliteMod = createRequire(import.meta.url)("node:sqlite");
+  } catch {
+    throw new Error("node:sqlite mangler. Kjør agenten med Node 22 eller nyere for å bruke kunnskapsbasen.");
+  }
+  return sqliteMod;
+}
+
 export function initRag() {
   if (db) return db;
-  const { DatabaseSync } = require_sqlite();
+  const { DatabaseSync } = loadSqlite();
   db = new DatabaseSync(DB_FILE);
   db.exec(`
     CREATE TABLE IF NOT EXISTS dokumenter (
@@ -69,25 +83,6 @@ export function initRag() {
     CREATE INDEX IF NOT EXISTS biter_dok ON biter(dok_id);
   `);
   return db;
-}
-
-/** node:sqlite er innebygd i Node 22+. Krever ingen npm-pakke. */
-function require_sqlite() {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return globalThis.__sqlite ?? (globalThis.__sqlite = importSqliteSync());
-}
-function importSqliteSync() {
-  const { createRequire } = globalThis.__nodeCreateRequire ?? {};
-  void createRequire;
-  // node:sqlite lastes med createRequire fordi den er en innebygd CJS-modul
-  const req = new Function("m", "return require(m)");
-  try {
-    return req("node:sqlite");
-  } catch (e) {
-    throw new Error(
-      "node:sqlite mangler. Kjør agenten med Node 22 eller nyere for å bruke kunnskapsbasen.",
-    );
-  }
 }
 
 // ---------------------------------------------------------------- chunking
