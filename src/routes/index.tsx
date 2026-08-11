@@ -9,6 +9,7 @@ import { WorldMonitor } from "@/components/hud/WorldMonitor";
 import { SmartHomePanel } from "@/components/hud/SmartHomePanel";
 import { SettingsPanel } from "@/components/hud/SettingsPanel";
 import { DashboardPanel } from "@/components/hud/DashboardPanel";
+import { HealthPanel } from "@/components/hud/HealthPanel";
 import { useHudConfig } from "@/lib/hud-store";
 import { setRules, setTelegramChat } from "@/lib/mqtt-bridge";
 
@@ -40,6 +41,7 @@ const LAYOUT: Record<WinId, { x: number; y: number; w: number; h: number }> = {
   world: { x: 420, y: 110, w: 780, h: 640 },
   home: { x: 80, y: 140, w: 460, h: 520 },
   dash: { x: 120, y: 120, w: 640, h: 560 },
+  health: { x: 160, y: 130, w: 460, h: 560 },
   settings: { x: 0, y: 0, w: 0, h: 0 },
 };
 
@@ -49,6 +51,7 @@ const TITLES: Record<WinId, { title: string; subtitle: string }> = {
   world: { title: "WORLD MONITOR", subtitle: "global telemetri" },
   home: { title: "SMARTHUS", subtitle: "MQTT-bro mot ESP32 og Pi" },
   dash: { title: "GRAFER", subtitle: "moduler for alt som er tilkoblet" },
+  health: { title: "HELSE", subtitle: "selvovervåking av noder og tjenester" },
   settings: { title: "SYSTEM", subtitle: "innstillinger, evner og plugins" },
 };
 
@@ -129,6 +132,7 @@ function Index() {
               {id === "world" ? <WorldMonitor config={config} update={update} /> : null}
               {id === "home" ? <SmartHomePanel config={config} update={update} /> : null}
               {id === "dash" ? <DashboardPanel config={config} update={update} /> : null}
+              {id === "health" ? <HealthPanel config={config} /> : null}
               {id === "settings" ? <SettingsPanel config={config} update={update} /> : null}
             </HudWindow>
           ))
