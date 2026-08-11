@@ -205,12 +205,12 @@
 }
 
 .hud-panel {
-  background: color-mix(in oklab, var(--background) var(--hud-opacity, 14%), transparent);
-  backdrop-filter: blur(22px) saturate(140%);
-  border: 1px solid oklch(0.78 0.13 200 / 0.3);
+  background: color-mix(in oklab, var(--background) var(--hud-opacity, 5%), transparent);
+  backdrop-filter: blur(10px) saturate(130%);
+  border: 1px solid oklch(0.78 0.13 200 / 0.22);
   box-shadow:
-    0 0 0 1px oklch(0.78 0.13 200 / 0.06),
-    0 24px 70px -24px oklch(0.78 0.13 200 / 0.45);
+    0 0 0 1px oklch(0.78 0.13 200 / 0.04),
+    0 24px 70px -30px oklch(0.78 0.13 200 / 0.35);
 }
 
 /* ---- Sentermeny / kjerne ---- */
@@ -336,7 +336,7 @@
 
 
 .hud-input {
-  background: oklch(0.78 0.13 200 / 0.06);
+  background: oklch(0.78 0.13 200 / 0.04);
   border: 1px solid oklch(0.78 0.13 200 / 0.3);
   border-radius: 4px;
   padding: 0.35rem 0.55rem;

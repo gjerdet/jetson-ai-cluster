@@ -1,4 +1,4 @@
-import { MessageSquare, Cpu, Globe2, Settings2, Power } from "lucide-react";
+import { MessageSquare, Cpu, Globe2, Settings2 } from "lucide-react";
 import { ReactorCore } from "./ReactorCore";
 
 export type WinId = "chat" | "nodes" | "world" | "settings";
@@ -23,25 +23,20 @@ export function CenterMenu({
   onSelect: (id: WinId) => void;
   activeNodes: number;
 }) {
-  const radius = 130;
+  const radius = 150;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
       <ReactorCore active={activeNodes > 0} />
 
       <div className="pointer-events-none relative">
+        {/* usynlig utløser midt i hologrammet */}
         <button
           onClick={() => setOpen(!open)}
-          aria-label="Åpne meny"
+          aria-label={open ? "Lukk meny" : "Åpne meny"}
           aria-expanded={open}
-          className="hud-core pointer-events-auto relative grid size-24 place-items-center rounded-full border border-primary/50 bg-primary/10 text-primary backdrop-blur-sm transition-transform hover:scale-105"
-        >
-          <span className="hud-core-glow" />
-          <Power className={`size-6 transition-transform ${open ? "rotate-90" : ""}`} />
-          <span className="hud-title absolute -bottom-6 text-[9px] text-primary/70">
-            {open ? "lukk" : "meny"}
-          </span>
-        </button>
+          className="pointer-events-auto size-40 rounded-full bg-transparent outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+        />
 
         {ITEMS.map((it, i) => {
           const rad = (it.angle * Math.PI) / 180;
@@ -62,8 +57,8 @@ export function CenterMenu({
                 open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
               } ${
                 active.includes(it.id)
-                  ? "border-primary/70 bg-primary/20 text-primary"
-                  : "border-primary/30 bg-background/20 text-muted-foreground hover:border-primary/60 hover:text-primary"
+                  ? "border-primary/60 bg-primary/10 text-primary"
+                  : "border-primary/25 bg-background/10 text-muted-foreground hover:border-primary/60 hover:text-primary"
               } backdrop-blur-md`}
             >
               <it.icon className="size-4" />

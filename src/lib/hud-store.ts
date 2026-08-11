@@ -45,7 +45,7 @@ export const defaultConfig: HudConfig = {
   collaboration: false,
   persona: "Du er et presist, kortfattet operativsystem-assistent. Svar på norsk bokmål.",
   temperature: 0.7,
-  transparency: 12,
+  transparency: 5,
   nodes: [
     {
       id: "node-1",
