@@ -90,6 +90,56 @@ export const INTEGRATION_PRESETS: {
   },
 ];
 
+/** Verktøy Jarvis (eller du) har laget selv. Kan slettes og skrus av når som helst. */
+export type CustomTool = {
+  id: string;
+  /** kallenavn brukt i VERKTØY-linjer, kun a-z og _ */
+  name: string;
+  description: string;
+  kind: "http" | "mqtt" | "prompt";
+  /** http: full URL (kan inneholde {felt}) */
+  url?: string;
+  method?: "GET" | "POST";
+  /** http: body-mal, mqtt: payload-mal, prompt: instruksjonstekst */
+  body?: string;
+  /** mqtt: emne (kan inneholde {felt}) */
+  topic?: string;
+  /** eksempelargumenter, f.eks. {"rom":"stue"} */
+  args: string;
+  enabled: boolean;
+  createdBy: "jarvis" | "bruker";
+  created: string;
+};
+
+export function sanitizeToolName(raw: string): string {
+  return (
+    raw
+      .toLowerCase()
+      .replace(/[æå]/g, "a")
+      .replace(/ø/g, "o")
+      .replace(/[^a-z0-9_]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 32) || "verktoy"
+  );
+}
+
+export function newCustomTool(createdBy: CustomTool["createdBy"] = "bruker"): CustomTool {
+  return {
+    id: `ct-${Math.random().toString(36).slice(2, 8)}`,
+    name: "nytt_verktoy",
+    description: "",
+    kind: "http",
+    url: "",
+    method: "GET",
+    body: "",
+    topic: "",
+    args: "{}",
+    enabled: true,
+    createdBy,
+    created: new Date().toISOString(),
+  };
+}
+
 export type MemoryItem = {
   id: string;
   text: string;
