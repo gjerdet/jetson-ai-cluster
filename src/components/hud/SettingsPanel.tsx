@@ -1,22 +1,27 @@
 import { useState } from "react";
-import { Plus, Trash2, Sparkles, Puzzle, Sliders, Cpu } from "lucide-react";
+import { Plus, Trash2, Sparkles, Puzzle, Sliders, Cpu, Network } from "lucide-react";
 import {
   defaultConfig,
   newNode,
+  newIntegration,
   newPlugin,
   newTalent,
+  INTEGRATION_PRESETS,
   type HudConfig,
   type ModelNode,
   type Plugin,
   type Talent,
+  type Integration,
+  type IntegrationKind,
 } from "@/lib/hud-store";
 
-type Tab = "system" | "modeller" | "evner" | "plugins";
+type Tab = "system" | "modeller" | "evner" | "koblinger" | "plugins";
 
 const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "system", label: "SYSTEM", icon: Sliders },
   { id: "modeller", label: "MODELLER", icon: Cpu },
   { id: "evner", label: "EVNER", icon: Sparkles },
+  { id: "koblinger", label: "KOBLINGER", icon: Network },
   { id: "plugins", label: "PLUGINS", icon: Puzzle },
 ];
 
@@ -33,6 +38,12 @@ export function SettingsPanel({
     update({ ...config, nodes: config.nodes.map((n) => (n.id === id ? { ...n, ...p } : n)) });
   const patchTalent = (id: string, p: Partial<Talent>) =>
     update({ ...config, talents: config.talents.map((t) => (t.id === id ? { ...t, ...p } : t)) });
+  const integrations = config.integrations ?? [];
+  const patchIntegration = (id: string, p: Partial<Integration>) =>
+    update({
+      ...config,
+      integrations: integrations.map((x) => (x.id === id ? { ...x, ...p } : x)),
+    });
   const patchPlugin = (id: string, p: Partial<Plugin>) =>
     update({ ...config, plugins: config.plugins.map((x) => (x.id === id ? { ...x, ...p } : x)) });
 
@@ -240,6 +251,109 @@ export function SettingsPanel({
               className="flex w-full items-center justify-center gap-2 rounded border border-dashed border-primary/40 py-2 text-[11px] text-primary hover:bg-primary/10"
             >
               <Plus className="size-3.5" /> lær ny evne
+            </button>
+          </>
+        ) : null}
+
+        {tab === "koblinger" ? (
+          <>
+            <p className="text-[10px] text-muted-foreground">
+              Koblinger gir systemet tilgang til dine egne tjenester. Verdiene lagres lokalt i
+              nettleseren og brukes av HUD-en når den snakker med enhetene.
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {INTEGRATION_PRESETS.map((preset) => (
+                <button
+                  key={preset.kind}
+                  onClick={() =>
+                    update({
+                      ...config,
+                      integrations: [...integrations, newIntegration(preset.kind)],
+                    })
+                  }
+                  className="hud-title hud-btn hud-btn-hoverable !py-0.5 text-[9px]"
+                >
+                  <Plus className="size-3" /> {preset.name}
+                </button>
+              ))}
+            </div>
+            {integrations.map((i) => {
+              const hint = INTEGRATION_PRESETS.find((p) => p.kind === i.kind)?.hint;
+              return (
+                <div key={i.id} className="rounded border border-primary/25 bg-primary/[0.04] p-2">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <input
+                      value={i.name}
+                      onChange={(e) => patchIntegration(i.id, { name: e.target.value })}
+                      className="hud-input hud-title flex-1 text-[10px] text-primary"
+                    />
+                    <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={i.enabled}
+                        onChange={(e) => patchIntegration(i.id, { enabled: e.target.checked })}
+                        className="accent-[oklch(0.78_0.13_200)]"
+                      />
+                      på
+                    </label>
+                    <button
+                      onClick={() =>
+                        update({
+                          ...config,
+                          integrations: integrations.filter((x) => x.id !== i.id),
+                        })
+                      }
+                      aria-label="Slett kobling"
+                      className="rounded p-1 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <select
+                      value={i.kind}
+                      onChange={(e) =>
+                        patchIntegration(i.id, { kind: e.target.value as IntegrationKind })
+                      }
+                      className="hud-input"
+                    >
+                      {INTEGRATION_PRESETS.map((p) => (
+                        <option key={p.kind} value={p.kind}>
+                          {p.kind}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      value={i.baseUrl}
+                      onChange={(e) => patchIntegration(i.id, { baseUrl: e.target.value })}
+                      placeholder="https://vert/api"
+                      className="hud-input col-span-2"
+                    />
+                    <input
+                      value={i.username ?? ""}
+                      onChange={(e) => patchIntegration(i.id, { username: e.target.value })}
+                      placeholder="bruker (valgfri)"
+                      className="hud-input"
+                    />
+                    <input
+                      value={i.token ?? ""}
+                      onChange={(e) => patchIntegration(i.id, { token: e.target.value })}
+                      placeholder="API-nøkkel / token"
+                      type="password"
+                      className="hud-input col-span-2"
+                    />
+                  </div>
+                  {hint ? <p className="mt-1 text-[9px] text-muted-foreground">{hint}</p> : null}
+                </div>
+              );
+            })}
+            <button
+              onClick={() =>
+                update({ ...config, integrations: [...integrations, newIntegration("custom")] })
+              }
+              className="flex w-full items-center justify-center gap-2 rounded border border-dashed border-primary/40 py-2 text-[11px] text-primary hover:bg-primary/10"
+            >
+              <Plus className="size-3.5" /> legg til egen kobling
             </button>
           </>
         ) : null}

@@ -14,13 +14,36 @@ let cache: FeatureCollection<Geometry> | null = null;
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
+/** Enkel subsolar-beregning for dag/natt-terminatoren. */
+function nightPath(): string {
+  const now = new Date();
+  const day = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400000);
+  const decl = -23.44 * Math.cos(((2 * Math.PI) / 365) * (day + 10));
+  const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const sunLon = 180 - (utcMin / 1440) * 360;
+  const pts: string[] = [];
+  for (let lon = -180; lon <= 180; lon += 2) {
+    const h = ((lon - sunLon) * Math.PI) / 180;
+    const lat =
+      (Math.atan(-Math.cos(h) / Math.tan((decl * Math.PI) / 180)) * 180) / Math.PI;
+    const x = ((lon + 180) / 360) * W;
+    const y = ((90 - lat) / 180) * H;
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+  }
+  const closeTop = decl > 0;
+  return `M${pts.join(" L")} L${W},${closeTop ? 0 : H} L0,${closeTop ? 0 : H} Z`;
+}
+
 export function WorldMap({
   events,
   onSelect,
+  dayNight = false,
 }: {
   events: WorldEvent[];
   onSelect?: (e: WorldEvent) => void;
+  dayNight?: boolean;
 }) {
+
   const [land, setLand] = useState<FeatureCollection<Geometry> | null>(cache);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -139,6 +162,10 @@ export function WorldMap({
               return <line key={lon} x1={x} y1={0} x2={x} y2={H} />;
             })}
           </g>
+          {dayNight ? (
+            <path d={nightPath()} fill="oklch(0.15 0.03 250 / 0.55)" pointerEvents="none" />
+          ) : null}
+
           {events.map((e) => {
             const pt = projection([e.lon, e.lat]);
             if (!pt) return null;

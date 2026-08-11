@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { SendHorizonal, Loader2 } from "lucide-react";
+import { SendHorizonal, Loader2, Radar } from "lucide-react";
 import { callNode, type ChatMsg } from "@/lib/hud-client";
 import { systemPrompt, type HudConfig } from "@/lib/hud-store";
+import { briefingText, refreshFeed, snapshot } from "@/lib/world-feed";
+
+const BRIEF_TRIGGERS =
+  /(topp\s*10|top\s*10|nyhet|hendels|world ?monitor|situasjonsbilde|verden|defcon|pizza|hva skjer|brief)/i;
 
 export function ChatPanel({ config }: { config: HudConfig }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -18,8 +22,8 @@ export function ChatPanel({ config }: { config: HudConfig }) {
   const primary = active.find((n) => n.role === "primary") ?? active[0];
   const workers = active.filter((n) => n.id !== primary?.id && n.role !== "observer");
 
-  const send = async () => {
-    const text = input.trim();
+  const send = async (override?: string) => {
+    const text = (override ?? input).trim();
     if (!text || busy) return;
     if (!primary) {
       setError("Ingen aktiv node. Åpne NODER og aktiver minst én.");
@@ -32,9 +36,15 @@ export function ChatPanel({ config }: { config: HudConfig }) {
     setBusy(true);
     try {
       const sys = systemPrompt(config);
+      let context = "";
+      if (BRIEF_TRIGGERS.test(text)) {
+        if (!snapshot().events.length) await refreshFeed();
+        context = `\n\n[WORLD MONITOR-DATA]\n${briefingText(10)}`;
+      }
       const answer = await callNode(primary, [
         ...(sys ? ([{ role: "system", content: sys }] as ChatMsg[]) : []),
-        ...next,
+        ...next.slice(0, -1),
+        { role: "user", content: text + context },
       ]);
       const out: ChatMsg[] = [
         ...next,
@@ -103,6 +113,15 @@ export function ChatPanel({ config }: { config: HudConfig }) {
           placeholder="Snakk til systemet…"
           className="hud-input flex-1"
         />
+        <button
+          onClick={() => void send("Gi meg topp 10 hendelser fra world monitor akkurat nå.")}
+          disabled={busy}
+          aria-label="Situasjonsbrief"
+          title="Topp 10 hendelser fra World Monitor"
+          className="rounded border border-primary/30 p-2 text-primary/80 transition-colors hover:bg-primary/10 disabled:opacity-40"
+        >
+          <Radar className="size-4" />
+        </button>
         <button
           onClick={() => void send()}
           disabled={busy}
