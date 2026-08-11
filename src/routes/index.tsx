@@ -6,6 +6,7 @@ import { CenterMenu, type WinId } from "@/components/hud/CenterMenu";
 import { ChatPanel } from "@/components/hud/ChatPanel";
 import { NodesPanel } from "@/components/hud/NodesPanel";
 import { WorldMonitor } from "@/components/hud/WorldMonitor";
+import { SmartHomePanel } from "@/components/hud/SmartHomePanel";
 import { SettingsPanel } from "@/components/hud/SettingsPanel";
 import { useHudConfig } from "@/lib/hud-store";
 
@@ -35,6 +36,7 @@ const LAYOUT: Record<WinId, { x: number; y: number; w: number; h: number }> = {
   chat: { x: 40, y: 100, w: 420, h: 460 },
   nodes: { x: 500, y: 80, w: 400, h: 500 },
   world: { x: 420, y: 110, w: 780, h: 640 },
+  home: { x: 80, y: 140, w: 460, h: 520 },
   settings: { x: 0, y: 0, w: 0, h: 0 },
 };
 
@@ -42,6 +44,7 @@ const TITLES: Record<WinId, { title: string; subtitle: string }> = {
   chat: { title: "KOMMANDO", subtitle: "direkte dialog med primærnode" },
   nodes: { title: "NODER", subtitle: "modeller og tilkoblinger" },
   world: { title: "WORLD MONITOR", subtitle: "global telemetri" },
+  home: { title: "SMARTHUS", subtitle: "MQTT-bro mot ESP32 og Pi" },
   settings: { title: "SYSTEM", subtitle: "innstillinger, evner og plugins" },
 };
 
@@ -111,6 +114,7 @@ function Index() {
               {id === "chat" ? <ChatPanel config={config} update={update} /> : null}
               {id === "nodes" ? <NodesPanel config={config} update={update} /> : null}
               {id === "world" ? <WorldMonitor /> : null}
+              {id === "home" ? <SmartHomePanel config={config} update={update} /> : null}
               {id === "settings" ? <SettingsPanel config={config} update={update} /> : null}
             </HudWindow>
           ))
