@@ -9,8 +9,10 @@
  * Ingen npm-avhengigheter.
  */
 import http from "node:http";
+import https from "node:https";
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { handleApi } from "./lib/api.mjs";
@@ -26,6 +28,34 @@ const SANDBOX = path.resolve(process.env.AGENT_SANDBOX || "./sandbox");
 const MAX_TIMEOUT = Number(process.env.AGENT_MAX_TIMEOUT || 60_000);
 const MAX_OUTPUT = Number(process.env.AGENT_MAX_OUTPUT || 200_000);
 const ALLOW_NETWORK = process.env.AGENT_ALLOW_NETWORK !== "0";
+
+// --- TLS ------------------------------------------------------------------
+// AGENT_TLS_CERT + AGENT_TLS_KEY slår på HTTPS. Mangler de, kjører agenten
+// vanlig HTTP (greit på et lukket LAN, men bruk TLS når HUD-en er på HTTPS).
+const TLS_CERT = process.env.AGENT_TLS_CERT || "";
+const TLS_KEY = process.env.AGENT_TLS_KEY || "";
+const TLS_CA = process.env.AGENT_TLS_CA || "";
+
+function readTls() {
+  if (!TLS_CERT || !TLS_KEY) return null;
+  try {
+    const opts = {
+      cert: fsSync.readFileSync(TLS_CERT),
+      key: fsSync.readFileSync(TLS_KEY),
+      minVersion: "TLSv1.2",
+    };
+    if (TLS_CA) opts.ca = fsSync.readFileSync(TLS_CA);
+    return opts;
+  } catch (e) {
+    console.error(`[jarvis-agent] Klarte ikke å lese TLS-sertifikat: ${e?.message}`);
+    console.error("[jarvis-agent] Starter uten TLS. Sjekk AGENT_TLS_CERT / AGENT_TLS_KEY.");
+    return null;
+  }
+}
+
+const TLS_OPTIONS = readTls();
+export const tlsEnabled = () => !!TLS_OPTIONS;
+
 
 
 /** Kommandoer agenten får kjøre. Utvid bevisst – dette er sikkerhetsgrensen. */
