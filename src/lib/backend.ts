@@ -43,12 +43,41 @@ export type {
 const LS_URL = "jarvis.backend.url";
 const LS_TOKEN = "jarvis.backend.token";
 
+/**
+ * Innloggingstokenet ligger i minnet + sessionStorage – aldri i localStorage.
+ * Da forsvinner det når fanen lukkes, og et eventuelt XSS-script kan ikke
+ * hente det ut av varig lagring.
+ */
+let memToken: string | null = null;
+
+const ss = () => (typeof sessionStorage !== "undefined" ? sessionStorage : null);
+
 export const backendUrl = () =>
   (typeof localStorage !== "undefined" && localStorage.getItem(LS_URL)) || `http://127.0.0.1:${DEFAULTS.port}`;
-export const backendToken = () => (typeof localStorage !== "undefined" ? localStorage.getItem(LS_TOKEN) : null);
+
+export const backendToken = () => {
+  if (memToken) return memToken;
+  // Rydd bort tokens fra tidligere versjoner som lagret dem varig.
+  if (typeof localStorage !== "undefined" && localStorage.getItem(LS_TOKEN)) {
+    memToken = localStorage.getItem(LS_TOKEN);
+    localStorage.removeItem(LS_TOKEN);
+    if (memToken) ss()?.setItem(LS_TOKEN, memToken);
+    return memToken;
+  }
+  memToken = ss()?.getItem(LS_TOKEN) ?? null;
+  return memToken;
+};
+
 export const setBackendUrl = (url: string) => localStorage.setItem(LS_URL, url.trim().replace(/\/+$/, ""));
-export const setBackendToken = (token: string | null) =>
-  token ? localStorage.setItem(LS_TOKEN, token) : localStorage.removeItem(LS_TOKEN);
+export const setBackendToken = (token: string | null) => {
+  memToken = token;
+  if (token) ss()?.setItem(LS_TOKEN, token);
+  else {
+    ss()?.removeItem(LS_TOKEN);
+    if (typeof localStorage !== "undefined") localStorage.removeItem(LS_TOKEN);
+  }
+};
+
 
 /** Feil fra backend-en med kode og ferdig norsk tekst. */
 export class BackendError extends Error {
