@@ -5,6 +5,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { doc, saveDoc, latest } from "./store.mjs";
+import { validateRule } from "./contract.mjs";
 
 export const rulesDoc = () => doc("rules", { list: [] });
 export const logDoc = () => doc("rule-log", { list: [] });
