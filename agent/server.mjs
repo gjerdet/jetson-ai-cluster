@@ -15,11 +15,14 @@ import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import crypto from "node:crypto";
 import { handleApi } from "./lib/api.mjs";
-import { addSample, doc, initStore, latest, pruneSamples, warmLatest } from "./lib/store.mjs";
+import { addSample, doc, flushNow, initStore, latest, pruneSamples, warmLatest } from "./lib/store.mjs";
 import { MqttClient, parseMqttUrl } from "./lib/mqtt.mjs";
 import { evaluate, rulesStatus } from "./lib/rules.mjs";
 import { notifyAll, startTelegram } from "./lib/telegram.mjs";
+import { corsBlocked, corsHeaders, rateLimit, validateEnv, withRequestLog, allowedOrigins, logDir } from "./lib/security.mjs";
+import { startBackups } from "./lib/backup.mjs";
 
 const PORT = Number(process.env.AGENT_PORT || 8787);
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
@@ -27,7 +30,8 @@ const TOKEN = process.env.AGENT_TOKEN || "";
 const SANDBOX = path.resolve(process.env.AGENT_SANDBOX || "./sandbox");
 const MAX_TIMEOUT = Number(process.env.AGENT_MAX_TIMEOUT || 60_000);
 const MAX_OUTPUT = Number(process.env.AGENT_MAX_OUTPUT || 200_000);
-const ALLOW_NETWORK = process.env.AGENT_ALLOW_NETWORK !== "0";
+// Nettverk i sandkassen er AV som standard – slå på bevisst med AGENT_ALLOW_NETWORK=1.
+const ALLOW_NETWORK = process.env.AGENT_ALLOW_NETWORK === "1";
 
 // --- TLS ------------------------------------------------------------------
 // AGENT_TLS_CERT + AGENT_TLS_KEY slår på HTTPS. Mangler de, kjører agenten
@@ -88,16 +92,9 @@ const RUNNERS = {
   node: { file: "run.mjs", cmd: "node" },
 };
 
-const CORS = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
-  "access-control-allow-headers": "content-type, authorization",
-  "access-control-max-age": "86400",
-};
-
-const json = (res, status, body) => {
+const json = (req, res, status, body) => {
   const payload = JSON.stringify(body);
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8", ...CORS });
+  res.writeHead(status, { "content-type": "application/json; charset=utf-8", ...corsHeaders(req) });
   res.end(payload);
 };
 
@@ -198,12 +195,16 @@ async function readBody(req) {
 const requestHandler = async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const route = url.pathname.replace(/\/+$/, "") || "/";
+  withRequestLog(req, res);
 
   if (req.method === "OPTIONS") {
-    res.writeHead(204, CORS);
+    res.writeHead(corsBlocked(req) ? 403 : 204, corsHeaders(req));
     res.end();
     return;
   }
+
+  if (corsBlocked(req))
+    return json(req, res, 403, { error: "Origin er ikke tillatt. Sett AGENT_ORIGINS på agenten." });
 
   // Backend-API (egen innlogging – ikke agent-tokenet)
   if (route.startsWith("/api")) {
@@ -211,15 +212,26 @@ const requestHandler = async (req, res) => {
     return;
   }
 
+  // OS-/sandkasse-endepunktene: streng rate-limiting og token-krav.
+  const begrenset = rateLimit(req, route === "/health" || route === "/" ? "api" : "exec");
+  if (begrenset) {
+    res.setHeader("retry-after", String(begrenset.retryAfter));
+    return json(req, res, 429, { error: `For mange forespørsler. Prøv igjen om ${begrenset.retryAfter} sekunder.` });
+  }
+
   if (TOKEN) {
     const auth = req.headers.authorization || "";
-    if (auth !== `Bearer ${TOKEN}`) return json(res, 401, { error: "Ugyldig token" });
+    const forventet = `Bearer ${TOKEN}`;
+    const ok =
+      auth.length === forventet.length &&
+      crypto.timingSafeEqual(Buffer.from(auth), Buffer.from(forventet));
+    if (!ok) return json(req, res, 401, { error: "Ugyldig token" });
   }
 
 
   try {
     if (req.method === "GET" && (route === "/" || route === "/health")) {
-      return json(res, 200, {
+      return json(req, res, 200, {
         ok: true,
         agent: "jarvis-local-agent",
         version: "1.0.0",
@@ -231,6 +243,8 @@ const requestHandler = async (req, res) => {
         memTotalMb: Math.round(os.totalmem() / 1e6),
         sandbox: SANDBOX,
         network: ALLOW_NETWORK,
+        origins: allowedOrigins(),
+        logg: logDir(),
         maxTimeoutMs: MAX_TIMEOUT,
         allowed: [...ALLOW],
       });
@@ -241,9 +255,9 @@ const requestHandler = async (req, res) => {
       const cmd = String(body.cmd || "").trim();
       const args = Array.isArray(body.args) ? body.args.map(String) : [];
       const problem = checkCommand(cmd, args);
-      if (problem) return json(res, 403, { error: problem });
+      if (problem) return json(req, res, 403, { error: problem });
       const result = await execute(cmd, args, { timeoutMs: body.timeoutMs });
-      return json(res, 200, result);
+      return json(req, res, 200, result);
     }
 
     if (req.method === "GET" && route === "/scripts") {
@@ -255,7 +269,7 @@ const requestHandler = async (req, res) => {
         const st = await fs.stat(path.join(SANDBOX, f.name));
         list.push({ name: f.name, bytes: st.size, modified: st.mtime.toISOString() });
       }
-      return json(res, 200, { sandbox: SANDBOX, files: list });
+      return json(req, res, 200, { sandbox: SANDBOX, files: list });
     }
 
     if (req.method === "POST" && route === "/scripts") {
@@ -263,19 +277,19 @@ const requestHandler = async (req, res) => {
       const body = await readBody(req);
       const { name, full } = safeScriptPath(body.name);
       await fs.writeFile(full, String(body.content ?? ""), "utf8");
-      return json(res, 200, { ok: true, name, path: full, bytes: Buffer.byteLength(String(body.content ?? "")) });
+      return json(req, res, 200, { ok: true, name, path: full, bytes: Buffer.byteLength(String(body.content ?? "")) });
     }
 
     if (req.method === "GET" && route.startsWith("/scripts/")) {
       const { name, full } = safeScriptPath(decodeURIComponent(route.slice("/scripts/".length)));
       const content = await fs.readFile(full, "utf8");
-      return json(res, 200, { name, content: clip(content) });
+      return json(req, res, 200, { name, content: clip(content) });
     }
 
     if (req.method === "DELETE" && route.startsWith("/scripts/")) {
       const { name, full } = safeScriptPath(decodeURIComponent(route.slice("/scripts/".length)));
       await fs.unlink(full);
-      return json(res, 200, { ok: true, name });
+      return json(req, res, 200, { ok: true, name });
     }
 
     if (req.method === "POST" && route === "/run") {
@@ -283,8 +297,8 @@ const requestHandler = async (req, res) => {
       const body = await readBody(req);
       const lang = String(body.lang || "bash").toLowerCase();
       const runner = RUNNERS[lang];
-      if (!runner) return json(res, 400, { error: `Ukjent språk «${lang}». Bruk bash, python eller node.` });
-      if (!ALLOW.has(runner.cmd)) return json(res, 403, { error: `${runner.cmd} er ikke hvitelistet.` });
+      if (!runner) return json(req, res, 400, { error: `Ukjent språk «${lang}». Bruk bash, python eller node.` });
+      if (!ALLOW.has(runner.cmd)) return json(req, res, 403, { error: `${runner.cmd} er ikke hvitelistet.` });
 
       let scriptPath;
       let temporary = false;
@@ -301,12 +315,12 @@ const requestHandler = async (req, res) => {
       const args = [scriptPath, ...(Array.isArray(body.args) ? body.args.map(String) : [])];
       const result = await execute(runner.cmd, args, { timeoutMs: body.timeoutMs, stdin: body.stdin });
       if (temporary && body.keep !== true) await fs.unlink(scriptPath).catch(() => {});
-      return json(res, 200, { ...result, lang, script: path.basename(scriptPath), sandbox: SANDBOX });
+      return json(req, res, 200, { ...result, lang, script: path.basename(scriptPath), sandbox: SANDBOX });
     }
 
-    return json(res, 404, { error: `Ukjent endepunkt ${route}` });
+    return json(req, res, 404, { error: `Ukjent endepunkt ${route}` });
   } catch (e) {
-    return json(res, 400, { error: String(e?.message || e) });
+    return json(req, res, 400, { error: String(e?.message || e) });
   }
 };
 
@@ -328,7 +342,14 @@ const previousValues = new Map();
 
 function mqttStatus() {
   const cfg = doc("mqtt", { url: "", enabled: false, topics: ["#"] });
-  return { tilkoblet: mqttConnected, url: cfg.url, aktiv: !!cfg.enabled, emner: cfg.topics, kjente: latest.size };
+  return {
+    tilkoblet: mqttConnected,
+    url: cfg.url,
+    aktiv: !!cfg.enabled,
+    emner: cfg.topics,
+    kjente: latest.size,
+    ...(mqtt?.state?.() ?? {}),
+  };
 }
 
 async function publish(topic, payload) {
@@ -353,6 +374,9 @@ function startMqtt() {
     mqttConnected = false;
   });
   mqtt.on("error", (e) => console.error("[jarvis-agent] MQTT-feil:", e?.message));
+  mqtt.on("reconnect", ({ forsok, ventMs }) =>
+    console.warn(`[jarvis-agent] MQTT frakoblet – nytt forsøk #${forsok} om ${Math.round(ventMs / 1000)} s`),
+  );
   mqtt.on("message", async (topic, message) => {
     const row = addSample({ topic, value: message, time: Date.now() });
     const previous = previousValues.get(topic);
@@ -368,12 +392,16 @@ function startMqtt() {
 
 const apiDeps = { publish, mqttStatus, restartMqtt: startMqtt, rulesStatus, tls: !!TLS_OPTIONS };
 
+validateEnv({ token: TOKEN, dataDir: path.resolve(process.env.AGENT_DATA || "./data"), sandbox: SANDBOX });
+
 await ensureSandbox();
 await initStore();
 await warmLatest();
 startMqtt();
 startTelegram({ rulesStatus });
+startBackups();
 setInterval(() => pruneSamples().catch(() => {}), 6 * 60 * 60 * 1000);
+setInterval(() => flushNow(), 30_000).unref();
 
 const scheme = TLS_OPTIONS ? "https" : "http";
 server.listen(PORT, HOST, () => {
@@ -381,7 +409,8 @@ server.listen(PORT, HOST, () => {
   console.log(`[jarvis-agent] sandkasse: ${SANDBOX}`);
   console.log(`[jarvis-agent] backend-API: ${scheme}://${HOST}:${PORT}/api/status`);
   if (!TLS_OPTIONS) console.warn("[jarvis-agent] Kjører uten TLS. Sett AGENT_TLS_CERT/AGENT_TLS_KEY for HTTPS.");
-  if (!TOKEN) console.warn("[jarvis-agent] ADVARSEL: AGENT_TOKEN er ikke satt – alle kan kalle agenten.");
+  console.log(`[jarvis-agent] tillatte origins: ${allowedOrigins().join(", ")}`);
+  console.log(`[jarvis-agent] forespørselslogg: ${logDir()}/requests.log`);
 });
 
 // Ryddig avslutning slik at systemd/Docker kan restarte uten datatap.
@@ -390,6 +419,7 @@ for (const sig of ["SIGINT", "SIGTERM"]) {
     console.log(`[jarvis-agent] avslutter (${sig}) …`);
     try {
       mqtt?.stop();
+      flushNow();
     } catch {
       /* ignorert */
     }

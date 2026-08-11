@@ -141,9 +141,15 @@ export interface TelegramConfig {
 export interface AiConfig {
   baseUrl: string;
   model: string;
-  apiKey: string;
+  /** Kun ved skriving. Serveren returnerer den aldri. */
+  apiKey?: string;
   system: string;
+  /** Om en nøkkel er lagret (kryptert) på serveren. */
+  harNokkel?: boolean;
+  /** Maskert form, f.eks. «sk-…4f2a». */
+  nokkelMaske?: string;
 }
+
 
 export interface RulesStatus {
   antall: number;
