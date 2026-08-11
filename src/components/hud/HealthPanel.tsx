@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Activity, RefreshCw, Trash2 } from "lucide-react";
 import { useHealth, useHealthMonitor, checkNodes, clearSelfEvents } from "@/lib/health";
 import { useMqtt } from "@/lib/mqtt-bridge";
 import { useWorldFeed } from "@/lib/world-feed";
 import { Sparkline } from "./Sparkline";
+import { backend, backendToken, safe, type PoolStatus } from "@/lib/backend";
 import type { HudConfig } from "@/lib/hud-store";
 
 function pct(v: number) {
@@ -15,6 +16,23 @@ export function HealthPanel({ config }: { config: HudConfig }) {
   const health = useHealth();
   const mqtt = useMqtt();
   const feed = useWorldFeed();
+  const [pool, setPool] = useState<PoolStatus | null>(null);
+
+  // Lastbalansererens egen helse hentes fra backend når vi er innlogget.
+  useEffect(() => {
+    let stopped = false;
+    const hent = async () => {
+      if (!backendToken()) return setPool(null);
+      const r = await safe(() => backend.aiPool("chat"));
+      if (!stopped) setPool(r.data);
+    };
+    void hent();
+    const t = setInterval(() => void hent(), 15_000);
+    return () => {
+      stopped = true;
+      clearInterval(t);
+    };
+  }, []);
 
   const nodes = useMemo(
     () => config.nodes.map((n) => health.nodes[n.id]).filter(Boolean),
@@ -24,6 +42,7 @@ export function HealthPanel({ config }: { config: HudConfig }) {
   const integrations = (config.integrations ?? []).filter((i) => i.enabled);
   const devices = (config.devices ?? []).filter((d) => d.enabled);
   const online = nodes.filter((n) => n!.last != null).length;
+
 
   return (
     <div className="flex h-full flex-col gap-3 overflow-auto pr-1 text-xs">
