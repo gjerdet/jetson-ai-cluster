@@ -90,15 +90,18 @@ export function WorldMap({
     return { rect, s, vw, vh, x0: (W - vw) / 2, y0: (H - vh) / 2 };
   };
 
-  // begrens panorering slik at kartet fyller det synlige utsnittet
+  // begrens panorering slik at kartet dekker det synlige utsnittet
   const clampOffset = (o: { x: number; y: number }, z: number) => {
-    const { vw, vh } = view();
-    const visW = Math.min(vw / z, W);
-    const visH = Math.min(vh / z, H);
-    const mx = Math.max(0, W - visW);
-    const my = Math.max(0, H - visH);
-    return { x: clamp(o.x, -mx, 0), y: clamp(o.y, -my, 0) };
+    const { vw, vh, x0, y0 } = view();
+    const axis = (v: number, start: number, size: number, world: number) => {
+      const hi = start / z;
+      const lo = (start + size) / z - world;
+      if (lo > hi) return (start + size / 2) / z - world / 2; // kartet er mindre enn utsnittet → midtstill
+      return clamp(v, lo, hi);
+    };
+    return { x: axis(o.x, x0, vw, W), y: axis(o.y, y0, vh, H) };
   };
+
 
   const zoomAt = (px: number, py: number, next: number) => {
     const { zoom: z, offset: o } = stateRef.current;
