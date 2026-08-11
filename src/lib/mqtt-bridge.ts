@@ -261,7 +261,60 @@ export function setRules(next: AlertRule[]) {
   rules = next ?? [];
 }
 
-function fire(rule: AlertRule, text: string, level: AlertItem["level"]) {
+/** Telegram-mottaker for regelhandlinger. */
+export function setTelegramChat(chatId: string) {
+  telegramChat = (chatId ?? "").trim();
+}
+
+function fill(tpl: string, ctx: { rule: string; topic: string; value: string }) {
+  return (tpl || "")
+    .replace(/\{regel\}/gi, ctx.rule)
+    .replace(/\{emne\}/gi, ctx.topic)
+    .replace(/\{verdi\}/gi, ctx.value);
+}
+
+/** Kjører handlingskjeden til en regel. */
+function runActions(rule: AlertRule, topic: string, value: string) {
+  const ctx = { rule: rule.name, topic, value };
+  for (const a of rule.actions ?? []) {
+    if (a.kind === "mqtt") {
+      const ok = publishMqtt(fill(a.topic, ctx), fill(a.payload, ctx));
+      log("sys", `HANDLING ${rule.name}: ${a.topic} ← ${a.payload}${ok ? "" : " (feilet)"}`);
+    } else if (a.kind === "notify") {
+      notify("JARVIS – handling", fill(a.text, ctx));
+    } else if (a.kind === "telegram") {
+      const text = fill(a.text, ctx);
+      if (!telegramChat) {
+        log("sys", `Telegram hoppet over (mangler chat-id): ${text}`);
+        continue;
+      }
+      void import("./telegram.functions")
+        .then(({ sendTelegram }) => sendTelegram({ data: { chatId: telegramChat, text } }))
+        .then((r) =>
+          log("sys", r.ok ? `Telegram sendt: ${text}` : `Telegram-feil: ${r.error}`),
+        )
+        .catch((e: unknown) =>
+          log("sys", `Telegram-feil: ${e instanceof Error ? e.message : "ukjent"}`),
+        );
+    }
+  }
+}
+
+function notify(title: string, body: string) {
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted")
+      new Notification(title, { body });
+  } catch {
+    /* ignore */
+  }
+}
+
+function fire(
+  rule: AlertRule,
+  text: string,
+  level: AlertItem["level"],
+  ctx?: { topic: string; value: string },
+) {
   const now = Date.now();
   const cooldown = Math.max(1, rule.cooldownMin ?? 10) * 60000;
   if (now - (lastFired[rule.id] ?? 0) < cooldown) return;
@@ -275,13 +328,8 @@ function fire(rule: AlertRule, text: string, level: AlertItem["level"]) {
   };
   set({ alerts: [item, ...state.alerts].slice(0, 60) });
   log("sys", `VARSEL: ${text}`);
-  try {
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      new Notification("JARVIS – smarthusvarsel", { body: text });
-    }
-  } catch {
-    /* ignore */
-  }
+  notify("JARVIS – smarthusvarsel", text);
+  runActions(rule, ctx?.topic ?? rule.topic, ctx?.value ?? "");
 }
 
 function matchTopic(pattern: string, topic: string) {
@@ -290,23 +338,44 @@ function matchTopic(pattern: string, topic: string) {
   return topic === p || topic.startsWith(`${p}/`);
 }
 
+/** Håndterer varighetskrav: returnerer true når betingelsen har holdt lenge nok. */
+function sustained(rule: AlertRule, on: boolean) {
+  const need = Math.max(0, rule.forMinutes ?? 0) * 60000;
+  if (!on) {
+    delete pendingSince[rule.id];
+    return false;
+  }
+  if (!need) return true;
+  const since = pendingSince[rule.id];
+  if (!since) {
+    pendingSince[rule.id] = Date.now();
+    return false;
+  }
+  return Date.now() - since >= need;
+}
+
 function evaluateValue(topic: string, value: string) {
   const n = numericValue(value);
   for (const r of rules) {
     if (!r.enabled || r.kind === "stale" || !matchTopic(r.topic, topic)) continue;
     const level = r.level ?? "warn";
     if (r.kind === "equals") {
-      if (value.trim().toLowerCase() === String(r.value).trim().toLowerCase())
-        fire(r, `${r.name}: ${topic} = ${value}`, level);
+      const on = value.trim().toLowerCase() === String(r.value).trim().toLowerCase();
+      if (sustained(r, on)) fire(r, `${r.name}: ${topic} = ${value}`, level, { topic, value });
       continue;
     }
     if (n === null) continue;
     const limit = Number(r.value);
     if (!Number.isFinite(limit)) continue;
-    if (r.kind === "above" && n > limit)
-      fire(r, `${r.name}: ${topic} = ${n} (over ${limit})`, level);
-    if (r.kind === "below" && n < limit)
-      fire(r, `${r.name}: ${topic} = ${n} (under ${limit})`, level);
+    const on = r.kind === "above" ? n > limit : n < limit;
+    const held = r.forMinutes ? ` i ${r.forMinutes} min` : "";
+    if (sustained(r, on))
+      fire(
+        r,
+        `${r.name}: ${topic} = ${n} (${r.kind === "above" ? "over" : "under"} ${limit}${held})`,
+        level,
+        { topic, value: String(n) },
+      );
   }
 }
 
