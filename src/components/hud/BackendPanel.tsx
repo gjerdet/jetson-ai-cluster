@@ -11,6 +11,7 @@ import {
   type BackendRule,
   type BackendStatus,
   type BackendUser,
+  type MqttHealth,
   type RuleEvent,
   type SampleSummary,
 } from "@/lib/backend";
@@ -55,7 +56,7 @@ export function BackendPanel() {
     }
   }, []);
 
-  const oppdaterMqttStatus = useCallback((health: import("@/lib/backend").MqttHealth) => {
+  const oppdaterMqttStatus = useCallback((health: MqttHealth) => {
     setStatus((current) => current ? {
       ...current,
       mqtt: { ...current.mqtt, tilkoblet: health.tilkoblet },

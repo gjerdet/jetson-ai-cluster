@@ -296,11 +296,8 @@ Tre veier – velg én.
 ```bash
 sudo apt install caddy
 sudo cp agent/proxy/Caddyfile /etc/caddy/Caddyfile   # bytt ut domenet
-sudo tee /etc/caddy/.env >/dev/null <<'EOF'
-JARVIS_NODE1_HOST=jarvis.dittdomene.no
-JARVIS_NODE2_HOST=node2.jarvis.dittdomene.no
-JARVIS_NODE2_UPSTREAM=192.168.1.51:8787
-EOF
+sudo cp agent/proxy/caddy.env.example /etc/caddy/.env
+sudo nano /etc/caddy/.env
 sudo caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl restart caddy
 ```
