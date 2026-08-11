@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { MqttClient } from "mqtt";
-import type { AlertRule, Device, MqttConfig } from "./hud-store";
+import type { AlertRule, Device, MqttConfig, RuleAction } from "./hud-store";
 
 export type MqttStatus = "off" | "connecting" | "online" | "error";
 
@@ -266,16 +266,39 @@ export function setTelegramChat(chatId: string) {
   telegramChat = (chatId ?? "").trim();
 }
 
-function fill(tpl: string, ctx: { rule: string; topic: string; value: string }) {
+function fill(tpl: string, ctx: { rule: string; topic: string; value: string; threshold: string; time: string }) {
   return (tpl || "")
     .replace(/\{regel\}/gi, ctx.rule)
     .replace(/\{emne\}/gi, ctx.topic)
-    .replace(/\{verdi\}/gi, ctx.value);
+    .replace(/\{verdi\}/gi, ctx.value)
+    .replace(/\{terskel\}/gi, ctx.threshold)
+    .replace(/\{tid\}/gi, ctx.time);
+}
+
+export type RuleSimulation = { matched: boolean; reason: string; actions: { kind: RuleAction["kind"]; target: string; preview: string }[] };
+
+export function simulateRule(rule: AlertRule, scenario: { topic: string; value: string; minutes: number }): RuleSimulation {
+  const topicMatch = matchTopic(rule.topic, scenario.topic);
+  const n = numericValue(scenario.value);
+  const limit = Number(rule.value);
+  const condition = rule.kind === "stale"
+    ? scenario.minutes >= Math.max(1, rule.minutes ?? 15)
+    : rule.kind === "equals"
+      ? scenario.value.trim().toLowerCase() === rule.value.trim().toLowerCase()
+      : n !== null && Number.isFinite(limit) && (rule.kind === "above" ? n > limit : n < limit);
+  const duration = rule.kind === "stale" || scenario.minutes >= Math.max(0, rule.forMinutes ?? 0);
+  const matched = topicMatch && condition && duration;
+  const ctx = { rule: rule.name, topic: scenario.topic, value: scenario.value, threshold: rule.value, time: new Date().toLocaleString("nb-NO") };
+  return {
+    matched,
+    reason: !topicMatch ? "Scenarioets emne treffer ikke regelen." : !condition ? "Verdien krysser ikke betingelsen." : !duration ? `Betingelsen har ikke vart i ${rule.forMinutes ?? 0} min.` : "Regelen ville blitt utløst.",
+    actions: matched ? (rule.actions ?? []).map((a) => a.kind === "mqtt" ? { kind: a.kind, target: fill(a.topic, ctx), preview: fill(a.payload, ctx) } : a.kind === "telegram" ? { kind: a.kind, target: a.chatId?.trim() || telegramChat || "mangler mottaker", preview: fill(a.text, ctx) } : { kind: a.kind, target: "nettleservarsel", preview: fill(a.text, ctx) }) : [],
+  };
 }
 
 /** Kjører handlingskjeden til en regel. */
 function runActions(rule: AlertRule, topic: string, value: string) {
-  const ctx = { rule: rule.name, topic, value };
+  const ctx = { rule: rule.name, topic, value, threshold: rule.value, time: new Date().toLocaleString("nb-NO") };
   for (const a of rule.actions ?? []) {
     if (a.kind === "mqtt") {
       const ok = publishMqtt(fill(a.topic, ctx), fill(a.payload, ctx));
@@ -284,12 +307,13 @@ function runActions(rule: AlertRule, topic: string, value: string) {
       notify("JARVIS – handling", fill(a.text, ctx));
     } else if (a.kind === "telegram") {
       const text = fill(a.text, ctx);
-      if (!telegramChat) {
+      const recipient = a.chatId?.trim() || telegramChat;
+      if (!recipient) {
         log("sys", `Telegram hoppet over (mangler chat-id): ${text}`);
         continue;
       }
       void import("./telegram.functions")
-        .then(({ sendTelegram }) => sendTelegram({ data: { chatId: telegramChat, text } }))
+        .then(({ sendTelegram }) => sendTelegram({ data: { chatId: recipient, text } }))
         .then((r) =>
           log("sys", r.ok ? `Telegram sendt: ${text}` : `Telegram-feil: ${r.error}`),
         )

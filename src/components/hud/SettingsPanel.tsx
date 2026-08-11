@@ -31,6 +31,7 @@ import {
   type Integration,
   type IntegrationKind,
 } from "@/lib/hud-store";
+import { EspWizard } from "./EspWizard";
 
 type Tab = "system" | "modeller" | "enheter" | "minne" | "evner" | "koblinger" | "plugins";
 
@@ -265,6 +266,7 @@ export function SettingsPanel({
 
         {tab === "enheter" ? (
           <>
+            <EspWizard config={config} update={update} />
             <p className="text-[10px] text-muted-foreground">
               Registeret over smarthus-enheter (ESP32, ESP8266, Raspberry Pi, sensorer). Aktive
               enheter legges inn i systemprompten, slik at {config.callsign} kjenner navn, rom,
@@ -382,6 +384,7 @@ export function SettingsPanel({
                   placeholder="kapabiliteter: temperatur, relé, bevegelse…"
                   className="hud-input mt-1.5 w-full text-[11px]"
                 />
+                {d.documentation ? <details className="mt-2"><summary className="hud-title cursor-pointer text-[9px] text-primary">DOKUMENTASJON / KODE / KOBLING</summary><textarea value={d.documentation} onChange={(e) => patchDevice(d.id, { documentation: e.target.value })} className="hud-input mt-1 min-h-52 w-full font-mono text-[10px]" /></details> : null}
               </div>
             ))}
             <div className="flex flex-wrap gap-2">
