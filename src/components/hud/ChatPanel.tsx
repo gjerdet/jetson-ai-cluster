@@ -8,9 +8,13 @@ import {
   MQTT_TOOL_PROMPT,
   mqttBrief,
   mqttOnline,
+  useMqtt,
   type PendingCommand,
 } from "@/lib/mqtt-bridge";
 import { briefingText, refreshFeed, snapshot } from "@/lib/world-feed";
+import { parseToolCalls, runTool, stripToolCalls, TOOL_PROMPT, toolAvailability } from "@/lib/agent-tools";
+import { evaluate } from "@/lib/evaluator";
+import { logSelfEvent } from "@/lib/health";
 
 const BRIEF_TRIGGERS =
   /(topp\s*10|top\s*10|nyhet|hendels|world ?monitor|situasjonsbilde|verden|defcon|pizza|hva skjer|brief)/i;
