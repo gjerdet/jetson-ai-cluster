@@ -77,15 +77,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "JARVIS HUD — Lokal AI-operatør for Jetson" },
+      { name: "description", content: "Transparent Jarvis-inspirert HUD for lokale AI-noder, smarthus, world monitor og evaluering." },
+      { name: "author", content: "JARVIS HUD" },
+      { property: "og:title", content: "JARVIS HUD" },
+      { property: "og:description", content: "Transparent Jarvis-inspirert HUD for lokale AI-noder." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@JARVIS_HUD" },
     ],
+
     links: [
       {
         rel: "stylesheet",
