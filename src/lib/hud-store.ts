@@ -342,7 +342,10 @@ export type HudConfig = {
   /** husk samtalen mellom omstart av nettleseren (lokalt) */
   keepHistory: boolean;
   evaluator: EvaluatorConfig;
+  /** lokal agent-tjeneste på Jetson (OS-kommandoer + skript-sandkasse) */
+  localAgent?: import("./local-agent").LocalAgentConfig;
 };
+
 
 export const defaultEvaluator: EvaluatorConfig = {
   criteria: [
