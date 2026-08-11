@@ -120,6 +120,9 @@ export type Device = {
   capabilities: string;
   firmware: string;
   notes?: string;
+  /** valgfri posisjon for kartvisning */
+  lat?: number;
+  lon?: number;
   enabled: boolean;
 };
 
