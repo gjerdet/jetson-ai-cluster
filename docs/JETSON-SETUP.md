@@ -50,13 +50,13 @@ Koble prosjektet til GitHub fra Lovable-editoren (**Plus (+) → GitHub → Conn
 ```sh
 git clone <din-github-url> jarvis
 cd jarvis
-npm install
+bun install
 ```
 
 ## 4. Start HUD-en
 
 ```sh
-npm run dev -- --host
+bun run dev -- --host
 ```
 
 Åpne i nettleseren:
@@ -67,8 +67,8 @@ npm run dev -- --host
 For produksjon:
 
 ```sh
-npm run build
-npm run start   # eller: npm run preview
+bun run build
+bun run start   # eller: bun run preview
 ```
 
 ---
@@ -296,9 +296,30 @@ Tre veier – velg én.
 ```bash
 sudo apt install caddy
 sudo cp agent/proxy/Caddyfile /etc/caddy/Caddyfile   # bytt ut domenet
+sudo tee /etc/caddy/.env >/dev/null <<'EOF'
+JARVIS_NODE1_HOST=jarvis.dittdomene.no
+JARVIS_NODE2_HOST=node2.jarvis.dittdomene.no
+JARVIS_NODE2_UPSTREAM=192.168.1.51:8787
+EOF
+sudo caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl restart caddy
 ```
+Node2-blokken terminerer TLS separat og sender trafikken til Node2-agenten.
+Hvis Caddy kjører direkte på Node2, sett `JARVIS_NODE2_UPSTREAM=127.0.0.1:8787`.
 Sett `AGENT_TRUST_PROXY=1` i `agent.env` så rate-limiting ser riktig klient-IP.
+
+## Tester
+
+Installer utviklingsavhengighetene før testkjøring; `vitest` ligger i
+`devDependencies` og følger ikke med hvis installasjonen bruker produksjonsmodus:
+
+```bash
+bun install
+bun run test
+bun run test:backend-sync   # bare synk-laget
+```
+
+Ikke bruk `--production` eller `NODE_ENV=production` når testene installeres.
 
 **2) Nginx + certbot**
 ```bash

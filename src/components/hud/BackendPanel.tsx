@@ -155,7 +155,10 @@ export function BackendPanel() {
           <SettingsFormSection />
           <AiSection />
           <MqttSection onChange={refresh} />
-          <MqttHealthSection />
+          <MqttHealthSection onHealth={(health) => setStatus((current) => current ? {
+            ...current,
+            mqtt: { ...current.mqtt, tilkoblet: health.tilkoblet },
+          } : current)} />
           <RulesSection />
           <TelegramSection />
           <HistorySection />
