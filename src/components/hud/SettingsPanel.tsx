@@ -663,6 +663,9 @@ export function SettingsPanel({
                 className="accent-[oklch(0.78_0.13_200)]"
               />
               Hent kontekst fra kunnskapsbasen før svar (RAG)
+            </label>
+
+
 
 
             <button
