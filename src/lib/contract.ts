@@ -23,6 +23,7 @@ export {
 } from "../../agent/lib/contract.mjs";
 
 export type {
+  AiChatReply,
   AiConfig,
   BackendSettings,
   ClusterNode,

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { SendHorizonal, Loader2, Radar, Cpu, Eraser, Wrench, BookOpen } from "lucide-react";
 import { type ChatMsg, type ToolRun } from "@/lib/hud-client";
 import { callBalanced, callTracked } from "@/lib/balancer";
+import { backend, backendToken } from "@/lib/backend";
 import { clearChat, loadChat, loadChatRemote, saveChat, saveChatRemote } from "@/lib/chat-store";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
 import {
@@ -151,9 +152,18 @@ export function ChatPanel({
 
       // verktøykall-loop: modellen kan hente ekte data før den svarer
       for (let round = 0; round < 4; round++) {
-        const call = config.loadBalance !== false
-          ? await callBalanced(active, thread, { prefer: primary, duty: round === 0 ? "chat" : "verktoy" })
-          : { text: await callTracked(primary, thread), node: primary };
+        // via backend-en (agenten) når det er valgt og du er innlogget – ellers rett til noden
+        const viaBackend = config.chatViaBackend === true && !!backendToken();
+        const call = viaBackend
+          ? await (async () => {
+              const r = await backend.aiChat(
+                thread.map((m) => ({ role: m.role, content: m.content })),
+              );
+              return { text: r.svar, node: { ...primary, name: `BACKEND · ${r.model}` } };
+            })()
+          : config.loadBalance !== false
+            ? await callBalanced(active, thread, { prefer: primary, duty: round === 0 ? "chat" : "verktoy" })
+            : { text: await callTracked(primary, thread), node: primary };
         const raw = call.text;
         answeredBy = call.node.name;
         const calls = parseToolCalls(raw, customToolNames(config));
