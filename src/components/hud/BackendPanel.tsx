@@ -4,6 +4,10 @@ import {
   backendUrl,
   backendToken,
   setBackendUrl,
+  BackendError,
+  safe,
+  type AiConfig,
+  type BackupFile,
   type BackendRule,
   type BackendStatus,
   type BackendUser,
@@ -16,6 +20,10 @@ const field =
 const btn =
   "rounded-full border border-primary/25 bg-primary/[0.06] px-4 py-1.5 text-[10px] uppercase tracking-[0.2em] text-primary/80 transition hover:bg-primary/15";
 const label = "text-[9px] uppercase tracking-[0.25em] text-foreground/40";
+
+/** Feiltekst + konkret råd fra den delte feilkontrakten. */
+const feilTekst = (e: unknown) =>
+  e instanceof BackendError ? [e.message, e.raad].filter(Boolean).join(" ") : e instanceof Error ? e.message : String(e);
 
 /** BACKEND-fane: innlogging, MQTT-lytter, regelmotor, Telegram og historikk – alt lokalt på Jetson. */
 export function BackendPanel() {
@@ -41,7 +49,7 @@ export function BackendPanel() {
       }
     } catch (e) {
       setStatus(null);
-      setFeil(e instanceof Error ? e.message : String(e));
+      setFeil(feilTekst(e));
     }
   }, []);
 
@@ -59,7 +67,7 @@ export function BackendPanel() {
       setPassord("");
       await refresh();
     } catch (e) {
-      setFeil(e instanceof Error ? e.message : String(e));
+      setFeil(feilTekst(e));
     } finally {
       setBusy(false);
     }
@@ -93,6 +101,7 @@ export function BackendPanel() {
             <Stat k="OPPETID" v={`${Math.round(status.oppetidSek / 60)} min`} />
             <Stat k="MQTT" v={status.mqtt.tilkoblet ? "TILKOBLET" : "AV"} />
             <Stat k="REGLER" v={`${status.regler.aktive}/${status.regler.antall}`} />
+            <Stat k="TILKOBLING" v={status.tls ? "HTTPS (TLS)" : url.startsWith("https") ? "HTTPS VIA PROXY" : "HTTP"} />
           </div>
         ) : null}
       </section>
@@ -135,10 +144,18 @@ export function BackendPanel() {
               LOGG UT
             </button>
           </div>
+          {!status?.tls && !url.startsWith("https://") ? (
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] px-3 py-2 text-[10px] text-amber-200/70">
+              Trafikken går ukryptert. Sett opp TLS i agenten (AGENT_TLS_CERT/KEY) eller legg Caddy/Nginx foran –
+              se agent/proxy/ og docs/JETSON-SETUP.md.
+            </div>
+          ) : null}
+          <AiSection />
           <MqttSection onChange={refresh} />
           <RulesSection />
           <TelegramSection />
           <HistorySection />
+          <BackupSection />
           <EventLog events={status?.regler.sisteHendelser ?? []} />
         </>
       )}
@@ -152,6 +169,111 @@ const Stat = ({ k, v }: { k: string; v: string }) => (
     <div className="text-primary/80">{v}</div>
   </div>
 );
+
+/** AI-node for Telegram-boten. Nøkkelen lagres kryptert – vi ser kun masken. */
+function AiSection() {
+  const [cfg, setCfg] = useState<AiConfig>({ baseUrl: "", model: "", system: "" });
+  const [nokkel, setNokkel] = useState("");
+  const [melding, setMelding] = useState<string | null>(null);
+
+  useEffect(() => {
+    void safe(() => backend.hentAi()).then(({ data }) => data && setCfg(data));
+  }, []);
+
+  return (
+    <section className="space-y-2">
+      <div className={label}>AI-NODE (BRUKES AV TELEGRAM-BOTEN)</div>
+      <input className={field} value={cfg.baseUrl} placeholder="http://127.0.0.1:11434/v1"
+        onChange={(e) => setCfg({ ...cfg, baseUrl: e.target.value })} />
+      <input className={field} value={cfg.model} placeholder="llama3.1"
+        onChange={(e) => setCfg({ ...cfg, model: e.target.value })} />
+      <input className={field} value={cfg.system ?? ""} placeholder="systemtekst"
+        onChange={(e) => setCfg({ ...cfg, system: e.target.value })} />
+      <input
+        className={field}
+        type="password"
+        value={nokkel}
+        placeholder={cfg.harNokkel ? `nøkkel lagret (${cfg.nokkelMaske}) – skriv ny for å bytte` : "API-nøkkel (valgfri)"}
+        onChange={(e) => setNokkel(e.target.value)}
+      />
+      <div className="flex items-center gap-3">
+        <button
+          className={btn}
+          onClick={async () => {
+            const { data, error } = await safe(() =>
+              backend.lagreAi({ ...cfg, ...(nokkel ? { apiKey: nokkel } : {}) }),
+            );
+            setNokkel("");
+            if (data) setCfg(data as AiConfig);
+            setMelding(error ? feilTekst(error) : "Lagret. Nøkkelen krypteres på Jetson-en.");
+          }}
+        >
+          LAGRE
+        </button>
+        {cfg.harNokkel ? (
+          <button
+            className={btn}
+            onClick={async () => {
+              const { data, error } = await safe(() => backend.lagreAi({ apiKey: "" }));
+              if (data) setCfg(data as AiConfig);
+              setMelding(error ? feilTekst(error) : "Nøkkel fjernet.");
+            }}
+          >
+            FJERN NØKKEL
+          </button>
+        ) : null}
+        {melding ? <span className="text-[10px] text-foreground/50">{melding}</span> : null}
+      </div>
+    </section>
+  );
+}
+
+/** Sikkerhetskopier av databasen på Jetson-en. */
+function BackupSection() {
+  const [kopier, setKopier] = useState<BackupFile[]>([]);
+  const [melding, setMelding] = useState<string | null>(null);
+
+  const last = useCallback(async () => {
+    const { data, error } = await safe(() => backend.hentBackuper());
+    if (data) setKopier(data);
+    if (error) setMelding(feilTekst(error));
+  }, []);
+
+  useEffect(() => {
+    void last();
+  }, [last]);
+
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className={label}>SIKKERHETSKOPIER</div>
+        <button
+          className={btn}
+          onClick={async () => {
+            const { data, error } = await safe(() => backend.taBackup());
+            setMelding(error ? feilTekst(error) : `Kopi laget: ${data?.navn}`);
+            await last();
+          }}
+        >
+          TA KOPI NÅ
+        </button>
+      </div>
+      {melding ? <div className="text-[10px] text-foreground/50">{melding}</div> : null}
+      {kopier.length === 0 ? (
+        <div className="text-[10px] text-foreground/40">Ingen kopier ennå – de tas automatisk hvert døgn.</div>
+      ) : (
+        <div className="max-h-40 space-y-1 overflow-y-auto">
+          {kopier.map((k) => (
+            <div key={k.navn} className="flex items-center justify-between rounded-xl border border-primary/10 bg-primary/[0.03] px-3 py-1.5 text-[10px]">
+              <span className="text-foreground/70">{new Date(k.tid).toLocaleString("nb-NO")}</span>
+              <span className="text-primary/70">{Math.round(k.bytes / 1024)} kB</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function MqttSection({ onChange }: { onChange: () => void }) {
   const [cfg, setCfg] = useState({ url: "mqtt://127.0.0.1:1883", topics: "#", enabled: false });
@@ -331,8 +453,9 @@ function TelegramSection() {
       <div className={label}>TELEGRAM-BOT</div>
       <input
         className={field}
-        placeholder="bot-token fra @BotFather"
-        value={cfg.token}
+        type="password"
+        placeholder={cfg.token === "***lagret***" ? "token lagret (kryptert) – skriv nytt for å bytte" : "bot-token fra @BotFather"}
+        value={cfg.token === "***lagret***" ? "" : cfg.token}
         onChange={(e) => setCfg({ ...cfg, token: e.target.value })}
       />
       <input
@@ -351,7 +474,7 @@ function TelegramSection() {
           onClick={async () => {
             await backend.lagreTelegram({
               enabled: cfg.enabled,
-              token: cfg.token,
+              ...(cfg.token && cfg.token !== "***lagret***" ? { token: cfg.token } : {}),
               allowlist: cfg.allowlist,
               chatIds: cfg.chatIds
                 .split(",")
@@ -371,7 +494,7 @@ function TelegramSection() {
               await backend.testTelegram("Test fra Jarvis HUD.");
               setMelding("Testmelding sendt.");
             } catch (e) {
-              setMelding(e instanceof Error ? e.message : String(e));
+              setMelding(feilTekst(e));
             }
           }}
         >
