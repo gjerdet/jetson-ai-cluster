@@ -53,13 +53,10 @@ export function CenterMenu({
                   : "translate(-50%, -50%) scale(0.4)",
                 transitionDelay: `${i * 45}ms`,
               }}
-              className={`hud-title absolute left-1/2 top-1/2 flex size-20 flex-col items-center justify-center gap-1 rounded-full border text-[8px] transition-all duration-300 ${
+              className={`hud-title hud-btn hud-btn-hoverable absolute left-1/2 top-1/2 flex size-20 flex-col items-center justify-center gap-1 text-[8px] transition-all duration-300 ${
                 open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-              } ${
-                active.includes(it.id)
-                  ? "border-primary/60 bg-primary/10 text-primary"
-                  : "border-primary/25 bg-background/10 text-muted-foreground hover:border-primary/60 hover:text-primary"
-              } backdrop-blur-md`}
+              } ${active.includes(it.id) ? "hud-btn-on" : ""}`}
+
             >
               <it.icon className="size-4" />
               {it.label}
