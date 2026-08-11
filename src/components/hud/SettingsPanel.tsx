@@ -47,6 +47,9 @@ export function SettingsPanel({
       ...config,
       integrations: integrations.map((x) => (x.id === id ? { ...x, ...p } : x)),
     });
+  const memories = config.memories ?? [];
+  const patchMemory = (id: string, p: Partial<MemoryItem>) =>
+    update({ ...config, memories: memories.map((m) => (m.id === id ? { ...m, ...p } : m)) });
   const patchPlugin = (id: string, p: Partial<Plugin>) =>
     update({ ...config, plugins: config.plugins.map((x) => (x.id === id ? { ...x, ...p } : x)) });
 
