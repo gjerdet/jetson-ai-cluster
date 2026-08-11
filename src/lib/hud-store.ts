@@ -98,6 +98,31 @@ export type MemoryItem = {
   created: string;
 };
 
+export type DeviceKind = "esp32" | "esp8266" | "esp32-cam" | "raspberrypi" | "sensor" | "annet";
+
+export const DEVICE_KIND_LABEL: Record<DeviceKind, string> = {
+  esp32: "ESP32",
+  esp8266: "ESP8266",
+  "esp32-cam": "ESP32-CAM",
+  raspberrypi: "Raspberry Pi",
+  sensor: "Sensor",
+  annet: "Annet",
+};
+
+export type Device = {
+  id: string;
+  name: string;
+  kind: DeviceKind;
+  room: string;
+  host: string;
+  protocol: "http" | "mqtt" | "websocket";
+  topic?: string;
+  capabilities: string;
+  firmware: string;
+  notes?: string;
+  enabled: boolean;
+};
+
 export type HudConfig = {
   nodes: ModelNode[];
   collaboration: boolean;
@@ -109,6 +134,7 @@ export type HudConfig = {
   plugins: Plugin[];
   integrations: Integration[];
   memories: MemoryItem[];
+  devices: Device[];
 };
 
 const STORAGE_KEY = "hud.config.v1";
