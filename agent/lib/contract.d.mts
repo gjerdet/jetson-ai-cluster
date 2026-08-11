@@ -215,7 +215,41 @@ export interface AiChatReply {
   model: string;
   /** Adressen svaret kom fra (uten nøkkel). */
   node: string;
+  /** Id-en til noden lastbalansereren valgte. */
+  nodeId?: string;
+  /** Visningsnavn på noden som svarte. */
+  nodeNavn?: string;
+  /** Svartid i millisekunder. */
+  ms?: number;
+  /** Noder som ble hoppet over fordi de feilet. */
+  hoppetOver?: { node: string; feil: string }[];
 }
+
+/** Én node slik lastbalansereren i backend-en ser den. */
+export interface PoolNode {
+  id: string;
+  navn: string;
+  baseUrl: string;
+  modell: string;
+  vekt: number;
+  inflight: number;
+  sisteMs: number | null;
+  snittMs: number | null;
+  kall: number;
+  ok: number;
+  feil: number;
+  sisteFeil: string | null;
+  karantene: boolean;
+  karanteneSek: number;
+  kostnad: number;
+}
+
+export interface PoolStatus {
+  oppgave: string;
+  antall: number;
+  noder: PoolNode[];
+}
+
 
 export interface AiConfig {
   baseUrl: string;
