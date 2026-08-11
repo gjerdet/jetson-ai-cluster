@@ -4,10 +4,10 @@ import { WorldMap } from "./WorldMap";
 import {
   LAYERS,
   LAYER_COLOR,
-  fetchWorldEvents,
   type LayerId,
   type WorldEvent,
 } from "@/lib/world-events";
+import { getWorldEvents } from "@/lib/world-events.functions";
 
 const SOURCE_URL =
   "https://www.worldmonitor.app/dashboard?lat=20.0000&lon=0.0000&zoom=1.00&view=global&timeRange=7d&layers=conflicts%2Chotspots%2Cweather%2Cprotests%2Cnatural%2Cfires%2CucdpEvents%2Cdisplacement%2Cclimate";
@@ -24,7 +24,7 @@ export function WorldMonitor() {
 
   const load = () => {
     setLoading(true);
-    fetchWorldEvents()
+    getWorldEvents()
       .then(setEvents)
       .catch(() => undefined)
       .finally(() => setLoading(false));
