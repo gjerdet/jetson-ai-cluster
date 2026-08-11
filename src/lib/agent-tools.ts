@@ -1,6 +1,6 @@
-import type { HudConfig } from "./hud-store";
-import { deviceBrief, newMemory } from "./hud-store";
-import { historyFor, numericValue } from "./mqtt-bridge";
+import type { CustomTool, HudConfig } from "./hud-store";
+import { deviceBrief, newCustomTool, newMemory, sanitizeToolName } from "./hud-store";
+import { historyFor, numericValue, mqttOnline, publishMqtt } from "./mqtt-bridge";
 import { fetchIntegration } from "./integrations.functions";
 import { briefingText, refreshFeed, snapshot } from "./world-feed";
 import { pingNode } from "./hud-client";
