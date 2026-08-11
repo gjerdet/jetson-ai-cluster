@@ -130,6 +130,10 @@ export type MqttConfig = {
   password: string;
   baseTopic: string;
   autoConnect: boolean;
+  /** lytt på homeassistant/# og oppdag ukjente emner automatisk */
+  discovery?: boolean;
+  /** ekstra emne å lytte på for oppdagelse, f.eks. tele/# */
+  discoveryTopic?: string;
 };
 
 export const defaultMqtt: MqttConfig = {
@@ -138,7 +142,40 @@ export const defaultMqtt: MqttConfig = {
   password: "",
   baseTopic: "hjem/#",
   autoConnect: false,
+  discovery: true,
+  discoveryTopic: "",
 };
+
+/** Varselregel for sensordata. */
+export type AlertRule = {
+  id: string;
+  name: string;
+  topic: string;
+  kind: "above" | "below" | "equals" | "stale";
+  /** grenseverdi (tall) eller tekst for «equals» */
+  value: string;
+  /** minutter uten signal før «stale» utløser */
+  minutes?: number;
+  /** minutter mellom gjentatte varsler */
+  cooldownMin?: number;
+  level?: "warn" | "crit";
+  enabled: boolean;
+};
+
+export function newRule(topic = ""): AlertRule {
+  return {
+    id: `r-${Math.random().toString(36).slice(2, 8)}`,
+    name: "Ny regel",
+    topic,
+    kind: "above",
+    value: "30",
+    minutes: 15,
+    cooldownMin: 10,
+    level: "warn",
+    enabled: true,
+  };
+}
+
 
 export type HudConfig = {
   nodes: ModelNode[];
@@ -153,6 +190,8 @@ export type HudConfig = {
   memories: MemoryItem[];
   devices: Device[];
   mqtt: MqttConfig;
+  rules: AlertRule[];
+
 };
 
 const STORAGE_KEY = "hud.config.v1";
@@ -212,6 +251,8 @@ export const defaultConfig: HudConfig = {
   memories: [],
   devices: [],
   mqtt: defaultMqtt,
+  rules: [],
+
   plugins: [
     {
       id: "p-telegram",

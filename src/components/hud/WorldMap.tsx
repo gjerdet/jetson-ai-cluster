@@ -4,6 +4,8 @@ import { feature } from "topojson-client";
 import type { FeatureCollection, Geometry } from "geojson";
 import { Minus, Plus, Maximize, Expand, Shrink } from "lucide-react";
 import { LAYER_COLOR, type WorldEvent } from "@/lib/world-events";
+import { ROUTES } from "@/lib/world-static";
+
 
 const W = 720;
 const H = 360;
@@ -90,15 +92,18 @@ export function WorldMap({
     return { rect, s, vw, vh, x0: (W - vw) / 2, y0: (H - vh) / 2 };
   };
 
-  // begrens panorering slik at kartet fyller det synlige utsnittet
+  // begrens panorering slik at kartet dekker det synlige utsnittet
   const clampOffset = (o: { x: number; y: number }, z: number) => {
-    const { vw, vh } = view();
-    const visW = Math.min(vw / z, W);
-    const visH = Math.min(vh / z, H);
-    const mx = Math.max(0, W - visW);
-    const my = Math.max(0, H - visH);
-    return { x: clamp(o.x, -mx, 0), y: clamp(o.y, -my, 0) };
+    const { vw, vh, x0, y0 } = view();
+    const axis = (v: number, start: number, size: number, world: number) => {
+      const hi = start / z;
+      const lo = (start + size) / z - world;
+      if (lo > hi) return (start + size / 2) / z - world / 2; // kartet er mindre enn utsnittet → midtstill
+      return clamp(v, lo, hi);
+    };
+    return { x: axis(o.x, x0, vw, W), y: axis(o.y, y0, vh, H) };
   };
+
 
   const zoomAt = (px: number, py: number, next: number) => {
     const { zoom: z, offset: o } = stateRef.current;
@@ -125,6 +130,9 @@ export function WorldMap({
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
+
+  const activeLayers = useMemo(() => new Set(events.map((e) => e.layer)), [events]);
+
 
   const { path, projection } = useMemo(() => {
     const p = geoEquirectangular().fitSize([W, H], { type: "Sphere" });
@@ -198,6 +206,32 @@ export function WorldMap({
           {dayNight ? (
             <path d={nightPath()} fill="oklch(0.15 0.03 250 / 0.55)" pointerEvents="none" />
           ) : null}
+
+          {ROUTES.filter((r) => activeLayers.has(r.layer)).map((r) => {
+            const color = LAYER_COLOR[r.layer];
+            const d = r.coords
+              .map((c, i) => {
+                const p = projection(c);
+                return p ? `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}` : "";
+              })
+              .join(" ");
+            if (!d) return null;
+            return (
+              <path
+                key={r.id}
+                d={d}
+                fill="none"
+                stroke={color}
+                strokeWidth={1.1 / zoom}
+                strokeLinecap="round"
+                opacity={0.75}
+                strokeDasharray={r.layer === "trade" ? `${4 / zoom} ${3 / zoom}` : undefined}
+              >
+                <title>{r.name}</title>
+              </path>
+            );
+          })}
+
 
           {events.map((e) => {
             const pt = projection([e.lon, e.lat]);

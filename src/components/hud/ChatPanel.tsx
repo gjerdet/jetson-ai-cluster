@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { SendHorizonal, Loader2, Radar, Cpu } from "lucide-react";
 import { callNode, type ChatMsg } from "@/lib/hud-client";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
-import { mqttBrief } from "@/lib/mqtt-bridge";
+import { executeAiCommands, MQTT_TOOL_PROMPT, mqttBrief, mqttOnline } from "@/lib/mqtt-bridge";
 import { briefingText, refreshFeed, snapshot } from "@/lib/world-feed";
 
 const BRIEF_TRIGGERS =
@@ -59,7 +59,9 @@ export function ChatPanel({
     setBusy(true);
     try {
       const live = mqttBrief();
-      const sys = [systemPrompt(config), live].filter(Boolean).join("\n");
+      const sys = [systemPrompt(config), live, mqttOnline() ? MQTT_TOOL_PROMPT : ""]
+        .filter(Boolean)
+        .join("\n");
       let context = "";
       if (BRIEF_TRIGGERS.test(text)) {
         if (!snapshot().events.length) await refreshFeed();
@@ -74,6 +76,17 @@ export function ChatPanel({
         ...next,
         { role: "assistant", content: answer, node: primary.name },
       ];
+      // lar modellen styre smarthuset direkte via MQTT-linjer i svaret
+      const done = executeAiCommands(answer);
+      if (done.length)
+        out.push({
+          role: "assistant",
+          content: done
+            .map((c) => `${c.ok ? "✓" : "✕"} ${c.topic} ← ${c.payload}`)
+            .join("\n"),
+          node: "MQTT",
+        });
+
       if (config.collaboration && workers.length > 0) {
         for (const w of workers) {
           const review = await callNode(w, [

@@ -237,3 +237,204 @@ export function staticEvents(): WorldEvent[] {
   }
   return out;
 }
+
+/** Ruter tegnet som linjer på kartet (sjøkabler, rørledninger, handelsruter). */
+export type Route = { id: string; layer: LayerId; name: string; coords: [number, number][] };
+
+export const ROUTES: Route[] = [
+  // sjøkabler
+  {
+    id: "r-cable-tat14",
+    layer: "cable",
+    name: "Transatlantisk – Bude ↔ Virginia Beach",
+    coords: [
+      [-4.55, 50.83],
+      [-20, 49],
+      [-40, 45],
+      [-60, 40],
+      [-75.98, 36.85],
+    ],
+  },
+  {
+    id: "r-cable-marea",
+    layer: "cable",
+    name: "MAREA – Bilbao ↔ Virginia Beach",
+    coords: [
+      [-2.99, 43.38],
+      [-25, 40],
+      [-50, 37],
+      [-75.98, 36.85],
+    ],
+  },
+  {
+    id: "r-cable-sea-me-we",
+    layer: "cable",
+    name: "SEA-ME-WE – Marseille ↔ Singapore",
+    coords: [
+      [5.37, 43.3],
+      [18, 34],
+      [29.92, 31.2],
+      [32.55, 30.0],
+      [38, 22],
+      [43.3, 12.6],
+      [56.34, 25.12],
+      [65, 12],
+      [80.23, 8.5],
+      [95, 5],
+      [103.98, 1.36],
+    ],
+  },
+  {
+    id: "r-cable-apg",
+    layer: "cable",
+    name: "Asia Pacific Gateway – Singapore ↔ Tokyo",
+    coords: [
+      [103.98, 1.36],
+      [110, 12],
+      [114.26, 22.31],
+      [121, 25],
+      [130, 31],
+      [139.7, 35.4],
+    ],
+  },
+  {
+    id: "r-cable-clion",
+    layer: "cable",
+    name: "C-Lion1 – Helsingfors ↔ Rostock",
+    coords: [
+      [24.94, 60.16],
+      [19.5, 59.5],
+      [15.5, 56.5],
+      [12.13, 54.09],
+    ],
+  },
+  {
+    id: "r-cable-svalbard",
+    layer: "cable",
+    name: "Svalbardfiberen – Longyearbyen ↔ Harstad",
+    coords: [
+      [15.6, 78.2],
+      [16.5, 74],
+      [16.54, 68.8],
+    ],
+  },
+  {
+    id: "r-cable-wacs",
+    layer: "cable",
+    name: "WACS – Lisboa ↔ Cape Town",
+    coords: [
+      [-9.14, 38.7],
+      [-16, 20],
+      [-5, 8],
+      [-0.2, 5.55],
+      [8, -5],
+      [12, -20],
+      [18.42, -33.92],
+    ],
+  },
+  // rørledninger
+  {
+    id: "r-pipe-nordstream",
+    layer: "pipeline",
+    name: "Nord Stream (skadet)",
+    coords: [
+      [28.4, 60.2],
+      [22, 58],
+      [15, 55],
+      [12.5, 54.4],
+    ],
+  },
+  {
+    id: "r-pipe-druzhba",
+    layer: "pipeline",
+    name: "Druzhba",
+    coords: [
+      [52, 55],
+      [40, 53],
+      [31, 52],
+      [24, 51.5],
+      [19, 50],
+      [14.4, 51.1],
+    ],
+  },
+  {
+    id: "r-pipe-turkstream",
+    layer: "pipeline",
+    name: "TurkStream",
+    coords: [
+      [37.8, 44.9],
+      [33, 43],
+      [30.5, 42.5],
+      [28.2, 41.6],
+    ],
+  },
+  {
+    id: "r-pipe-siberia",
+    layer: "pipeline",
+    name: "Power of Siberia",
+    coords: [
+      [112, 60],
+      [122, 55],
+      [127, 50],
+      [125, 45],
+      [121.6, 40],
+    ],
+  },
+  {
+    id: "r-pipe-langeled",
+    layer: "pipeline",
+    name: "Langeled",
+    coords: [
+      [5.5, 59.28],
+      [2.5, 58],
+      [1, 55],
+      [1.6, 53.1],
+    ],
+  },
+  // handelsruter
+  {
+    id: "r-trade-suez",
+    layer: "trade",
+    name: "Asia–Europa via Suez",
+    coords: [
+      [4.4, 51.9],
+      [-5.5, 36],
+      [14, 35],
+      [32.3, 31.2],
+      [43.3, 12.6],
+      [56.3, 20],
+      [76, 6],
+      [100, 3],
+      [103.9, 1.3],
+      [114, 15],
+      [121.5, 31.2],
+    ],
+  },
+  {
+    id: "r-trade-pacific",
+    layer: "trade",
+    name: "Transpacific – Shanghai ↔ Los Angeles",
+    coords: [
+      [121.5, 31.2],
+      [150, 38],
+      [180, 45],
+      [-160, 42],
+      [-130, 36],
+      [-118.2, 33.7],
+    ],
+  },
+  {
+    id: "r-trade-cape",
+    layer: "trade",
+    name: "Kapp det gode håp-omvei",
+    coords: [
+      [103.9, 1.3],
+      [80, -5],
+      [55, -20],
+      [30, -34],
+      [18.4, -34.9],
+      [-5, -10],
+      [-9.1, 38.7],
+    ],
+  },
+];
