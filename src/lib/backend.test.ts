@@ -8,7 +8,7 @@ function mockFetch(svar: Array<{ status: number; body: unknown; headers?: Record
   const fn = vi.fn(async (url: string, init: RequestInit = {}) => {
     kall.push({ url, init });
     const s = svar[Math.min(kall.length - 1, svar.length - 1)]!;
-    return new Response(JSON.stringify(s.body), { status: s.status, headers: s.headers });
+    return new Response(JSON.stringify(s.body), { status: s.status, headers: s.headers ?? {} });
   });
   vi.stubGlobal("fetch", fn);
   return kall;
