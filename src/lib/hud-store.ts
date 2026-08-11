@@ -10,10 +10,32 @@ export type ModelNode = {
   enabled: boolean;
 };
 
+export type Talent = {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  enabled: boolean;
+  builtin?: boolean;
+};
+
+export type Plugin = {
+  id: string;
+  name: string;
+  kind: "http" | "webhook" | "telegram";
+  endpoint: string;
+  enabled: boolean;
+};
+
 export type HudConfig = {
   nodes: ModelNode[];
   collaboration: boolean;
   callsign: string;
+  persona: string;
+  temperature: number;
+  transparency: number;
+  talents: Talent[];
+  plugins: Plugin[];
 };
 
 const STORAGE_KEY = "hud.config.v1";
@@ -21,6 +43,9 @@ const STORAGE_KEY = "hud.config.v1";
 export const defaultConfig: HudConfig = {
   callsign: "JARVIS",
   collaboration: false,
+  persona: "Du er et presist, kortfattet operativsystem-assistent. Svar på norsk bokmål.",
+  temperature: 0.7,
+  transparency: 30,
   nodes: [
     {
       id: "node-1",
@@ -36,6 +61,42 @@ export const defaultConfig: HudConfig = {
       baseUrl: "http://192.168.1.51:11434/v1",
       model: "hermes3",
       role: "worker",
+      enabled: false,
+    },
+  ],
+  talents: [
+    {
+      id: "t-analyse",
+      name: "Analyse",
+      description: "Bryter ned komplekse spørsmål i strukturerte punkter.",
+      prompt: "Analyser systematisk og presenter konklusjon først, deretter punktvis begrunnelse.",
+      enabled: true,
+      builtin: true,
+    },
+    {
+      id: "t-kode",
+      name: "Kode",
+      description: "Skriver og forklarer kode.",
+      prompt: "Når det gjelder kode: gi komplette, kjørbare eksempler med korte forklaringer.",
+      enabled: true,
+      builtin: true,
+    },
+    {
+      id: "t-situasjon",
+      name: "Situasjonsbilde",
+      description: "Tolker world monitor-data og oppsummerer risiko.",
+      prompt:
+        "Når du får hendelsesdata fra world monitor: oppsummer situasjonen kort og ranger etter alvorlighet.",
+      enabled: false,
+      builtin: true,
+    },
+  ],
+  plugins: [
+    {
+      id: "p-telegram",
+      name: "Telegram-bro",
+      kind: "telegram",
+      endpoint: "",
       enabled: false,
     },
   ],
@@ -76,4 +137,34 @@ export function newNode(): ModelNode {
     role: "worker",
     enabled: true,
   };
+}
+
+export function newTalent(): Talent {
+  return {
+    id: `t-${Math.random().toString(36).slice(2, 8)}`,
+    name: "Ny evne",
+    description: "",
+    prompt: "",
+    enabled: true,
+  };
+}
+
+export function newPlugin(): Plugin {
+  return {
+    id: `p-${Math.random().toString(36).slice(2, 8)}`,
+    name: "Ny plugin",
+    kind: "http",
+    endpoint: "",
+    enabled: false,
+  };
+}
+
+export function systemPrompt(config: HudConfig): string {
+  const talents = config.talents.filter((t) => t.enabled && t.prompt.trim());
+  return [
+    config.persona,
+    ...talents.map((t) => `Evne – ${t.name}: ${t.prompt}`),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
