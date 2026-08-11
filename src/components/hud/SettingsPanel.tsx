@@ -112,30 +112,77 @@ export function SettingsPanel({
         {tab === "modeller" ? (
           <>
             <p className="text-[10px] text-muted-foreground">
-              Tilkoblede modeller. Rediger noder i NODER-vinduet.
+              Legg til eller fjern modeller systemet skal kobles mot.
             </p>
             {config.nodes.map((n) => (
-              <div
-                key={n.id}
-                className="flex items-center justify-between rounded border border-primary/20 bg-primary/[0.04] px-2 py-1.5"
-              >
-                <div className="min-w-0">
-                  <p className="hud-title text-[10px] text-primary/85">{n.name}</p>
-                  <p className="truncate text-[10px] text-muted-foreground">
-                    {n.model} · {n.baseUrl}
-                  </p>
+              <div key={n.id} className="rounded border border-primary/25 bg-primary/[0.03] p-2">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <input
+                    value={n.name}
+                    onChange={(e) => patchNode(n.id, { name: e.target.value })}
+                    className="hud-input hud-title flex-1 text-[10px] text-primary"
+                  />
+                  <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={n.enabled}
+                      onChange={(e) => patchNode(n.id, { enabled: e.target.checked })}
+                      className="accent-[oklch(0.78_0.13_200)]"
+                    />
+                    på
+                  </label>
+                  <button
+                    onClick={() =>
+                      update({ ...config, nodes: config.nodes.filter((x) => x.id !== n.id) })
+                    }
+                    aria-label="Fjern modell"
+                    className="rounded p-1 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
                 </div>
-                <span
-                  className={`hud-title shrink-0 text-[9px] ${
-                    n.enabled ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  {n.enabled ? n.role : "av"}
-                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    value={n.baseUrl}
+                    onChange={(e) => patchNode(n.id, { baseUrl: e.target.value })}
+                    placeholder="http://ip:11434/v1"
+                    className="hud-input col-span-2"
+                  />
+                  <input
+                    value={n.model}
+                    onChange={(e) => patchNode(n.id, { model: e.target.value })}
+                    placeholder="modell"
+                    className="hud-input"
+                  />
+                  <select
+                    value={n.role}
+                    onChange={(e) =>
+                      patchNode(n.id, { role: e.target.value as ModelNode["role"] })
+                    }
+                    className="hud-input"
+                  >
+                    <option value="primary">primær</option>
+                    <option value="worker">arbeider</option>
+                    <option value="observer">observatør</option>
+                  </select>
+                  <input
+                    value={n.apiKey ?? ""}
+                    onChange={(e) => patchNode(n.id, { apiKey: e.target.value })}
+                    placeholder="api-nøkkel (valgfri)"
+                    className="hud-input col-span-2"
+                  />
+                </div>
               </div>
             ))}
+            <button
+              onClick={() => update({ ...config, nodes: [...config.nodes, newNode()] })}
+              className="flex w-full items-center justify-center gap-2 rounded border border-dashed border-primary/40 py-2 text-[11px] text-primary hover:bg-primary/10"
+            >
+              <Plus className="size-3.5" /> legg til modell
+            </button>
           </>
         ) : null}
+
 
         {tab === "evner" ? (
           <>
