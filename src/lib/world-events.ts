@@ -16,8 +16,8 @@ export type WorldEvent = {
   lat: number;
   lon: number;
   time: string;
-  magnitude?: number;
-  url?: string;
+  magnitude?: number | undefined;
+  url?: string | undefined;
 };
 
 export const LAYERS: { id: LayerId; label: string; hue: number }[] = [
@@ -211,7 +211,7 @@ async function fetchNews(layer: "war" | "protest" | "disease"): Promise<WorldEve
       title: string;
       seendate: string;
       sourcecountry?: string;
-ನ    };
+    };
     const c = geocode(`${a.title} ${a.sourcecountry ?? ""}`);
     if (!c) continue;
     const s = a.seendate ?? "";
