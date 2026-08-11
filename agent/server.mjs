@@ -195,7 +195,7 @@ async function readBody(req) {
   }
 }
 
-const server = http.createServer(async (req, res) => {
+const requestHandler = async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const route = url.pathname.replace(/\/+$/, "") || "/";
 
