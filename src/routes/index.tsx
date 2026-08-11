@@ -50,6 +50,7 @@ const TITLES: Record<WinId, { title: string; subtitle: string }> = {
   world: { title: "WORLD MONITOR", subtitle: "global telemetri" },
   home: { title: "SMARTHUS", subtitle: "MQTT-bro mot ESP32 og Pi" },
   dash: { title: "GRAFER", subtitle: "moduler for alt som er tilkoblet" },
+  health: { title: "HELSE", subtitle: "selvovervåking av noder og tjenester" },
   settings: { title: "SYSTEM", subtitle: "innstillinger, evner og plugins" },
 };
 
