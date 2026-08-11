@@ -360,8 +360,27 @@ export function SettingsPanel({
         {tab === "modeller" ? (
           <>
             <p className="text-[10px] text-muted-foreground">
-              Legg til eller fjern modeller systemet skal kobles mot.
+              Legg til lokale Jetson/Ollama-noder eller sky-modeller (ChatGPT, Gemini, OpenRouter …).
+              {config.callsign} snakker OpenAI-kompatibelt <code>/v1/chat/completions</code>.
             </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {CLOUD_PROVIDER_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() =>
+                    update({
+                      ...config,
+                      nodes: [...config.nodes, newCloudNode(p.id, "worker")],
+                    })
+                  }
+                  className="hud-btn hud-btn-hoverable flex items-center justify-center gap-1 rounded border border-primary/30 px-2 py-1.5 text-[9px] text-primary"
+                  title={p.hint}
+                >
+                  <Plus className="size-3" /> {p.name}
+                </button>
+              ))}
+            </div>
+
             {config.nodes.map((n) => (
               <div key={n.id} className="rounded border border-primary/25 bg-primary/[0.03] p-2">
                 <div className="mb-1.5 flex items-center gap-2">
