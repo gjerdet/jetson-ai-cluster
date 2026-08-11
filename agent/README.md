@@ -85,3 +85,16 @@ WantedBy=multi-user.target
 ```bash
 sudo systemctl enable --now jarvis-agent
 ```
+
+## Sikkerhet (v2)
+
+- **CORS**: kun origins i `AGENT_ORIGINS` (standard: localhost + `*.lovable.app`). Alt annet får 403.
+- **Rate-limiting** per IP: strengt på innlogging og sandkasse-kjøring, romsligere på lesing. Overskridelse gir `429` med `Retry-After`.
+- **Forespørselslogg** med rotasjon i `$AGENT_DATA/logs/requests.log`.
+- **Hemmeligheter krypteres i ro** (AES-256-GCM): Telegram-token og AI-nøkler. Nøkkelen ligger i `secret.key` (0600) eller `AGENT_SECRET_KEY`. API-et returnerer aldri klartekst – kun maskert form.
+- **Atomisk lagring**: dokumenter skrives til `.tmp` og byttes inn med `rename`, så en strømbrudd aldri gir halve filer. Ødelagte filer flyttes til side i stedet for å slettes.
+- **Sikkerhetskopi** hver `AGENT_BACKUP_HOURS` time, `AGENT_BACKUP_KEEP` kopier beholdes (`POST /api/backup` for å ta én nå).
+- **MQTT** kobler til igjen med eksponentiell backoff og har vaktbikkje som tvinger ny tilkobling ved stillhet i 90 s.
+- **Sandkassen har ikke nettilgang** som standard (`AGENT_ALLOW_NETWORK=1` slår det på).
+- **Oppstartssjekk** (`validateEnv`) krever langt `AGENT_TOKEN` og advarer mot root – kan overstyres med `AGENT_INSECURE=1` i test.
+- **Frontend** lagrer ikke lenger innloggingstoken i `localStorage`, kun i minnet/`sessionStorage`.
