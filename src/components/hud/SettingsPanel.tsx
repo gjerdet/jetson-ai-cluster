@@ -71,6 +71,7 @@ const ROLE_LABEL: Record<ModelNode["role"], string> = {
 
 type Tab =
   | "system"
+  | "backend"
   | "modeller"
   | "agenter"
   | "evaluator"
@@ -82,6 +83,7 @@ type Tab =
 
 const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "system", label: "SYSTEM", icon: Sliders },
+  { id: "backend", label: "BACKEND", icon: Database },
   { id: "modeller", label: "MODELLER", icon: Cpu },
   { id: "agenter", label: "AGENTER", icon: Bot },
   { id: "evaluator", label: "EVALUATOR", icon: Scale },
@@ -91,6 +93,7 @@ const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "koblinger", label: "KOBLINGER", icon: Network },
   { id: "plugins", label: "PLUGINS", icon: Puzzle },
 ];
+
 
 export function SettingsPanel({
   config,
