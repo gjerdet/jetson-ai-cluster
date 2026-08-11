@@ -10,6 +10,7 @@ import {
   Brain,
   Pin,
   HardDrive,
+  Scale,
 } from "lucide-react";
 import {
   defaultConfig,
@@ -33,11 +34,20 @@ import {
 } from "@/lib/hud-store";
 import { EspWizard } from "./EspWizard";
 
-type Tab = "system" | "modeller" | "enheter" | "minne" | "evner" | "koblinger" | "plugins";
+type Tab =
+  | "system"
+  | "modeller"
+  | "evaluator"
+  | "enheter"
+  | "minne"
+  | "evner"
+  | "koblinger"
+  | "plugins";
 
 const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "system", label: "SYSTEM", icon: Sliders },
   { id: "modeller", label: "MODELLER", icon: Cpu },
+  { id: "evaluator", label: "EVALUATOR", icon: Scale },
   { id: "enheter", label: "ENHETER", icon: HardDrive },
   { id: "minne", label: "MINNE", icon: Brain },
   { id: "evner", label: "EVNER", icon: Sparkles },
@@ -70,6 +80,10 @@ export function SettingsPanel({
     update({ ...config, memories: memories.map((m) => (m.id === id ? { ...m, ...p } : m)) });
   const patchDevice = (id: string, p: Partial<Device>) =>
     update({ ...config, devices: devices.map((d) => (d.id === id ? { ...d, ...p } : d)) });
+  const ev = { ...defaultEvaluator, ...(config.evaluator ?? {}) };
+  const patchEval = (p: Partial<typeof ev>) => update({ ...config, evaluator: { ...ev, ...p } });
+  const patchCriterion = (id: string, p: Partial<EvalCriterion>) =>
+    patchEval({ criteria: ev.criteria.map((c) => (c.id === id ? { ...c, ...p } : c)) });
   const patchPlugin = (id: string, p: Partial<Plugin>) =>
     update({ ...config, plugins: config.plugins.map((x) => (x.id === id ? { ...x, ...p } : x)) });
 
@@ -186,6 +200,154 @@ export function SettingsPanel({
               className="rounded border border-destructive/50 px-3 py-1.5 text-[11px] text-destructive hover:bg-destructive/10"
             >
               Tilbakestill konfigurasjon
+            </button>
+          </>
+        ) : null}
+
+        {tab === "evaluator" ? (
+          <>
+            <p className="text-[10px] text-muted-foreground">
+              Evaluatoren lar arbeidernodene score primærsvaret. Alt kjører lokalt på dine egne
+              noder.
+            </p>
+            <label className="flex items-center gap-2 text-foreground/80">
+              <input
+                type="checkbox"
+                checked={config.collaboration}
+                onChange={(e) => update({ ...config, collaboration: e.target.checked })}
+                className="accent-[oklch(0.78_0.13_200)]"
+              />
+              Samarbeids-/evaluatormodus på
+            </label>
+
+            <Field label="Poengkriterier og vekt">
+              <div className="space-y-1">
+                {ev.criteria.map((c) => (
+                  <div key={c.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={c.enabled}
+                      onChange={(e) => patchCriterion(c.id, { enabled: e.target.checked })}
+                      className="accent-[oklch(0.78_0.13_200)]"
+                    />
+                    <input
+                      value={c.label}
+                      onChange={(e) => patchCriterion(c.id, { label: e.target.value })}
+                      className="hud-input flex-1"
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={c.weight}
+                      onChange={(e) =>
+                        patchCriterion(c.id, { weight: Math.max(1, Number(e.target.value) || 1) })
+                      }
+                      title="vekt"
+                      className="hud-input w-14"
+                    />
+                    <button
+                      onClick={() =>
+                        patchEval({ criteria: ev.criteria.filter((x) => x.id !== c.id) })
+                      }
+                      aria-label="Fjern kriterium"
+                      className="rounded border border-destructive/40 p-1 text-destructive/80 hover:bg-destructive/10"
+                    >
+                      <Trash2 className="size-3" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() =>
+                    patchEval({
+                      criteria: [
+                        ...ev.criteria,
+                        {
+                          id: `c-${Date.now().toString(36)}`,
+                          label: "Nytt kriterium",
+                          weight: 1,
+                          enabled: true,
+                        },
+                      ],
+                    })
+                  }
+                  className="hud-btn hud-btn-hoverable hud-title flex items-center gap-1 text-[9px] text-primary"
+                >
+                  <Plus className="size-3" /> nytt kriterium
+                </button>
+              </div>
+            </Field>
+
+            <Field label={`Terskel for omskriving – under ${ev.threshold}/10 lages ENDELIG SVAR`}>
+              <input
+                type="range"
+                min={0}
+                max={10}
+                step={1}
+                value={ev.threshold}
+                onChange={(e) => patchEval({ threshold: Number(e.target.value) })}
+                className="w-full accent-[oklch(0.78_0.13_200)]"
+              />
+            </Field>
+
+            <Field label="Hvor ofte skal den skrive om til ENDELIG SVAR?">
+              <select
+                value={ev.mergeMode}
+                onChange={(e) => patchEval({ mergeMode: e.target.value as typeof ev.mergeMode })}
+                className="hud-select w-full"
+              >
+                <option value="auto">Bare når poengsummen er under terskelen</option>
+                <option value="alltid">Alltid – slå alltid sammen til ett svar</option>
+                <option value="aldri">Aldri – behold primærsvaret, vis kun kritikk</option>
+              </select>
+            </Field>
+
+            <Field label="Maks evaluatornoder samtidig (0 = alle)">
+              <input
+                type="number"
+                min={0}
+                max={16}
+                value={ev.maxWorkers}
+                onChange={(e) => patchEval({ maxWorkers: Math.max(0, Number(e.target.value) || 0) })}
+                className="hud-input w-24"
+              />
+            </Field>
+
+            <label className="flex items-center gap-2 text-foreground/80">
+              <input
+                type="checkbox"
+                checked={ev.parallel}
+                onChange={(e) => patchEval({ parallel: e.target.checked })}
+                className="accent-[oklch(0.78_0.13_200)]"
+              />
+              Kjør evaluatorene parallelt fordelt over nodene
+            </label>
+
+            <label className="flex items-center gap-2 text-foreground/80">
+              <input
+                type="checkbox"
+                checked={config.loadBalance !== false}
+                onChange={(e) => update({ ...config, loadBalance: e.target.checked })}
+                className="accent-[oklch(0.78_0.13_200)]"
+              />
+              Automatisk lastbalansering mellom alle aktive noder
+            </label>
+
+            <label className="flex items-center gap-2 text-foreground/80">
+              <input
+                type="checkbox"
+                checked={config.keepHistory !== false}
+                onChange={(e) => update({ ...config, keepHistory: e.target.checked })}
+                className="accent-[oklch(0.78_0.13_200)]"
+              />
+              Husk samtalen lokalt mellom omstart av nettleseren
+            </label>
+
+            <button
+              onClick={() => patchEval(defaultEvaluator)}
+              className="hud-btn hud-btn-hoverable hud-title text-[9px]"
+            >
+              tilbakestill evaluator
             </button>
           </>
         ) : null}
