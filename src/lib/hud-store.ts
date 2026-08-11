@@ -190,6 +190,8 @@ export type HudConfig = {
   memories: MemoryItem[];
   devices: Device[];
   mqtt: MqttConfig;
+  rules: AlertRule[];
+
 };
 
 const STORAGE_KEY = "hud.config.v1";
