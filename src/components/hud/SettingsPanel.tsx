@@ -988,6 +988,8 @@ export function SettingsPanel({
               Koblinger gir systemet tilgang til dine egne tjenester. Verdiene lagres lokalt i
               nettleseren og brukes av HUD-en når den snakker med enhetene.
             </p>
+            <LocalAgentSection config={config} update={update} />
+
             <div className="flex flex-wrap gap-1">
               {INTEGRATION_PRESETS.map((preset) => (
                 <button
