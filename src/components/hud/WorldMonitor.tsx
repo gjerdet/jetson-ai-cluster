@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Loader2, RefreshCw, ExternalLink, Pizza } from "lucide-react";
-import { WorldMap } from "./WorldMap";
+import { WorldMap, type MapMarker } from "./WorldMap";
+import { DEVICE_KIND_LABEL, type HudConfig } from "@/lib/hud-store";
 import {
   GROUP_LABEL,
   LAYERS,
@@ -33,13 +34,38 @@ const DEFAULT_ON: LayerId[] = [
   "intel",
 ];
 
-export function WorldMonitor() {
+export function WorldMonitor({ config }: { config?: HudConfig }) {
   const { events, defcon, loading, progress, updated } = useWorldFeed();
   const [active, setActive] = useState<LayerId[]>(DEFAULT_ON);
   const [query, setQuery] = useState("");
   const [range, setRange] = useState<24 | 72 | 168 | 720>(168);
   const [group, setGroup] = useState<LayerGroup>("sikkerhet");
   const [showTop, setShowTop] = useState(false);
+  const [showDevices, setShowDevices] = useState(true);
+  const [devQuery, setDevQuery] = useState("");
+  const [pickedDevice, setPickedDevice] = useState<string | null>(null);
+
+  const devices = useMemo(() => (config?.devices ?? []).filter((d) => d.enabled), [config?.devices]);
+  const devMatches = useMemo(() => {
+    const q = devQuery.trim().toLowerCase();
+    if (!q) return [];
+    return devices.filter((d) => `${d.name} ${d.baseTopic ?? ""} ${d.host ?? ""}`.toLowerCase().includes(q)).slice(0, 8);
+  }, [devices, devQuery]);
+  const markers: MapMarker[] = useMemo(
+    () =>
+      showDevices
+        ? devices
+            .filter((d) => typeof d.lat === "number" && typeof d.lon === "number")
+            .map((d) => ({
+              id: d.id,
+              name: d.name,
+              lat: d.lat as number,
+              lon: d.lon as number,
+              detail: `${DEVICE_KIND_LABEL[d.kind]} · ${d.baseTopic ?? d.host ?? ""}`,
+            }))
+        : [],
+    [devices, showDevices],
+  );
 
   const toggle = (id: LayerId) =>
     setActive((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
@@ -149,6 +175,50 @@ export function WorldMonitor() {
         </button>
       </div>
 
+      {/* kartlag: linjer + egne enheter */}
+      <div className="hud-title flex flex-wrap items-center gap-1 text-[9px]">
+        <span className="text-muted-foreground">KART:</span>
+        {(["cable", "pipeline", "trade"] as LayerId[]).map((id) => {
+          const l = LAYERS.find((x) => x.id === id)!;
+          const on = active.includes(id);
+          return (
+            <button
+              key={id}
+              onClick={() => toggle(id)}
+              style={on ? { borderColor: l.color, color: l.color } : undefined}
+              className={`hud-btn hud-btn-hoverable !py-0.5 text-[9px] ${on ? "hud-btn-on" : ""}`}
+            >
+              {l.label}
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setShowDevices((v) => !v)}
+          className={`hud-btn hud-btn-hoverable !py-0.5 text-[9px] ${showDevices ? "hud-btn-on text-primary" : ""}`}
+        >
+          enheter ({markers.length})
+        </button>
+        <input
+          value={devQuery}
+          onChange={(e) => setDevQuery(e.target.value)}
+          placeholder="finn enhet…"
+          className="hud-input h-6 w-40 text-[11px]"
+        />
+        {devMatches.map((d) => (
+          <button
+            key={d.id}
+            onClick={() => {
+              setShowDevices(true);
+              setPickedDevice(d.id);
+            }}
+            className={`hud-btn hud-btn-hoverable !py-0.5 text-[9px] ${pickedDevice === d.id ? "hud-btn-on text-primary" : ""}`}
+          >
+            {d.name}
+            {typeof d.lat === "number" ? "" : " (mangler posisjon)"}
+          </button>
+        ))}
+      </div>
+
       {/* defcon + søk */}
       <div className="flex flex-wrap items-center gap-2">
         <div
@@ -190,7 +260,7 @@ export function WorldMonitor() {
         </div>
       ) : null}
 
-      <WorldMap events={shown} dayNight={dayNight} fill />
+      <WorldMap events={shown} dayNight={dayNight} fill markers={markers} highlightId={pickedDevice} />
 
       <div className="max-h-[32%] shrink-0 overflow-auto pr-1" style={{ minHeight: 96 }}>
         {showTop ? (
