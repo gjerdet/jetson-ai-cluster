@@ -175,10 +175,17 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Backend-API (egen innlogging – ikke agent-tokenet)
+  if (route.startsWith("/api")) {
+    await handleApi(req, res, route, url, apiDeps);
+    return;
+  }
+
   if (TOKEN) {
     const auth = req.headers.authorization || "";
     if (auth !== `Bearer ${TOKEN}`) return json(res, 401, { error: "Ugyldig token" });
   }
+
 
   try {
     if (req.method === "GET" && (route === "/" || route === "/health")) {
