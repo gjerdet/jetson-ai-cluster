@@ -123,6 +123,23 @@ export type Device = {
   enabled: boolean;
 };
 
+/** MQTT-bro (WebSocket) mot lokal broker, f.eks. Mosquitto på Jetson. */
+export type MqttConfig = {
+  url: string;
+  username: string;
+  password: string;
+  baseTopic: string;
+  autoConnect: boolean;
+};
+
+export const defaultMqtt: MqttConfig = {
+  url: "ws://192.168.1.50:9001",
+  username: "",
+  password: "",
+  baseTopic: "hjem/#",
+  autoConnect: false,
+};
+
 export type HudConfig = {
   nodes: ModelNode[];
   collaboration: boolean;
@@ -135,6 +152,7 @@ export type HudConfig = {
   integrations: Integration[];
   memories: MemoryItem[];
   devices: Device[];
+  mqtt: MqttConfig;
 };
 
 const STORAGE_KEY = "hud.config.v1";
@@ -193,6 +211,7 @@ export const defaultConfig: HudConfig = {
   integrations: [],
   memories: [],
   devices: [],
+  mqtt: defaultMqtt,
   plugins: [
     {
       id: "p-telegram",

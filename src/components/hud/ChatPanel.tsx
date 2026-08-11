@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { SendHorizonal, Loader2, Radar, Cpu } from "lucide-react";
 import { callNode, type ChatMsg } from "@/lib/hud-client";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
+import { mqttBrief } from "@/lib/mqtt-bridge";
 import { briefingText, refreshFeed, snapshot } from "@/lib/world-feed";
 
 const BRIEF_TRIGGERS =
@@ -57,7 +58,8 @@ export function ChatPanel({
     setInput("");
     setBusy(true);
     try {
-      const sys = systemPrompt(config);
+      const live = mqttBrief();
+      const sys = [systemPrompt(config), live].filter(Boolean).join("\n");
       let context = "";
       if (BRIEF_TRIGGERS.test(text)) {
         if (!snapshot().events.length) await refreshFeed();
