@@ -202,6 +202,32 @@ export function WorldMap({
             <path d={nightPath()} fill="oklch(0.15 0.03 250 / 0.55)" pointerEvents="none" />
           ) : null}
 
+          {ROUTES.filter((r) => activeLayers.has(r.layer)).map((r) => {
+            const color = LAYER_COLOR[r.layer];
+            const d = r.coords
+              .map((c, i) => {
+                const p = projection(c);
+                return p ? `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}` : "";
+              })
+              .join(" ");
+            if (!d) return null;
+            return (
+              <path
+                key={r.id}
+                d={d}
+                fill="none"
+                stroke={color}
+                strokeWidth={1.1 / zoom}
+                strokeLinecap="round"
+                opacity={0.75}
+                strokeDasharray={r.layer === "trade" ? `${4 / zoom} ${3 / zoom}` : undefined}
+              >
+                <title>{r.name}</title>
+              </path>
+            );
+          })}
+
+
           {events.map((e) => {
             const pt = projection([e.lon, e.lat]);
             if (!pt) return null;
