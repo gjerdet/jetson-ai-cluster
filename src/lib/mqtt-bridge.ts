@@ -25,6 +25,9 @@ export type AlertItem = {
   time: number;
 };
 
+export type PubLine = { topic: string; payload: string; time: number; ok: boolean };
+export type ErrLine = { text: string; time: number };
+
 type State = {
   status: MqttStatus;
   error: string;
@@ -33,11 +36,22 @@ type State = {
   history: Record<string, Sample[]>;
   discovered: Record<string, Discovered>;
   alerts: AlertItem[];
+  /** diagnostikk */
+  subscriptions: string[];
+  published: PubLine[];
+  errors: ErrLine[];
+  reconnects: number;
+  connectedAt: number;
+  lastRx: number;
+  pingMs: number | null;
+  pingAt: number;
+  url: string;
 };
 
 const HIST_KEY = "hud.mqtt.history.v1";
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 const MAX_POINTS = 720;
+const PING_TOPIC = "jarvis/hud/ping";
 
 let state: State = {
   status: "off",
@@ -47,13 +61,26 @@ let state: State = {
   history: {},
   discovered: {},
   alerts: [],
+  subscriptions: [],
+  published: [],
+  errors: [],
+  reconnects: 0,
+  connectedAt: 0,
+  lastRx: 0,
+  pingMs: null,
+  pingAt: 0,
+  url: "",
 };
 let client: MqttClient | null = null;
 let rules: AlertRule[] = [];
 let knownTopics: string[] = [];
 let staleTimer: ReturnType<typeof setInterval> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let telegramChat = "";
+let pingSent = 0;
 const lastFired: Record<string, number> = {};
+/** når betingelsen først ble sann per regel (for varighetskrav) */
+const pendingSince: Record<string, number> = {};
 const subs = new Set<() => void>();
 
 const emit = () => subs.forEach((f) => f());
