@@ -30,5 +30,5 @@ export const sendTelegram = createServerFn({ method: "POST" })
     } catch {
       /* ignorer */
     }
-    return { ok: true as const };
+    return { ok: true as const, error: "" };
   });
