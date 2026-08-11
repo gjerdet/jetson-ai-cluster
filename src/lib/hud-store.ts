@@ -245,12 +245,28 @@ export function newPlugin(): Plugin {
   };
 }
 
+export function newMemory(text = ""): MemoryItem {
+  return {
+    id: `m-${Math.random().toString(36).slice(2, 8)}`,
+    text,
+    tag: "generelt",
+    pinned: false,
+    created: new Date().toISOString(),
+  };
+}
+
 export function systemPrompt(config: HudConfig): string {
   const talents = config.talents.filter((t) => t.enabled && t.prompt.trim());
   const integrations = (config.integrations ?? []).filter((i) => i.enabled);
+  const memories = (config.memories ?? []).filter((m) => m.text.trim());
   return [
     config.persona,
     ...talents.map((t) => `Evne – ${t.name}: ${t.prompt}`),
+    memories.length
+      ? `Langtidsminne om brukeren og systemet (bruk aktivt):\n${memories
+          .map((m) => `- [${m.tag}]${m.pinned ? " (viktig)" : ""} ${m.text}`)
+          .join("\n")}`
+      : "",
     integrations.length
       ? `Tilkoblede systemer du kan referere til: ${integrations
           .map((i) => `${i.name} (${i.kind} @ ${i.baseUrl})`)
