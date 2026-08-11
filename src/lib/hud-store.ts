@@ -350,6 +350,8 @@ export type HudConfig = {
   loadBalance: boolean;
   /** husk samtalen mellom omstart av nettleseren (lokalt) */
   keepHistory: boolean;
+  /** hent kontekst fra den lokale kunnskapsbasen (RAG) før svar */
+  knowledge?: boolean;
   evaluator: EvaluatorConfig;
   /** node-ID som skal ta AI-oppgavene (f.eks. Hermes). Tomt = automatisk valg */
   aiNodeId?: string;
@@ -437,6 +439,7 @@ export const defaultConfig: HudConfig = {
   confirmCommands: true,
   loadBalance: true,
   keepHistory: true,
+  knowledge: true,
   evaluator: defaultEvaluator,
   localAgent: {
     enabled: false,
