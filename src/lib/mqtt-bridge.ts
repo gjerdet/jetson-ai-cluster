@@ -62,8 +62,8 @@ export async function connectMqtt(cfg: MqttConfig, devices: Device[]) {
   try {
     const mqtt = (await import("mqtt")).default;
     const c = mqtt.connect(cfg.url.trim(), {
-      username: cfg.username || undefined,
-      password: cfg.password || undefined,
+      ...(cfg.username ? { username: cfg.username } : {}),
+      ...(cfg.password ? { password: cfg.password } : {}),
       clientId: `jarvis-hud-${Math.random().toString(16).slice(2, 8)}`,
       reconnectPeriod: 4000,
       connectTimeout: 8000,
