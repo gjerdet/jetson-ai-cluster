@@ -64,7 +64,9 @@ export function ChatPanel({
   }, [messages, busy]);
 
   const active = config.nodes.filter((n) => n.enabled);
-  const primary = active.find((n) => n.role === "primary") ?? active[0];
+  // valgt AI-node (f.eks. Hermes) vinner over rollen «primary»
+  const chosen = config.aiNodeId ? active.find((n) => n.id === config.aiNodeId) : undefined;
+  const primary = chosen ?? active.find((n) => n.role === "primary") ?? active[0];
   const workers = active.filter((n) => n.id !== primary?.id && n.role !== "observer");
 
   const send = async (override?: string) => {
