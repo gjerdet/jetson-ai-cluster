@@ -499,6 +499,30 @@ export function ChatPanel({
         >
           <Eraser className="size-4" />
         </button>
+        {voiceSupported() ? (
+          <button
+            onClick={() => {
+              const ny = { ...voice, på: !voice.på };
+              setVoice(ny);
+              saveVoiceConfig(ny);
+              if (!ny.på) stopSpeak();
+              else {
+                spokenRef.current = -1;
+                speak("Systemene er på nett. Jeg lytter, sir.", ny);
+              }
+            }}
+            aria-label={voice.på ? "Slå av stemme" : "Slå på stemme"}
+            title={`Stemme ${voice.på ? "på" : "av"} · ${voiceName || "laster stemmer…"}`}
+            className={`rounded border p-2 transition-colors ${
+              voice.på
+                ? "border-primary/50 bg-primary/15 text-primary"
+                : "border-primary/30 text-primary/60 hover:bg-primary/10"
+            }`}
+          >
+            {voice.på ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+          </button>
+        ) : null}
+
         <button
           onClick={() =>
             void send(
