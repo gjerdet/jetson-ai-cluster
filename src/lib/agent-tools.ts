@@ -28,8 +28,9 @@ export type ToolContext = {
 
 export type ToolSpec = {
   name: string;
-  category: "smarthus" | "system" | "verden" | "minne" | "verktoy";
+  category: "smarthus" | "system" | "verden" | "minne" | "verktoy" | "os";
   summary: string;
+
   args: string;
   builtin: true;
 };
