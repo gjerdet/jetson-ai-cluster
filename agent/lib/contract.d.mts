@@ -71,6 +71,7 @@ export const ROUTES: {
   users: string;
   config: string;
   ai: string;
+  aiChat: string;
   samples: string;
   samplesLatest: string;
   samplesPrune: string;
