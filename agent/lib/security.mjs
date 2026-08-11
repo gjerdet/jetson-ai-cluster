@@ -85,10 +85,20 @@ export const RATE_RULES = {
   api: { limit: Number(process.env.AGENT_RATE_API || 300), windowMs: 60_000 },
 };
 
+/**
+ * x-forwarded-for kan forfalskes av klienten, så den brukes kun når agenten
+ * står bak en proxy vi selv har satt opp (AGENT_TRUST_PROXY=1).
+ */
+const TRUST_PROXY = process.env.AGENT_TRUST_PROXY === "1";
+
 export function clientIp(req) {
-  const fwd = String(req.headers["x-forwarded-for"] || "").split(",")[0]?.trim();
-  return fwd || req.socket?.remoteAddress || "ukjent";
+  if (TRUST_PROXY) {
+    const fwd = String(req.headers["x-forwarded-for"] || "").split(",")[0]?.trim();
+    if (fwd) return fwd;
+  }
+  return req.socket?.remoteAddress || "ukjent";
 }
+
 
 /**
  * Returnerer null når kallet er greit, ellers { retryAfter } i sekunder.
