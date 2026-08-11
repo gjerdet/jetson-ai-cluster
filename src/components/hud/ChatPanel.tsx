@@ -179,20 +179,29 @@ export function ChatPanel({
 
       if (config.collaboration && workers.length > 0) {
         setStage("evaluerer");
-        const ev = await evaluate({ question: text, answer, primary, workers });
+        const ev = await evaluate({
+          question: text,
+          answer,
+          primary,
+          workers,
+          settings: config.evaluator,
+        });
         for (const r of ev.reviews)
           out.push({
             role: "assistant",
             content: `Poeng ${r.score}/10 – ${r.critique}`,
             node: `${r.node} (evaluator)`,
+            ...(r.criteria.length ? { scores: r.criteria } : {}),
           });
-        if (ev.final.trim() && ev.final.trim() !== answer.trim())
+        if (ev.rewritten && ev.final.trim() && ev.final.trim() !== answer.trim())
           out.push({
             role: "assistant",
             content: ev.final,
             node: `ENDELIG SVAR · ${ev.source} · beste poeng ${ev.bestScore}/10`,
+            time: Date.now(),
           });
       }
+
       setMessages(out);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ukjent feil");
