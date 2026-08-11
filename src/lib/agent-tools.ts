@@ -207,6 +207,9 @@ Tilgjengelige verktøy:
 - skript_test {"sprak": "python", "innhold": "..."} – skriv og kjør skript i ett steg.
 - skript_liste {} eller {"navn": "test.py"} – list eller les skript i sandkassen.
 - skript_slett {"navn": "test.py"} – slett skript fra sandkassen.
+- mal_liste {} – innebygde skriptmaler (service-start, docker-health, logg-innhenting, disk-varsel, gpu-telemetri, http-helsesjekk).
+- mal_test {"mal": "docker-health", "parametre": {"container": "ollama"}} – kjører malens selvtest i sandkassen og verifiserer forventninger.
+- mal_installer {"mal": "service-start", "parametre": {"tjeneste": "ollama"}} – tester og lagrer malen i sandkassen kun hvis testen består.
 
 Regler: kall bare verktøy når du faktisk trenger dataene. Du får resultatet tilbake og skal
 deretter svare brukeren på norsk bokmål. Ikke finn på verdier du ikke har hentet.
