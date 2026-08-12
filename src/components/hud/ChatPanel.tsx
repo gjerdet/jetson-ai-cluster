@@ -145,7 +145,9 @@ export function ChatPanel({
       return;
     }
 
-    const viaBackend = config.chatViaBackend === true;
+    // Backend er standardveien. Bare et eksplisitt avslag bruker direkte kall
+    // fra nettleseren til modellen (som ellers lett blokkeres av CORS/TLS).
+    const viaBackend = config.chatViaBackend !== false;
     if (viaBackend && !backendToken()) {
       setError("Backend-chat er aktiv, men du er ikke innlogget. Logg inn under SYSTEM → BACKEND.");
       return;

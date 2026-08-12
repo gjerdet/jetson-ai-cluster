@@ -665,7 +665,7 @@ export function SettingsPanel({
             <label className="flex items-center gap-2 text-foreground/80">
               <input
                 type="checkbox"
-                checked={config.chatViaBackend === true}
+                checked={config.chatViaBackend !== false}
                 onChange={(e) => update({ ...config, chatViaBackend: e.target.checked })}
                 className="accent-[oklch(0.78_0.13_200)]"
               />
