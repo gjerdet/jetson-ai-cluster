@@ -50,6 +50,8 @@ import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
 import { retrieveContext, type Citation } from "@/lib/knowledge";
 
+import { MeldingInnhold } from "./MeldingInnhold";
+
 const SMAAPRAT =
   /^(hei|hallo|halla|heisann|yo|hey|hi|god\s*(morgen|kveld|dag)|takk|ok(ei)?|hvordan går det|er du der|test)\b[\s!.?,]*$/i;
 const BRIEF_TRIGGERS =
