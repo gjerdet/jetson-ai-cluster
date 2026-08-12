@@ -3,9 +3,10 @@ import { deviceBrief, newCustomTool, newMemory, sanitizeToolName } from "./hud-s
 import { historyFor, numericValue, mqttOnline, publishMqtt } from "./mqtt-bridge";
 import { fetchIntegration } from "./integrations.functions";
 import { briefingText, refreshFeed, snapshot } from "./world-feed";
-import { pingNode } from "./hud-client";
+import { callNode, pingNode } from "./hud-client";
+import type { ChatMsg } from "./hud-client";
 import { CIDR_RE, checkScript, scanScript } from "./net-scan";
-import { backendToken } from "./backend";
+import { backend, backendToken } from "./backend";
 
 import {
   agentCfg,
@@ -208,7 +209,16 @@ export const TOOL_CATALOG: ToolSpec[] = [
     args: '{"subnett": "192.168.1.0/24", "porter": false}',
     builtin: true,
   },
+  {
+    name: "spor_kollega",
+    category: "verktoy",
+    summary:
+      "Delegerer en deloppgave til en annen AI-node (f.eks. Hermes) og henter svaret tilbake som arbeidsmateriale.",
+    args: '{"node": "Hermes", "oppgave": "Gjennomgå dette skriptet", "kontekst": "..."}',
+    builtin: true,
+  },
 ];
+
 
 
 
@@ -242,6 +252,9 @@ Tilgjengelige verktøy:
 - mal_installer {"mal": "service-start", "parametre": {"tjeneste": "ollama"}} – tester og lagrer malen i sandkassen kun hvis testen består.
 - nett_sjekk {} eller {"subnett": "192.168.1.0/24"} – standard sjekkplan: grensesnitt/subnett, gateway, DNS, internett, ARP-naboer, lyttende porter.
 - nett_skann {} eller {"subnett": "192.168.1.0/24", "porter": true} – skanner ditt eget subnett og lister IP, MAC og vertsnavn.
+- spor_kollega {"node": "Hermes", "oppgave": "...", "kontekst": "..."} – deleger en deloppgave til en annen
+  AI-node (Hermes, OpenRouter eller annen aktiv node) og få svaret tilbake. Bruk noder {} for å se hvem som er ledige.
+
 
 VERKTØYREGLER (ufravikelige):
 R1. Alt som handler om DETTE nettet, DENNE maskinen eller DISSE sensorene skal hentes med
@@ -258,6 +271,14 @@ R6. Påstander om denne noden, installasjonen eller nettet krever fersk verktøy
 R7. Lesende, lokale undersøkelser utfører du direkte uten å be brukeren om godkjenning. Dette
     gjelder blant annet nett_sjekk, nett_skann, agent_status og lesende OS-kommandoer. Godkjenning
     er bare aktuelt når en handling kan endre, slette, installere, publisere eller styre noe.
+R8. Du er ikke alene: Hermes og andre aktive noder er kolleger du kan sette i arbeid med
+    spor_kollega. Deleger når oppgaven er tung (kodegjennomgang, analyse, planlegging, lange
+    tekster), når du vil ha en second opinion på en konklusjon, eller når du vil dele opp en
+    stor jobb i deler. Du kjører selv alle verktøy og målinger – kollegaen får kun tekst og
+    resultater du allerede har hentet, og svaret er et forslag du må vurdere før du bruker det.
+    Si alltid i svaret hvem du spurte og hva de bidro med.
+
+
 
 SJEKKPLAN FOR NETTVERKSOPPGAVER (følg trinnene i rekkefølge):
 Trinn 1 – nett_sjekk {}: bekreft grensesnitt, subnett (CIDR), gateway, DNS og at ARP-tabellen
@@ -381,6 +402,67 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     );
     return res.join("\n");
   }
+
+  if (call.name === "spor_kollega") {
+    const onske = str(call.args["node"] ?? call.args["kollega"] ?? call.args["modell"]).toLowerCase();
+    const oppgave = str(call.args["oppgave"] ?? call.args["sporsmal"] ?? call.args["tekst"]);
+    const kontekst = str(call.args["kontekst"] ?? call.args["context"]);
+    if (!oppgave) return "Mangler «oppgave» – skriv hva kollegaen skal gjøre.";
+
+    const aktive = config.nodes.filter((n) => n.enabled);
+    if (!aktive.length) return "Ingen aktive AI-noder å delegere til.";
+    const treff = onske
+      ? aktive.find(
+          (n) =>
+            n.name.toLowerCase().includes(onske) ||
+            n.model.toLowerCase().includes(onske) ||
+            n.id.toLowerCase().includes(onske),
+        )
+      : undefined;
+    const kollega =
+      treff ??
+      aktive.find((n) => /hermes/i.test(n.name) || /hermes/i.test(n.model)) ??
+      aktive.find((n) => n.role !== "primary") ??
+      aktive[0];
+    if (!kollega) return "Fant ingen passende kollega-node.";
+
+    const meldinger = [
+      {
+        role: "system",
+        content:
+          "Du er en fagkollega som hjelper hovedagenten JARVIS. Svar kort, konkret og på norsk bokmål. " +
+          "Du har ingen verktøy og ingen tilgang til nettet eller maskinen – bruk kun konteksten du får. " +
+          "Er noe usikkert, si det tydelig i stedet for å gjette.",
+      },
+      {
+        role: "user",
+        content: kontekst ? `Kontekst fra JARVIS:\n${kontekst}\n\nOppgave:\n${oppgave}` : oppgave,
+      },
+    ];
+
+    const t0 = Date.now();
+    try {
+      const svar = await backend.aiChat(meldinger, {
+        baseUrl: kollega.baseUrl,
+        model: kollega.model,
+        nodeId: kollega.id,
+        ...(kollega.apiKey ? { apiKey: kollega.apiKey } : {}),
+        oppgave: "chat",
+      });
+      const tekst = (svar?.svar ?? "").trim();
+      if (!tekst) return `${kollega.name} svarte tomt.`;
+      return `Svar fra ${kollega.name} (${kollega.model}, ${Date.now() - t0} ms):\n${tekst}`;
+    } catch (e) {
+      try {
+        const tekst = await callNode(kollega, meldinger as ChatMsg[]);
+        return `Svar fra ${kollega.name} (${kollega.model}, direkte, ${Date.now() - t0} ms):\n${tekst}`;
+      } catch (e2) {
+        return `Fikk ikke kontakt med ${kollega.name}: ${e2 instanceof Error ? e2.message : String(e)}`;
+      }
+    }
+  }
+
+
 
   if (call.name === "system_hent") {
     const name = str(call.args["navn"] ?? call.args["name"]).toLowerCase();
