@@ -216,7 +216,7 @@ export function ChatPanel({
       if (DIREKTE_NETTVERK.test(text)) {
         setStage("verktøy: nett_sjekk");
         const t0 = performance.now();
-        const resultat = await runTool({ name: "nett_sjekk", args: {} }, {
+        const resultat = await runTool({ name: "nett_sjekk", args: {}, raw: "VERKTØY: nett_sjekk {}" }, {
           config,
           ...(update ? { update } : {}),
           topics: mqtt.topics,
