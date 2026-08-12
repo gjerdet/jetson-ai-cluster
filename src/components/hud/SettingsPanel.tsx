@@ -723,7 +723,7 @@ export function SettingsPanel({
               <select
                 value={config.aiNodeId ?? ""}
                 onChange={(e) => update({ ...config, aiNodeId: e.target.value })}
-                className="hud-input w-full text-[10px]"
+                className="hud-select w-full text-[10px]"
               >
                 <option value="">Automatisk (lastbalansering)</option>
                 {config.nodes.map((n) => (

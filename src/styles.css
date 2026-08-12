@@ -466,6 +466,17 @@
   border-color: oklch(0.78 0.13 200 / 0.6);
   box-shadow: 0 0 14px -4px oklch(0.78 0.13 200 / 0.7);
 }
+/* Native nedtrekkslister skal alltid være mørke – ikke hvite systemmenyer */
+select {
+  color-scheme: dark;
+}
+select option,
+select optgroup {
+  background: oklch(0.16 0.02 240);
+  color: var(--foreground);
+  letter-spacing: normal;
+  text-transform: none;
+}
 .hud-select option {
   background: oklch(0.16 0.02 240);
   color: var(--foreground);

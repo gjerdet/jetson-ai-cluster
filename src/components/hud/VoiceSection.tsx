@@ -94,7 +94,7 @@ export function VoiceSection() {
             <select
               value={cfg.voiceURI ?? ""}
               onChange={(e) => patch({ voiceURI: e.target.value })}
-              className="hud-input w-full"
+              className="hud-select w-full"
             >
               <option value="">Auto ({auto ? auto.name : "ingen funnet"})</option>
               {voices.map((v) => (
