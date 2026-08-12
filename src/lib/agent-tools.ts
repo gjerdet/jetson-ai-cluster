@@ -332,9 +332,19 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
 
   if (call.name === "world_brief") {
     const n = Number(call.args["antall"] ?? 10) || 10;
-    if (!snapshot().events.length) await refreshFeed();
+    if (!snapshot().events.length) {
+      // World Monitor kan bruke lang tid på alle lagene – vent maks 12 sekunder,
+      // og svar med det vi har (eller en tydelig beskjed) i stedet for å henge.
+      await Promise.race([
+        refreshFeed().catch(() => undefined),
+        new Promise((r) => setTimeout(r, 12_000)),
+      ]);
+    }
+    if (!snapshot().events.length)
+      return "World Monitor har ingen hendelser enda (feeden er treg eller utilgjengelig). Prøv igjen om litt, eller åpne WORLD MONITOR-panelet for å laste den.";
     return briefingText(Math.min(n, 20));
   }
+
 
   if (call.name === "minne_lagre") {
     const text = str(call.args["tekst"] ?? call.args["text"]).trim();
