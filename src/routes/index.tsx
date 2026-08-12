@@ -1,3 +1,4 @@
+import { KREV_INNLOGGING } from "@/lib/auth-mode";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { HudWindow } from "@/components/hud/HudWindow";
@@ -85,7 +86,7 @@ function Index() {
   // ingen økt mot den lokale agenten → send brukeren til innloggingen
   // unntatt i Lovable-preview, der preview-passordet er tilstrekkelig for å se UI-et
   useEffect(() => {
-    if (state === "ute" && !(isPreview && unlocked)) {
+    if (KREV_INNLOGGING && state === "ute" && !(isPreview && unlocked)) {
       void navigate({ to: "/logg-inn", replace: true });
     }
   }, [state, isPreview, unlocked, navigate]);

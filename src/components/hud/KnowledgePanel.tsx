@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { KREV_INNLOGGING } from "@/lib/auth-mode";
 import { BookOpen, FileUp, Globe, Loader2, RefreshCw, Search, Trash2, Type } from "lucide-react";
 import { backend, safe, backendToken, type KnowledgeDoc, type KnowledgeHit, type RagConfig } from "@/lib/backend";
 import { extractText } from "@/lib/knowledge";
@@ -23,7 +24,7 @@ export function KnowledgePanel() {
   const [sok, setSok] = useState("");
   const [treff, setTreff] = useState<KnowledgeHit[] | null>(null);
 
-  const innlogget = !!backendToken();
+  const innlogget = !KREV_INNLOGGING || !!backendToken();
 
   const last = async () => {
     const [k, c] = await Promise.all([safe(() => backend.hentKunnskap()), safe(() => backend.hentRagConfig())]);

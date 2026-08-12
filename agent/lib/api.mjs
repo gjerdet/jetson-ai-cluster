@@ -160,6 +160,16 @@ async function readBody(req, maks = 5_000_000) {
 /** Rutene backend-API-et eier, med eller uten «/api»-prefiks. */
 export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram", "/verktoy"];
 
+/**
+ * Innlogging kan slås av mens systemet kjører i et lukket lokalt miljø.
+ * Standard er AV. Sett AGENT_KREV_INNLOGGING=1 for å kreve innlogging igjen.
+ */
+export const KREV_INNLOGGING = /^(1|ja|on|true|pa|på)$/i.test(
+  String(process.env.AGENT_KREV_INNLOGGING ?? "0").trim(),
+);
+
+const LOKAL_ADMIN = { id: "lokal", email: "lokal@jarvis", role: "admin", created: 0 };
+
 export function erApiRute(route) {
   if (route === "/api" || route.startsWith("/api/")) return true;
   return BACKEND_PREFIKSER.some((p) => route === p || route.startsWith(`${p}/`));
@@ -201,7 +211,8 @@ export async function handleApi(req, res, route, url, deps = {}) {
       vert: os.hostname(),
       oppetidSek: Math.round(process.uptime()),
       brukere: userCount(),
-      trengerOppsett: userCount() === 0,
+      trengerOppsett: KREV_INNLOGGING && userCount() === 0,
+      krevInnlogging: KREV_INNLOGGING,
       tls: deps.tls === true,
       mqtt: deps.mqttHelse?.() ?? deps.mqttStatus?.() ?? { tilkoblet: false },
       regler: rulesStatus(),
@@ -301,7 +312,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
 
   // ---- alt under her krever innlogging ---------------------------------
-  const user = userFromRequest(req);
+  const user = userFromRequest(req) || (KREV_INNLOGGING ? null : LOKAL_ADMIN);
   if (!user) return json(req, res, 401, { error: "Ikke innlogget" });
   const admin = user.role === "admin";
 
