@@ -1,6 +1,24 @@
+/** Retter opp vanlige skrivefeil i adressen til kjente skytjenester. */
+export function normalizeBase(input) {
+  let base = String(input || "").trim().replace(/\/+$/, "");
+  if (!base) return "";
+  if (!/^https?:\/\//i.test(base)) base = `${/openrouter\.ai|openai\.com|anthropic\.com/i.test(base) ? "https" : "http"}://${base}`;
+  if (/openrouter\.ai/i.test(base)) return "https://openrouter.ai/api/v1";
+  if (/api\.openai\.com/i.test(base)) return "https://api.openai.com/v1";
+  return base;
+}
+
+/** Ekstra hoder enkelte leverandører krever. */
+export function providerHeaders(endpoint) {
+  if (/openrouter\.ai/i.test(endpoint)) {
+    return { "HTTP-Referer": "https://jarvis.local", "X-Title": "Jarvis" };
+  }
+  return {};
+}
+
 /** Bygger aktuelle chat-endepunkter fra både base-URL-er og komplette URL-er. */
 export function chatEndpoints(input) {
-  const base = String(input || "").trim().replace(/\/+$/, "");
+  const base = normalizeBase(input);
   if (!base) return [];
   if (/\/(chat\/completions|api\/chat)$/i.test(base)) return [base];
   if (/\/chat$/i.test(base)) {
@@ -10,6 +28,19 @@ export function chatEndpoints(input) {
   if (/\/v1$/i.test(base)) return [`${base}/chat/completions`];
   return [`${base}/v1/chat/completions`, `${base}/api/chat`, `${base}/chat`];
 }
+
+/** Oversetter HTTP-status til et konkret råd på norsk. */
+export function statusRaad(status, endpoint) {
+  const sky = /openrouter\.ai|openai\.com/i.test(endpoint);
+  if (status === 401 || status === 403) {
+    return sky ? "API-nøkkelen mangler eller er ugyldig." : "Noden avviste nøkkelen (401/403).";
+  }
+  if (status === 402) return "Kontoen mangler kreditt hos leverandøren.";
+  if (status === 404) return sky ? "Ukjent modellnavn – bruk formatet «leverandør/modell», f.eks. «openai/gpt-4o-mini»." : "Endepunktet finnes ikke på denne adressen.";
+  if (status === 429) return "For mange forespørsler – vent litt og prøv igjen.";
+  return "";
+}
+
 
 /** Henter installerte modeller fra en Ollama-node. */
 export async function listModels(baseUrl, { apiKey, signal } = {}) {
