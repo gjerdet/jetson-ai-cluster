@@ -124,7 +124,7 @@ export const TOOL_CATALOG: ToolSpec[] = [
   {
     name: "agent_status",
     category: "os",
-    summary: "Fersk maskinvare- og driftsstatus for den lokale noden: kortmodell, CPU, GPU, OS, last, minne og sandkasse.",
+    summary: "Ferske maskinvarespesifikasjoner og driftsstatus for den lokale noden: kortmodell, CPU, GPU, OS, last, minne og sandkasse.",
     args: "{}",
     builtin: true,
   },

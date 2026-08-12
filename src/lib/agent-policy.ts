@@ -41,12 +41,13 @@ export function requiresFreshLocalEvidence(text: string, nodeNames: string[] = [
 
   const questionWords = wordsFrom(text);
   const vocab = catalogVocabulary();
-  // Første-stavelse-match mot verktøykatalogens ordforråd, slik at bøyde
-  // former («temperaturen», «lagringsplassen») også treffer uten en manuelt
-  // vedlikeholdt regex.
-  const observableState = questionWords.some((w) =>
-    vocab.some((v) => w.startsWith(v) || v.startsWith(w)),
-  );
+  // Stamme- og sammensattordsmatch mot katalogens ordforråd. Norsk setter ofte
+  // ordene sammen (f.eks. «maskinvarespesifikasjoner»), mens spørsmålet bruker
+  // bare «spesifikasjonene».
+  const observableState = questionWords.some((w) => {
+    const stem = w.slice(0, Math.min(8, w.length));
+    return vocab.some((v) => w.startsWith(v) || v.startsWith(w) || (stem.length >= 6 && v.includes(stem)));
+  });
 
   return localReference && observableState;
 }
