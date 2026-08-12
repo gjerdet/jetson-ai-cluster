@@ -51,7 +51,7 @@ import {
 import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
 import { retrieveContext, type Citation } from "@/lib/knowledge";
-import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion, networkContextFromCheck } from "@/lib/network-intent";
+import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion, explicitSubnet, networkContextFromCheck } from "@/lib/network-intent";
 import { requiresFreshLocalEvidence } from "@/lib/agent-policy";
 
 import { MeldingInnhold } from "./MeldingInnhold";
