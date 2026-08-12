@@ -22,9 +22,21 @@ const hjelp = () => {
   liste
   opprett <e-post> <passord>
   passord <e-post> <nytt-passord>
+  rolle <e-post> <admin|bruker>
   slett <e-post>
   nullstill`);
 };
+
+function settRolle(mail, rolle) {
+  const db = doc("users", { list: [] });
+  const u = db.list.find((x) => x.email === norm(mail));
+  if (!u) throw new Error(`Fant ingen bruker med e-post ${norm(mail)}.`);
+  if (!["admin", "bruker"].includes(rolle)) throw new Error("Rolle må være admin eller bruker.");
+  u.role = rolle;
+  saveDoc("users", db);
+  return u;
+}
+
 
 async function main() {
   await initStore();
@@ -52,6 +64,12 @@ async function main() {
       }
       changePassword(u.id, b);
       console.log(`Nytt passord satt for ${u.email}.`);
+      break;
+    }
+    case "rolle": {
+      if (!a || !b) return hjelp();
+      const u = settRolle(a, String(b).toLowerCase());
+      console.log(`${u.email} er nå ${u.role}.`);
       break;
     }
     case "slett": {
