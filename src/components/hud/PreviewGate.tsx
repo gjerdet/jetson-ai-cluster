@@ -16,6 +16,7 @@ export function PreviewGate({ onUnlock }: { onUnlock: () => void }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     setBusy(true);
     setError(null);
     try {

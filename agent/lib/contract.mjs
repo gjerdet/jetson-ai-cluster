@@ -180,7 +180,28 @@ export function codeFromStatus(status) {
   return ERROR_CODES.SERVER;
 }
 
+/** Bygger en systemprompt-del fra en strukturert personlighet. */
+export function buildPersonalityPrompt(personality) {
+  if (!personality || typeof personality !== "object") return "";
+  const quirks = String(personality.quirks ?? "")
+    .split("\n")
+    .map((q) => q.trim())
+    .filter(Boolean);
+  const lines = [
+    `Du er ${personality.name}, ${personality.role}.`,
+    `Svar på ${personality.language}.`,
+    `Tone: ${personality.tone}.`,
+    `Detaljnivå: ${personality.verbosity}.`,
+    personality.background,
+    quirks.length ? `Særtrekk:\n${quirks.map((q) => `- ${q}`).join("\n")}` : "",
+    personality.catchphrase ? `Faste uttrykk: «${personality.catchphrase}».` : "",
+    personality.extra,
+  ];
+  return lines.filter(Boolean).join("\n\n");
+}
+
 /* ------------------------- klyngenoder (Jetson m.fl.) ---------------------- */
+
 
 /**
  * Normaliserer en node i klyngen. Noder kan registreres manuelt fra HUD-en
