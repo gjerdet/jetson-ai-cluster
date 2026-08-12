@@ -19,6 +19,7 @@ import crypto from "node:crypto";
 import { handleApi, erApiRute, KREV_INNLOGGING } from "./lib/api.mjs";
 import { userFromRequest } from "./lib/auth.mjs";
 import { networkCheckScript, networkScanScript } from "./lib/network-tools.mjs";
+import { proxyTilGui, skalProxes } from "./lib/gui-proxy.mjs";
 
 import { addSample, doc, flushNow, initStore, latest, pruneSamples, warmLatest } from "./lib/store.mjs";
 import { MqttClient, parseMqttUrl } from "./lib/mqtt.mjs";
@@ -250,6 +251,15 @@ const requestHandler = async (req, res) => {
     await handleApi(req, res, route, url, apiDeps);
     return;
   }
+
+  // Alt annet enn agent-/API-rutene tilhører web-GUI-et: proxy videre dit slik
+  // at samme adresse (f.eks. https://<jetson>:8443) gir HUD-en i nettleseren.
+  if (skalProxes(route, req)) {
+    proxyTilGui(req, res);
+    return;
+  }
+
+
 
   // OS-/sandkasse-endepunktene: streng rate-limiting og token-krav.
   const begrenset = rateLimit(req, route === "/health" || route === "/" ? "api" : "exec");
