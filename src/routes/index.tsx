@@ -101,9 +101,23 @@ function Index() {
       <div className="hud-grid pointer-events-none absolute inset-0" />
       <div className="hud-scan pointer-events-none absolute inset-0" />
 
-      <header className="relative z-50 flex items-center justify-end px-5 py-4">
+      <header className="relative z-50 flex items-center justify-end gap-3 px-5 py-4">
         <BackendStatusBadge />
+        {user ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">
+              {user.email}
+            </span>
+            <button
+              className="rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[9px] uppercase tracking-[0.2em] text-primary/80 transition hover:bg-primary/15"
+              onClick={() => void loggUt()}
+            >
+              LOGG UT
+            </button>
+          </div>
+        ) : null}
       </header>
+
 
       <CenterMenu
         open={menuOpen}
