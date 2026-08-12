@@ -34,12 +34,21 @@ export function skalProxes(route, req) {
 }
 
 export function proxyTilGui(req, res) {
+  const originalHost = req.headers.host || `${GUI_HOST}:${GUI_PORT}`;
+  const forwardedProto = req.socket?.encrypted ? "https" : "http";
   const opts = {
     host: GUI_HOST,
     port: GUI_PORT,
     method: req.method,
     path: req.url,
-    headers: { ...req.headers, host: `${GUI_HOST}:${GUI_PORT}` },
+    // Behold nettleserens Host-header. TanStack bruker Host + Origin for å
+    // kontrollere serverfunksjoner; å erstatte den med 127.0.0.1:8080 ga 403.
+    headers: {
+      ...req.headers,
+      host: originalHost,
+      "x-forwarded-host": originalHost,
+      "x-forwarded-proto": req.headers["x-forwarded-proto"] || forwardedProto,
+    },
   };
   const upstream = http.request(opts, (svar) => {
     res.writeHead(svar.statusCode || 502, svar.headers);

@@ -47,6 +47,31 @@ const ORIGIN_REGEX = ORIGIN_PATTERNS.map(toRegex);
 export const originAllowed = (origin) =>
   !!origin && ORIGIN_REGEX.some((re) => re.test(origin));
 
+/**
+ * En nettleser kan sende Origin også på kall til samme Jetson-adresse.
+ * Disse skal alltid godtas; AGENT_ORIGINS gjelder bare reelle kryss-origin-kall.
+ */
+function sameOriginRequest(req, origin) {
+  if (!req || !origin) return false;
+  try {
+    const source = new URL(origin);
+    const requestHost = String(req.headers?.host || "").toLowerCase();
+    if (!requestHost || source.host.toLowerCase() !== requestHost) return false;
+    const forwardedProto = String(req.headers?.["x-forwarded-proto"] || "")
+      .split(",")[0]
+      .trim()
+      .toLowerCase();
+    const protocol = forwardedProto || (req.socket?.encrypted ? "https" : "http");
+    return source.protocol === `${protocol}:`;
+  } catch {
+    return false;
+  }
+}
+
+function requestOriginAllowed(req, origin) {
+  return sameOriginRequest(req, origin) || originAllowed(origin);
+}
+
 export const allowedOrigins = () => [...ORIGIN_PATTERNS];
 
 const BASE_HEADERS = {
@@ -63,14 +88,14 @@ const BASE_HEADERS = {
 export function corsHeaders(req) {
   const origin = req?.headers?.origin;
   if (!origin) return { ...BASE_HEADERS }; // samme-origin / curl
-  if (!originAllowed(origin)) return { ...BASE_HEADERS };
+  if (!requestOriginAllowed(req, origin)) return { ...BASE_HEADERS };
   return { ...BASE_HEADERS, "access-control-allow-origin": origin };
 }
 
 /** true når forespørselen kommer fra en nettleser med ikke-godkjent origin. */
 export function corsBlocked(req) {
   const origin = req?.headers?.origin;
-  return !!origin && !originAllowed(origin);
+  return !!origin && !requestOriginAllowed(req, origin);
 }
 
 // ---------------------------------------------------------------------------
