@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BackendError, backend, backendToken, setBackendToken, setBackendUrl, safe } from "@/lib/backend";
-import { ERROR_CODES } from "@/lib/contract";
+import { BackendError, backend, backendToken, setBackendToken, setBackendUrl, safe, standardBackendUrl } from "@/lib/backend";
+import { DEFAULTS, ERROR_CODES } from "@/lib/contract";
 
 /** Enkel fetch-mock som svarer med gitt status/kropp. */
 function mockFetch(svar: Array<{ status: number; body: unknown; headers?: Record<string, string> }>) {
@@ -105,5 +105,25 @@ describe("backend-klient", () => {
     expect(JSON.parse(String(kall[0]!.init.body))).toEqual({
       meldinger: [{ role: "user", content: "Hei" }],
     });
+  });
+});
+
+describe("standard backend-adresse", () => {
+  it("bruker vertsnavnet i nettverket i stedet for loopback", () => {
+    expect(standardBackendUrl({ hostname: "192.168.1.42", protocol: "http:" })).toBe(
+      `http://192.168.1.42:${DEFAULTS.port}`,
+    );
+    expect(standardBackendUrl({ hostname: "jarvis.local", protocol: "https:" })).toBe(
+      `https://jarvis.local:${DEFAULTS.port}`,
+    );
+  });
+
+  it("faller tilbake til loopback lokalt og i Lovable-forhåndsvisning", () => {
+    expect(standardBackendUrl({ hostname: "localhost", protocol: "http:" })).toBe(
+      `http://127.0.0.1:${DEFAULTS.port}`,
+    );
+    expect(standardBackendUrl({ hostname: "id-preview--abc.lovable.app", protocol: "https:" })).toBe(
+      `http://127.0.0.1:${DEFAULTS.port}`,
+    );
   });
 });
