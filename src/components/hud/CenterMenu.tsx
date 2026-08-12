@@ -1,7 +1,7 @@
-import { MessageSquare, Cpu, Globe2, Settings2, Home, LineChart, Activity, Network, ScrollText, HeartPulse, Brain } from "lucide-react";
+import { MessageSquare, Cpu, Globe2, Settings2, Home, LineChart, Activity, Network, ScrollText, HeartPulse, Brain, Wrench } from "lucide-react";
 import { ReactorCore } from "./ReactorCore";
 
-export type WinId = "chat" | "nodes" | "world" | "home" | "dash" | "health" | "pool" | "cluster" | "logs" | "settings" | "agi";
+export type WinId = "chat" | "nodes" | "world" | "home" | "dash" | "health" | "pool" | "cluster" | "logs" | "settings" | "agi" | "agent";
 
 const BASE: { id: WinId; label: string; icon: typeof Cpu }[] = [
   { id: "chat", label: "KOMMANDO", icon: MessageSquare },
@@ -13,6 +13,7 @@ const BASE: { id: WinId; label: string; icon: typeof Cpu }[] = [
   { id: "cluster", label: "KLYNGE", icon: HeartPulse },
   { id: "pool", label: "POOL", icon: Network },
   { id: "agi", label: "AGI", icon: Brain },
+  { id: "agent", label: "VERKTØY", icon: Wrench },
   { id: "logs", label: "LOGGER", icon: ScrollText },
   { id: "settings", label: "SYSTEM", icon: Settings2 },
 ];
