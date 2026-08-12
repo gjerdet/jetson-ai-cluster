@@ -92,6 +92,13 @@ export type {
   MemoryStats,
 };
 
+export interface UpdateStatus {
+  aktiv: boolean;
+  status: string;
+  logg: string;
+  oppdatert: number;
+}
+
 const LS_URL = "jarvis.backend.url";
 const LS_TOKEN = "jarvis.backend.token";
 export const DEFAULT_BACKEND_URL = "https://192.168.12.5:8443";
@@ -411,6 +418,13 @@ export const backend = {
     call(ROUTES.telegramTest!, { method: "POST", body: JSON.stringify({ tekst, chatId }) }, { retries: 0 }),
 
   hentVersjon: () => call<VersionInfo>(ROUTES.version!, {}, { timeoutMs: 10_000 }),
+  hentOppdateringsstatus: () => call<UpdateStatus>(ROUTES.updateStatus!, {}, { timeoutMs: 10_000, retries: 0 }),
+  startOppdatering: (ref = "main") =>
+    call<{ ok: boolean; ref: string; melding: string }>(
+      ROUTES.update!,
+      { method: "POST", body: JSON.stringify({ ref }) },
+      { timeoutMs: 15_000, retries: 0 },
+    ),
   eksporterKonfig: (bare?: string[]) =>
     call<ConfigBundle>(
       bare?.length ? `${ROUTES.configExport}?bare=${encodeURIComponent(bare.join(","))}` : ROUTES.configExport!,

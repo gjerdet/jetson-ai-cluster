@@ -108,6 +108,7 @@ import { corsBlocked, corsHeaders, rateLimit } from "./security.mjs";
 import { decryptSecret, encryptSecret, maskSecret } from "./secrets.mjs";
 import { callChatEndpoint } from "./ai-endpoint.mjs";
 import { listBackups, runBackup } from "./backup.mjs";
+import { startUpdate, updateStatus } from "./update-runner.mjs";
 import {
   addDocument,
   deleteDocument,
@@ -826,6 +827,17 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
     // ---- versjon og konfig-pakker ---------------------------------------
     if (path === "/versjon" && method === "GET") return json(req, res, 200, versjonsinfo());
+
+    if (path === "/versjon/oppdater/status" && method === "GET") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      return json(req, res, 200, await updateStatus());
+    }
+
+    if (path === "/versjon/oppdater" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      const b = await readBody(req);
+      return json(req, res, 202, await startUpdate(b.ref));
+    }
 
     if (path === "/config/eksport" && method === "GET") {
       if (!admin) return json(req, res, 403, { error: "Kun admin" });
