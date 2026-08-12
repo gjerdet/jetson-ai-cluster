@@ -187,7 +187,16 @@ export const TOOL_CATALOG: ToolSpec[] = [
     args: '{"mal": "service-start", "parametre": {"tjeneste": "ollama"}}',
     builtin: true,
   },
+  {
+    name: "nett_skann",
+    category: "os",
+    summary:
+      "Skanner nodens eget subnett (ping-sveip + ARP) og lister IP, MAC og vertsnavn for alle enheter som svarer.",
+    args: '{"subnett": "192.168.1.0/24", "porter": false}',
+    builtin: true,
+  },
 ];
+
 
 
 
