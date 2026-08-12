@@ -17,6 +17,8 @@ import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
 import { handleApi, erApiRute } from "./lib/api.mjs";
+import { userFromRequest } from "./lib/auth.mjs";
+
 import { addSample, doc, flushNow, initStore, latest, pruneSamples, warmLatest } from "./lib/store.mjs";
 import { MqttClient, parseMqttUrl } from "./lib/mqtt.mjs";
 import { createMqttHealth } from "./lib/mqtt-health.mjs";
