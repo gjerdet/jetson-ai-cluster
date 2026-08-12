@@ -420,8 +420,10 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     call.name.startsWith("os_") ||
     call.name.startsWith("skript_") ||
     call.name.startsWith("mal_") ||
+    call.name === "nett_skann" ||
     call.name === "agent_status"
   ) {
+
     return runAgentTool(call, config);
   }
 
