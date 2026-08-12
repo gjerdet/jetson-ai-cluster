@@ -1,0 +1,15 @@
+[Unit]
+Description=Jarvis kontrollert programvareoppdatering
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/bin/bash /opt/jarvis-agent/scripts/run-update-service.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jarvis-update
+
+[Install]
+WantedBy=multi-user.target
