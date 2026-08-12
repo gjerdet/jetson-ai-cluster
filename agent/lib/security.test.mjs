@@ -24,6 +24,13 @@ describe("CORS", () => {
   it("tillater kall uten origin (curl, samme maskin)", () => {
     expect(corsBlocked(req({}))).toBe(false);
   });
+
+  it("tillater samme-origin fra Jetson-adressen", () => {
+    const request = req({ host: "192.168.12.5:8443", origin: "https://192.168.12.5:8443" });
+    request.socket.encrypted = true;
+    expect(corsBlocked(request)).toBe(false);
+    expect(corsHeaders(request)["access-control-allow-origin"]).toBe("https://192.168.12.5:8443");
+  });
 });
 
 describe("rate-limiting", () => {
