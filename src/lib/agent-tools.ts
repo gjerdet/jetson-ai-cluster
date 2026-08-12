@@ -208,7 +208,16 @@ export const TOOL_CATALOG: ToolSpec[] = [
     args: '{"subnett": "192.168.1.0/24", "porter": false}',
     builtin: true,
   },
+  {
+    name: "spor_kollega",
+    category: "verktoy",
+    summary:
+      "Delegerer en deloppgave til en annen AI-node (f.eks. Hermes) og henter svaret tilbake som arbeidsmateriale.",
+    args: '{"node": "Hermes", "oppgave": "Gjennomgå dette skriptet", "kontekst": "..."}',
+    builtin: true,
+  },
 ];
+
 
 
 
