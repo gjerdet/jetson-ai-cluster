@@ -26,6 +26,7 @@ import {
 } from "./auth.mjs";
 import { evaluate, listRules, logDoc, saveRules, rulesStatus } from "./rules.mjs";
 import { notifyAll, saveTelegram, sendMessage, telegramCfg } from "./telegram.mjs";
+import { eksporterKonfig, importerKonfig, inspiserKonfig, versjonsinfo } from "./versjon.mjs";
 import {
   API_VERSION,
   SETTINGS_DEFAULTS,
@@ -645,6 +646,23 @@ export async function handleApi(req, res, route, url, deps = {}) {
       if (!chat) return json(req, res, 400, { error: "Ingen chat-ID lagret. Send /start til boten først." });
       await sendMessage(chat, String(b.tekst || "Test fra Jarvis."));
       return json(req, res, 200, { ok: true });
+    }
+
+    // ---- versjon og konfig-pakker ---------------------------------------
+    if (path === "/versjon" && method === "GET") return json(req, res, 200, versjonsinfo());
+
+    if (path === "/config/eksport" && method === "GET") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      const bare = (url.searchParams.get("bare") || "").split(",").filter(Boolean);
+      return json(req, res, 200, eksporterKonfig(bare));
+    }
+
+    if (path === "/config/import" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      const b = await readBody(req);
+      const pakke = b.pakke ?? b;
+      if (b.kunSjekk) return json(req, res, 200, inspiserKonfig(pakke));
+      return json(req, res, 200, importerKonfig(pakke, { modus: b.modus, bare: b.bare }));
     }
 
     // ---- sikkerhetskopier -------------------------------------------------

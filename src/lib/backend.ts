@@ -354,6 +354,26 @@ export const backend = {
   testTelegram: (tekst: string, chatId?: number) =>
     call(ROUTES.telegramTest!, { method: "POST", body: JSON.stringify({ tekst, chatId }) }, { retries: 0 }),
 
+  hentVersjon: () => call<VersionInfo>(ROUTES.version!, {}, { timeoutMs: 10_000 }),
+  eksporterKonfig: (bare?: string[]) =>
+    call<ConfigBundle>(
+      bare?.length ? `${ROUTES.configExport}?bare=${encodeURIComponent(bare.join(","))}` : ROUTES.configExport!,
+      {},
+      { timeoutMs: 30_000 },
+    ),
+  sjekkKonfig: (pakke: ConfigBundle) =>
+    call<ConfigInspect>(
+      ROUTES.configImport!,
+      { method: "POST", body: JSON.stringify({ pakke, kunSjekk: true }) },
+      { retries: 0 },
+    ),
+  importerKonfig: (pakke: ConfigBundle, o: { modus?: "flett" | "erstatt"; bare?: string[] } = {}) =>
+    call<{ ok: boolean; skrevet: string[]; hoppetOver: string[]; sjekksumOk: boolean | null }>(
+      ROUTES.configImport!,
+      { method: "POST", body: JSON.stringify({ pakke, ...o }) },
+      { timeoutMs: 30_000, retries: 0 },
+    ),
+
   hentBackuper: () => call<{ kopier: BackupFile[] }>(ROUTES.backup!).then((r) => r.kopier),
   taBackup: () => call<{ ok: boolean; navn: string }>(ROUTES.backup!, { method: "POST" }, { timeoutMs: 30_000, retries: 0 }),
 
@@ -410,4 +430,35 @@ export const backend = {
     call(ROUTES.threads!, { method: "POST", body: JSON.stringify(t) }),
   hentSamtale: (id: string) => call<{ samtale: { id: string; meldinger: unknown[] } }>(`${ROUTES.threads}/${id}`),
   slettSamtale: (id: string) => call(`${ROUTES.threads}/${id}`, { method: "DELETE" }),
+};
+
+export type VersionInfo = {
+  agent: string;
+  api: string;
+  konfigpakke: number;
+  konfigVersjon: number;
+  konfigOppdatert: number | null;
+  node: string;
+  vert: string;
+  plattform: string;
+  oppetidSek: number;
+};
+
+export type ConfigBundle = {
+  type: string;
+  pakkeversjon: number;
+  agent?: string;
+  api?: string;
+  laget?: string;
+  vert?: string;
+  dokumenter: Record<string, unknown>;
+  sjekksum?: string;
+};
+
+export type ConfigInspect = {
+  dokumenter: string[];
+  ukjente: string[];
+  sjekksumOk: boolean | null;
+  laget: string | null;
+  agent: string | null;
 };

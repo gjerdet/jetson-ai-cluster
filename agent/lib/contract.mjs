@@ -4,7 +4,24 @@
  * Typene ligger i contract.d.ts og deles av frontend via src/lib/contract.ts.
  */
 
-export const API_VERSION = "2.1.0";
+export const API_VERSION = "2.2.0";
+
+/** Versjon på konfig-pakkene som eksporteres/importeres mellom installasjoner. */
+export const CONFIG_BUNDLE_VERSION = 1;
+
+/** Dokumenter som kan flyttes mellom installasjoner (uten hemmeligheter). */
+export const CONFIG_DOCS = [
+  "ai",
+  "nodes",
+  "devices",
+  "rules",
+  "mqtt",
+  "settings",
+  "tts",
+  "rag",
+  "telegram",
+  "config",
+];
 
 export const RULE_OPERATORS = ["over", "under", "lik", "endres"];
 export const RULE_ACTION_TYPES = ["mqtt", "telegram", "logg"];
@@ -51,6 +68,9 @@ export const ROUTES = {
   telegram: "/telegram",
   telegramTest: "/telegram/test",
   backup: "/backup",
+  version: "/versjon",
+  configExport: "/config/eksport",
+  configImport: "/config/import",
   knowledge: "/kunnskap",
   knowledgeSearch: "/kunnskap/sok",
   knowledgeConfig: "/kunnskap/config",

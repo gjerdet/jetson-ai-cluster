@@ -411,3 +411,33 @@ nøkkelord. Kjør «Reindekser alt» etter at modellen er på plass.
    modellnavnet i feltet «Piper-modell».
 
 10–20 min ren tale holder til finetuning; 30–60 min gir best resultat.
+
+## Versjonshåndtering og konfig-pakker
+
+Slik slipper du å sette opp alt på nytt når du oppdaterer eller legger til en node.
+
+### Se versjoner
+SYSTEM-panelet → fanen **SYSTEM** → seksjonen **VERSJON & KONFIG** viser HUD-versjon,
+API-kontrakt, agentversjon, vert og hvilken konfigversjon backend-en står på.
+Backend eksponerer det samme på `GET /api/versjon`.
+
+### Flytte oppsettet til en ny node
+1. På den ferdig oppsatte noden: **Last ned konfig-pakke** (JSON-fil).
+   Pakken inneholder noder, regler, enheter, MQTT, TTS, RAG, telegram-oppsett
+   (uten token) og HUD-ens eget oppsett. Hemmeligheter er alltid utelatt.
+2. På den nye noden: kjør `install-jetson.sh`, logg inn, og bruk
+   **Velg pakke å hente inn** → se forhåndsvisningen → **Hent inn konfig**.
+   - *Flett inn*: beholder felt som ikke finnes i pakken.
+   - *Erstatt*: bytter dokumentene helt ut.
+3. Legg inn hemmeligheter på nytt (API-nøkler, Telegram-token) – de følger aldri med.
+
+Tilsvarende API: `GET /api/config/eksport`, `POST /api/config/import`
+(`{ pakke, modus, bare }`, eller `{ pakke, kunSjekk: true }` for forhåndsvisning).
+
+### Oppdatere programvaren
+```bash
+sudo /opt/jarvis/agent/scripts/update-jetson.sh main
+```
+Skriptet tar sikkerhetskopi av `data/` og `agent.env`, henter ny kode, installerer
+avhengigheter, bygger HUD-en og restarter `jarvis-agent`. Det skriver ut kommandoen
+for å rulle tilbake til forrige commit hvis noe skulle feile.

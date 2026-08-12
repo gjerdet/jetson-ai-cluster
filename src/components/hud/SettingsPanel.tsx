@@ -68,6 +68,7 @@ import {
 
 import { TOOL_CATALOG } from "@/lib/agent-tools";
 import { ClusterSection, DutyPicker } from "./ClusterSection";
+import { VersionSection } from "./settings/VersionSection";
 import { EspWizard } from "./EspWizard";
 
 const ROLE_LABEL: Record<ModelNode["role"], string> = {
@@ -171,6 +172,7 @@ export function SettingsPanel({
 
         {tab === "system" ? (
           <>
+            <VersionSection />
             <Field label="Kallesignal">
               <input
                 value={config.callsign}

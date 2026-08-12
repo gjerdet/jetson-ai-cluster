@@ -1,6 +1,8 @@
 /** Delte typer mellom Jarvis-backend og HUD. Speiler contract.mjs. */
 
 export const API_VERSION: string;
+export const CONFIG_BUNDLE_VERSION: number;
+export const CONFIG_DOCS: string[];
 
 export type RuleOperator = "over" | "under" | "lik" | "endres";
 export type RuleActionType = "mqtt" | "telegram" | "logg";
@@ -90,6 +92,9 @@ export const ROUTES: {
   telegram: string;
   telegramTest: string;
   backup: string;
+  version: string;
+  configExport: string;
+  configImport: string;
   knowledge: string;
   knowledgeSearch: string;
   knowledgeConfig: string;
