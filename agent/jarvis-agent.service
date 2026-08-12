@@ -17,15 +17,12 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=jarvis-agent
 
-# Herding – agenten skal bare nå sine egne mapper
+# Herding – moderat, slik at systemd alltid får satt opp tjenesten på Jetson
 NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
+ProtectSystem=full
 ProtectKernelTunables=true
-ProtectControlGroups=true
 RestrictSUIDSGID=true
-ReadWritePaths=/var/lib/jarvis
+ReadWritePaths=/var/lib/jarvis /var/log/jarvis
 LimitNOFILE=8192
 
 [Install]
