@@ -288,9 +288,23 @@ export function ChatPanel({
         answeredBy = call.node.name;
         const calls = parseToolCalls(raw, customToolNames(config));
         if (!calls.length) {
+          // Ba brukeren om at noe skulle gjøres, men modellen svarte med en
+          // bortforklaring uten å ha kjørt et eneste verktøy? Da dytter vi den
+          // én gang til med en tydelig instruks om å handle.
+          if (oppdrag && !dyttet && !runs.length && UNNVIKELSE.test(raw)) {
+            dyttet = true;
+            thread.push({ role: "assistant", content: raw });
+            thread.push({
+              role: "user",
+              content:
+                "Du svarte uten å bruke verktøy. Utfør oppgaven nå: velg det verktøyet som faktisk kan svare (nett_skann for nettverk/enheter i subnettet, os_kjor eller agent_status for maskin og tjenester, mqtt_les for sensorer), eller skriv et eget skript med skript_test. Svar kun med verktøykallet på formen VERKTØY: navn {...}.",
+            });
+            continue;
+          }
           answer = raw.trim();
           break;
         }
+
         const visible = stripToolCalls(raw);
         if (visible) out.push({ role: "assistant", content: visible, node: call.node.name });
         thread.push({ role: "assistant", content: raw });
