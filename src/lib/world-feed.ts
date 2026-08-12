@@ -29,6 +29,7 @@ export async function refreshFeed() {
   if (running) return;
   running = true;
   set({ loading: true, progress: 0 });
+  const deadline = Date.now() + 45_000;
   try {
     merge(await getBaseEvents());
     set({ progress: 0.2 });
@@ -42,6 +43,7 @@ export async function refreshFeed() {
       set({ progress: Math.min(0.99, 0.2 + (i + 1) * 0.12) });
       if (res.done) break;
       if (i > 12) break;
+      if (Date.now() > deadline) break;
     }
     set({ progress: 1 });
   } catch {
@@ -51,6 +53,7 @@ export async function refreshFeed() {
     running = false;
   }
 }
+
 
 export function useWorldFeed() {
   const [s, setS] = useState(state);
