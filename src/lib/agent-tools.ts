@@ -4,7 +4,7 @@ import { historyFor, numericValue, mqttOnline, publishMqtt } from "./mqtt-bridge
 import { fetchIntegration } from "./integrations.functions";
 import { briefingText, refreshFeed, snapshot } from "./world-feed";
 import { pingNode } from "./hud-client";
-import { CIDR_RE, scanScript } from "./net-scan";
+import { CIDR_RE, checkScript, scanScript } from "./net-scan";
 
 import {
   agentCfg,
@@ -190,6 +190,14 @@ export const TOOL_CATALOG: ToolSpec[] = [
     builtin: true,
   },
   {
+    name: "nett_sjekk",
+    category: "os",
+    summary:
+      "Standard sjekkplan for nettverk: grensesnitt/subnett, gateway, DNS, internett, ARP-naboer og lyttende porter.",
+    args: '{"subnett": "192.168.1.0/24"}',
+    builtin: true,
+  },
+  {
     name: "nett_skann",
     category: "os",
     summary:
@@ -229,11 +237,31 @@ Tilgjengelige verktøy:
 - mal_liste {} – innebygde skriptmaler (service-start, docker-health, logg-innhenting, disk-varsel, gpu-telemetri, http-helsesjekk).
 - mal_test {"mal": "docker-health", "parametre": {"container": "ollama"}} – kjører malens selvtest i sandkassen og verifiserer forventninger.
 - mal_installer {"mal": "service-start", "parametre": {"tjeneste": "ollama"}} – tester og lagrer malen i sandkassen kun hvis testen består.
+- nett_sjekk {} eller {"subnett": "192.168.1.0/24"} – standard sjekkplan: grensesnitt/subnett, gateway, DNS, internett, ARP-naboer, lyttende porter.
 - nett_skann {} eller {"subnett": "192.168.1.0/24", "porter": true} – skanner ditt eget subnett og lister IP, MAC og vertsnavn.
 
-Nettverksspørsmål: hvis brukeren spør hvilke enheter som finnes i nettet/subnettet ditt, bruk
-nett_skann – ikke svar ut fra MQTT-enhetslisten. MQTT-verktøyene gjelder kun registrerte
-smarthusenheter, ikke nettverksskanning.
+VERKTØYREGLER (ufravikelige):
+R1. Alt som handler om DETTE nettet, DENNE maskinen eller DISSE sensorene skal hentes med
+    verktøy. Du har aldri lov til å gjette, anta eller beskrive hva som «sannsynligvis» finnes.
+R2. Nettverk og enheter i subnettet: kjør ALLTID nett_sjekk først, deretter nett_skann.
+    Aldri svar ut fra MQTT-enhetslisten – den gjelder kun registrerte smarthusenheter.
+R3. Ett verktøykall om gangen når resultatet påvirker neste steg. Les resultatet før du
+    fortsetter.
+R4. Er et verktøy utilgjengelig (lokal agent av, feilmelding), si det konkret og foreslå
+    nøyaktig hva som må slås på – ikke svar som om du hadde data.
+R5. Oppgi alltid i svaret hvilke verktøy du kjørte, med hvilke argumenter, og hva de ga.
+
+SJEKKPLAN FOR NETTVERKSOPPGAVER (følg trinnene i rekkefølge):
+Trinn 1 – nett_sjekk {}: bekreft grensesnitt, subnett (CIDR), gateway, DNS og at ARP-tabellen
+         leses. Er gateway eller DNS nede, rapporter det først – da er resten uinteressant.
+Trinn 2 – nett_skann {}: ping-sveip + ARP for hele subnettet. Bruk subnettet du fant i trinn 1
+         hvis automatikken bommet: nett_skann {"subnett": "<CIDR fra trinn 1>"}.
+Trinn 3 – nett_skann {"porter": true} kun når brukeren spør hva enhetene ER eller hvilke
+         tjenester som kjører. Ellers hopp over (det tar lang tid).
+Trinn 4 – identifiser: slå sammen IP, MAC, vertsnavn og eventuelle åpne porter til en tabell.
+         Trenger du mer (OUI-oppslag, banner, ruteroppslag), skriv et skript med skript_test.
+Trinn 5 – rapporter: antall enheter, tabellen, og hva som er ukjent/mistenkelig.
+Feiler et trinn: rett kallet (annet subnett, annen kommando) og prøv igjen før du gir opp.
 
 ARBEIDSMÅTE (viktigst av alt): du er en handlende agent, ikke en chatbot.
 1. Får du en oppgave – utfør den. Ikke spør om lov, ikke foreslå at «vi kan undersøke sammen»,
@@ -438,6 +466,7 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     call.name.startsWith("skript_") ||
     call.name.startsWith("mal_") ||
     call.name === "nett_skann" ||
+    call.name === "nett_sjekk" ||
     call.name === "agent_status"
   ) {
 
@@ -487,6 +516,17 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
         return "Brukeren avslo skanningen.";
       const scanCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, ports ? 180000 : 90000) };
       const r = await agentRun(scanCfg, { lang: "bash", content: scanScript(subnet, ports) });
+      return formatResult(r);
+    }
+
+    if (call.name === "nett_sjekk") {
+      const subnet = str(call.args["subnett"] ?? call.args["subnet"] ?? call.args["cidr"]).trim();
+      if (subnet && !CIDR_RE.test(subnet))
+        return `Ugyldig subnett «${subnet}». Bruk formen 192.168.1.0/24.`;
+      if (!approve(cfg, `nettverkssjekk (gateway, DNS, ARP, porter)`))
+        return "Brukeren avslo sjekken.";
+      const sjekkCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, 60000) };
+      const r = await agentRun(sjekkCfg, { lang: "bash", content: checkScript(subnet) });
       return formatResult(r);
     }
 
