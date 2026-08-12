@@ -26,14 +26,23 @@ Forhåndsvisningsmodus er **kun aktiv på `localhost` og `*.lovable.app`**. Den 
 
 ## Hurtigstart på Jetson (ett skript)
 
-Alt-i-ett-installasjonen setter opp Ollama, henter modellene (`llama3.2`, `hermes3`, `nomic-embed-text`), installerer backend-agenten som systemd-tjeneste og lager innlogging:
+`oppsett.sh` gjør hele jobben: systempakker, Node 20, Ollama + modeller (`llama3.2`, `hermes3`, `nomic-embed-text`), backend-agent som systemd-tjeneste, admin-innlogging, og bygging + servering av web-GUI-et.
 
 ```sh
 git clone <din-github-url> && cd <repository-name>
-sudo bash agent/scripts/install-jetson.sh
+sudo bash oppsett.sh
 ```
 
-Etterpå finner du innloggingen i `/root/jarvis-innlogging.txt`. Åpne HUD-en, gå til `/logg-inn`, skriv inn `http://<jetson-ip>:8787` og trykk **KOBLE**. Logg inn med e-post og passord fra filen.
+Uten spørsmål (f.eks. i automatikk):
+
+```sh
+sudo bash oppsett.sh --stille --epost meg@example.com --passord "hemmelig"
+```
+
+Nyttige valg: `--uten-gui`, `--uten-modeller`, `--chat-modell llama3.2:3b`, `--hermes-modell hermes3:8b`, `--port 8787`, `--gui-port 8080`.
+
+Vil du bare ha backend-agenten (uten GUI-tjeneste), kan du fortsatt bruke `sudo bash agent/scripts/install-jetson.sh`.
+
 
 Deretter: **NODER → HURTIGOPPSETT**, skriv inn Jetson-IP-en, så registreres `JETSON-01` + `HERMES` automatisk med tilkoblingstest.
 
