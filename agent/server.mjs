@@ -251,6 +251,15 @@ const requestHandler = async (req, res) => {
     return;
   }
 
+  // Alt annet enn agent-/API-rutene tilhører web-GUI-et: proxy videre dit slik
+  // at samme adresse (f.eks. https://<jetson>:8443) gir HUD-en i nettleseren.
+  if (skalProxes(route, req)) {
+    proxyTilGui(req, res);
+    return;
+  }
+
+
+
   // OS-/sandkasse-endepunktene: streng rate-limiting og token-krav.
   const begrenset = rateLimit(req, route === "/health" || route === "/" ? "api" : "exec");
   if (begrenset) {
