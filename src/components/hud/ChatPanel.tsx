@@ -511,14 +511,18 @@ export function ChatPanel({
         <div ref={endRef} />
       </div>
       <div className="flex items-center gap-2 border-t border-primary/20 pt-2">
-        <input
+        <textarea
           value={input}
+          rows={Math.min(10, Math.max(1, input.split("\n").length))}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") void send();
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void send();
+            }
           }}
-          placeholder="Snakk til systemet…"
-          className="hud-input flex-1"
+          placeholder="Snakk til systemet… (Shift+Enter = ny linje, ``` for kode)"
+          className="hud-input flex-1 resize-none"
         />
         <button
           onClick={() => {
