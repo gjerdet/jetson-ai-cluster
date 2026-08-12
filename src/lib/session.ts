@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { backend, backendToken, safe, type BackendStatus, type BackendUser } from "@/lib/backend";
+import { KREV_INNLOGGING, LOKAL_BRUKER } from "@/lib/auth-mode";
 
 export type SessionState = "sjekker" | "inne" | "ute";
 
@@ -15,6 +16,12 @@ export function useSession() {
   const refresh = useCallback(async () => {
     const s = await safe(() => backend.status());
     setStatus(s.data);
+    if (!KREV_INNLOGGING) {
+      // Innlogging er slått av (lokalt miljø): alle regnes som lokal admin.
+      setUser((LOKAL_BRUKER as unknown) as BackendUser);
+      setState("inne");
+      return;
+    }
     if (!backendToken()) {
       setUser(null);
       setState("ute");

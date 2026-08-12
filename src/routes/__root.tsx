@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { PreviewGate } from "@/components/hud/PreviewGate";
 import { usePreviewSession } from "@/lib/preview-session";
+import { KREV_INNLOGGING } from "@/lib/auth-mode";
 
 function NotFoundComponent() {
   return (
@@ -127,7 +128,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const { isPreview, unlocked, checking, refresh } = usePreviewSession();
 
-  if (checking) {
+  if (KREV_INNLOGGING && checking) {
     return (
       <QueryClientProvider client={queryClient}>
         <div className="hud-root flex min-h-screen items-center justify-center">
@@ -137,7 +138,7 @@ function RootComponent() {
     );
   }
 
-  if (isPreview && !unlocked) {
+  if (KREV_INNLOGGING && isPreview && !unlocked) {
     return (
       <QueryClientProvider client={queryClient}>
         <PreviewGate onUnlock={() => void refresh()} />

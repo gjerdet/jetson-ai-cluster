@@ -1,3 +1,4 @@
+import { KREV_INNLOGGING } from "@/lib/auth-mode";
 import { useEffect, useRef, useState } from "react";
 import {
   SendHorizonal,
@@ -176,7 +177,7 @@ export function ChatPanel({
     // Backend er standardveien. Bare et eksplisitt avslag bruker direkte kall
     // fra nettleseren til modellen (som ellers lett blokkeres av CORS/TLS).
     const viaBackend = config.chatViaBackend !== false;
-    if (viaBackend && !backendToken()) {
+    if (viaBackend && KREV_INNLOGGING && !backendToken()) {
       setError("Backend-chat er aktiv, men du er ikke innlogget. Logg inn under SYSTEM → BACKEND.");
       return;
     }

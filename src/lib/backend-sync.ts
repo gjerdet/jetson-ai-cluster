@@ -8,6 +8,7 @@
 import { backend, backendToken, safe, type BackendRule, type Sample as BackendSample } from "@/lib/backend";
 import type { AlertRule, RuleAction } from "@/lib/hud-store";
 import type { Sample as LocalSample } from "@/lib/mqtt-bridge";
+import { KREV_INNLOGGING } from "@/lib/auth-mode";
 
 export type Kilde = "backend" | "lokal";
 
@@ -19,7 +20,7 @@ export type SyncResult<T> = {
 };
 
 /** Er vi innlogget mot backend-en? Uten token gir rutene 401. */
-export const paalogget = () => !!backendToken();
+export const paalogget = () => !KREV_INNLOGGING || !!backendToken();
 
 /**
  * Kjør et backend-kall med lokal reserve. Kaster aldri – panelene får

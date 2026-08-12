@@ -16,7 +16,7 @@ import fsSync from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
-import { handleApi, erApiRute } from "./lib/api.mjs";
+import { handleApi, erApiRute, KREV_INNLOGGING } from "./lib/api.mjs";
 import { userFromRequest } from "./lib/auth.mjs";
 import { networkCheckScript, networkScanScript } from "./lib/network-tools.mjs";
 
@@ -258,7 +258,7 @@ const requestHandler = async (req, res) => {
     return json(req, res, 429, { error: `For mange forespørsler. Prøv igjen om ${begrenset.retryAfter} sekunder.` });
   }
 
-  if (TOKEN) {
+  if (TOKEN && KREV_INNLOGGING) {
     const auth = req.headers.authorization || "";
     const forventet = `Bearer ${TOKEN}`;
     const okToken =
