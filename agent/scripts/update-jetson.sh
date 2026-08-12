@@ -22,11 +22,9 @@ feil(){ echo -e "${RED}✗ $*${RST}"; }
 
 REF="${1:-main}"
 
-# Finn git-repoet automatisk. Rekkefølge:
-#   1. Nåværende mappe hvis den er et git-repo
-#   2. JARVIS_DIR
-#   3. /opt/jarvis-agent (standard installasjonssti)
-#   4. Parent-mapper til nåværende mappe (opptil 3 nivåer)
+# Kilde-repoet og den installerte agenten er to forskjellige mapper:
+#   kilde: ~/jetson-ai-cluster (har .git, hele GUI-et og agent/)
+#   agent: /opt/jarvis-agent (kun kjørekopi, har normalt ikke .git)
 finn_repo() {
   local d="$1"
   while [ "$d" != "/" ] && [ -n "$d" ]; do
@@ -36,37 +34,36 @@ finn_repo() {
   return 1
 }
 
-APP_DIR=""
-for candidate in "$(pwd)" "${JARVIS_DIR:-}" "/opt/jarvis-agent"; do
+SOURCE_DIR=""
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+for candidate in "$(pwd)" "$SCRIPT_DIR" "${JARVIS_SOURCE_DIR:-}"; do
   [ -n "$candidate" ] || continue
   if repo_path="$(finn_repo "$candidate")"; then
-    APP_DIR="$repo_path"
+    SOURCE_DIR="$repo_path"
     break
   fi
 done
 
-# Siste utvei: søk oppover fra nåværende mappe
-if [ -z "$APP_DIR" ]; then
-  APP_DIR="$(finn_repo "$(pwd)")" || true
-fi
-
-if [ -z "$APP_DIR" ] || [ ! -d "$APP_DIR/.git" ]; then
+if [ -z "$SOURCE_DIR" ] || [ ! -d "$SOURCE_DIR/.git" ]; then
   feil "Fant ikke Jarvis-git-repoet."
-  echo "Kjør fra repo-mappen, eller sett JARVIS_DIR:"
-  echo "  sudo JARVIS_DIR=/opt/jarvis-agent bash $0"
-  echo "  sudo bash $0   (fra mappen med .git)"
+  echo "Kjør skriptet fra kilde-repoet (mappen som har .git):"
+  echo "  cd ~/jetson-ai-cluster"
+  echo "  sudo bash agent/scripts/update-jetson.sh"
+  echo "Du kan også sette JARVIS_SOURCE_DIR=/full/sti/til/repo."
   exit 1
 fi
 
+APP_DIR="${JARVIS_DIR:-/opt/jarvis-agent}"
 GUI_DIR="${JARVIS_GUI_DIR:-/opt/jarvis-gui}"
-DATA_DIR="${AGENT_DATA:-$APP_DIR/agent/data}"
+DATA_DIR="${AGENT_DATA:-/var/lib/jarvis/data}"
 ENV_FILE="/etc/jarvis/agent.env"
 SERVICE="${JARVIS_SERVICE:-jarvis-agent}"
 GUI_SERVICE="${JARVIS_GUI_SERVICE:-jarvis-gui}"
 
-[ -d "$APP_DIR" ] || { feil "Fant ikke $APP_DIR – kjør oppsett.sh først."; exit 1; }
+[ -f "$SOURCE_DIR/agent/server.mjs" ] || { feil "$SOURCE_DIR er ikke et komplett Jarvis-repo."; exit 1; }
+[ -d "$APP_DIR" ] || { feil "Fant ikke installasjonen i $APP_DIR – kjør oppsett.sh først."; exit 1; }
 
-cd "$APP_DIR"
+cd "$SOURCE_DIR"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$APP_DIR/.oppdatering/$STAMP"
@@ -87,34 +84,60 @@ si "Tar sikkerhetskopi …"
 ok "Backup lagret i $BACKUP"
 
 # ── 2. Hent ny kode ───────────────────────────────────────────────────────────
-FOER="$(git rev-parse --short HEAD 2>/dev/null || echo ukjent)"
+REPO_EIER="$(stat -c '%U' "$SOURCE_DIR")"
+REPO_GRUPPE="$(stat -c '%G' "$SOURCE_DIR")"
+if [ "$REPO_EIER" = "root" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+  REPO_EIER="$SUDO_USER"
+  REPO_GRUPPE="$(id -gn "$SUDO_USER")"
+fi
+
+# Eldre kjøringer kan ha opprettet FETCH_HEAD som root. Gi bare Git-metadataene
+# tilbake til repo-eieren; konfig og installerte filer under /opt røres ikke.
+chown -R "$REPO_EIER:$REPO_GRUPPE" "$SOURCE_DIR/.git"
+git_som_eier() {
+  if [ "$REPO_EIER" = "root" ]; then
+    git -C "$SOURCE_DIR" "$@"
+  else
+    runuser -u "$REPO_EIER" -- git -C "$SOURCE_DIR" "$@"
+  fi
+}
+
+FOER="$(git_som_eier rev-parse --short HEAD 2>/dev/null || echo ukjent)"
 si "Henter ny versjon ($REF) …"
-git fetch --all --tags --prune
+git_som_eier fetch --all --tags --prune
 
 # Hvis det finnes lokale endringer (f.eks. konfigfiler), lagre dem midlertidig.
-if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+if [ -n "$(git_som_eier status --porcelain 2>/dev/null)" ]; then
   adv "Lokale endringer i repoet oppdaget – lagrer i stash"
-  git stash push -m "auto-stash-før-oppdatering-$STAMP" || true
+  git_som_eier stash push -m "auto-stash-før-oppdatering-$STAMP" || true
 fi
 
-git checkout "$REF"
-git pull --ff-only
-ETTER="$(git rev-parse --short HEAD 2>/dev/null || echo ukjent)"
+git_som_eier checkout "$REF"
+git_som_eier pull --ff-only
+ETTER="$(git_som_eier rev-parse --short HEAD 2>/dev/null || echo ukjent)"
 ok "$FOER → $ETTER"
 
-# ── 3. Installer avhengigheter ────────────────────────────────────────────────
-si "Installerer avhengigheter …"
-if [ -f "$APP_DIR/agent/package.json" ]; then
-  (cd "$APP_DIR/agent" && npm ci --omit=dev 2>/dev/null) || (cd "$APP_DIR/agent" && npm install --omit=dev)
-fi
+# ── 3. Oppdater installert agent og avhengigheter ─────────────────────────────
+si "Kopierer ny agentkode til $APP_DIR …"
+mkdir -p "$APP_DIR"
+cp -a "$SOURCE_DIR/agent/." "$APP_DIR/"
 if [ -f "$APP_DIR/package.json" ]; then
-  (cd "$APP_DIR" && npm ci 2>/dev/null) || (cd "$APP_DIR" && npm install)
+  (cd "$APP_DIR" && npm ci --omit=dev --no-audit --no-fund 2>/dev/null) ||
+    (cd "$APP_DIR" && npm install --omit=dev --no-audit --no-fund)
 fi
+chown -R jarvis:jarvis "$APP_DIR"
+ok "Agentkode oppdatert"
 
 # ── 4. Bygg GUI ───────────────────────────────────────────────────────────────
-if [ -f "$APP_DIR/package.json" ] && [ "${HOPP_GUI:-0}" -eq 0 ]; then
+if [ -f "$SOURCE_DIR/package.json" ] && [ "${HOPP_GUI:-0}" -eq 0 ]; then
   si "Bygger web-GUI …"
-  (cd "$APP_DIR" && NITRO_PRESET=node-server npm run build)
+  (cd "$SOURCE_DIR" && npm install --include=dev --no-audit --no-fund)
+  (cd "$SOURCE_DIR" && NITRO_PRESET=node-server npm run build)
+  mkdir -p "$GUI_DIR/agent/scripts"
+  rm -rf "$GUI_DIR/.output"
+  cp -a "$SOURCE_DIR/.output" "$GUI_DIR/.output"
+  cp -a "$SOURCE_DIR/agent/scripts/start-gui.sh" "$GUI_DIR/agent/scripts/start-gui.sh"
+  chown -R jarvis:jarvis "$GUI_DIR"
   ok "GUI bygget"
 fi
 
@@ -147,7 +170,7 @@ frigjor_port "$AGENT_TLS_PORT"
 frigjor_port "${JARVIS_GUI_PORT:-8080}"
 
 # ── 6. Oppdater systemd-unit hvis malen er endret ─────────────────────────────
-AGENT_SERVICE_MAL="$APP_DIR/agent/jarvis-agent.service"
+AGENT_SERVICE_MAL="$APP_DIR/jarvis-agent.service"
 if [ -f "$AGENT_SERVICE_MAL" ] && [ -f "/etc/systemd/system/$SERVICE.service" ]; then
   if ! cmp -s "$AGENT_SERVICE_MAL" "/etc/systemd/system/$SERVICE.service"; then
     si "Oppdaterer systemd-unit for $SERVICE"
@@ -206,7 +229,7 @@ else
 fi
 
 # ── 9. Oppdater GUI-konfig hvis backend-adressen har endret seg ───────────────
-if [ -f "$GUI_DIR/.output/server/index.mjs" ] || [ -d "$APP_DIR/dist" ]; then
+if [ -f "$GUI_DIR/.output/server/index.mjs" ]; then
   adv "Husk å åpne HUD-en på nytt i nettleseren for å laste siste versjon."
 fi
 
