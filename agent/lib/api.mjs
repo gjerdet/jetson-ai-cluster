@@ -665,7 +665,22 @@ export async function handleApi(req, res, route, url, deps = {}) {
       return json(req, res, 200, importerKonfig(pakke, { modus: b.modus, bare: b.bare }));
     }
 
+    // ---- logger (systemd + oppsett) --------------------------------------
+    if (path === "/logger/kilder" && method === "GET") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      return json(req, res, 200, { kilder: await loggKilder() });
+    }
+
+    if (path === "/logger" && method === "GET") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      const kilde = url.searchParams.get("kilde") || "agent";
+      const linjer = num(url.searchParams.get("linjer"), "Linjer", { min: 10, maks: 2000, standard: 200 });
+      const siden = url.searchParams.get("siden") || "";
+      return json(req, res, 200, await hentLogg(kilde, { linjer, siden }));
+    }
+
     // ---- sikkerhetskopier -------------------------------------------------
+
     if (path === "/backup") {
       if (!admin) return json(req, res, 403, { error: "Kun admin" });
       if (method === "GET") return json(req, res, 200, { kopier: await listBackups() });
