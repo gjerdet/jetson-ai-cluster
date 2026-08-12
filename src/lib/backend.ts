@@ -342,6 +342,19 @@ export const backend = {
       { method: "POST", body: JSON.stringify({ meldinger, ...o }) },
       { timeoutMs: 330_000, retries: 0 },
     ),
+  /** Tester én AI-node: adresse, nøkkel, modell og at den faktisk svarer. */
+  testAi: (o: { baseUrl?: string; model?: string; apiKey?: string } = {}) =>
+    call<{
+      ok: boolean;
+      endpoint?: string;
+      model?: string;
+      byttetModell?: boolean;
+      svar?: string;
+      modeller?: string[];
+      ms?: number;
+      error?: string;
+    }>(ROUTES.aiTest!, { method: "POST", body: JSON.stringify(o) }, { timeoutMs: 60_000, retries: 0 }),
+
   lagreAi: (v: Partial<AiConfig>) => call(ROUTES.ai!, { method: "PUT", body: JSON.stringify(v) }),
 
   maalinger: (p: { emne?: string; fra?: number; til?: number; maks?: number } = {}) => {
