@@ -521,9 +521,18 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       if (!approve(cfg, `nettverksskanning av ${subnet || "eget subnett"}`))
         return "Brukeren avslo skanningen.";
       const scanCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, ports ? 180000 : 90000) };
-      const r = backendToken()
-        ? await backendNetworkScan(subnet, ports)
-        : await agentRun(scanCfg, { lang: "bash", content: scanScript(subnet, ports) });
+      let r;
+      if (backendToken()) {
+        try {
+          r = await backendNetworkScan(subnet, ports);
+        } catch {
+          // Eldre Jetson-installasjoner har ikke /api/verktoy ennå, men har
+          // fortsatt den innloggingsbeskyttede /run-ruten.
+          r = await agentRun(scanCfg, { lang: "bash", content: scanScript(subnet, ports) });
+        }
+      } else {
+        r = await agentRun(scanCfg, { lang: "bash", content: scanScript(subnet, ports) });
+      }
       return formatResult(r);
     }
 
@@ -534,9 +543,16 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       if (!approve(cfg, `nettverkssjekk (gateway, DNS, ARP, porter)`))
         return "Brukeren avslo sjekken.";
       const sjekkCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, 60000) };
-      const r = backendToken()
-        ? await backendNetworkCheck(subnet)
-        : await agentRun(sjekkCfg, { lang: "bash", content: checkScript(subnet) });
+      let r;
+      if (backendToken()) {
+        try {
+          r = await backendNetworkCheck(subnet);
+        } catch {
+          r = await agentRun(sjekkCfg, { lang: "bash", content: checkScript(subnet) });
+        }
+      } else {
+        r = await agentRun(sjekkCfg, { lang: "bash", content: checkScript(subnet) });
+      }
       return formatResult(r);
     }
 
