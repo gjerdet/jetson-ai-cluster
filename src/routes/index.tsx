@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { HudWindow } from "@/components/hud/HudWindow";
 import { AmbientField } from "@/components/hud/AmbientField";
@@ -13,6 +13,7 @@ import { HealthPanel } from "@/components/hud/HealthPanel";
 import { PoolPanel } from "@/components/hud/PoolPanel";
 import { BackendStatusBadge } from "@/components/hud/BackendStatusBadge";
 import { useHudConfig } from "@/lib/hud-store";
+import { useSession } from "@/lib/session";
 import { setRules, setTelegramChat } from "@/lib/mqtt-bridge";
 
 export const Route = createFileRoute("/")({
@@ -61,9 +62,18 @@ const TITLES: Record<WinId, { title: string; subtitle: string }> = {
 
 function Index() {
   const { config, update, loaded } = useHudConfig();
+  const navigate = useNavigate();
+  const { state, user, loggUt } = useSession();
   const [open, setOpen] = useState<WinId[]>([]);
   const [order, setOrder] = useState<WinId[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // ingen økt mot den lokale agenten → send brukeren til innloggingen
+  useEffect(() => {
+    if (state === "ute") void navigate({ to: "/logg-inn", replace: true });
+  }, [state, navigate]);
+
+
 
   // regler skal gjelde selv om SMARTHUS-vinduet er lukket
   useEffect(() => {
@@ -91,9 +101,23 @@ function Index() {
       <div className="hud-grid pointer-events-none absolute inset-0" />
       <div className="hud-scan pointer-events-none absolute inset-0" />
 
-      <header className="relative z-50 flex items-center justify-end px-5 py-4">
+      <header className="relative z-50 flex items-center justify-end gap-3 px-5 py-4">
         <BackendStatusBadge />
+        {user ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">
+              {user.email}
+            </span>
+            <button
+              className="rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[9px] uppercase tracking-[0.2em] text-primary/80 transition hover:bg-primary/15"
+              onClick={() => void loggUt()}
+            >
+              LOGG UT
+            </button>
+          </div>
+        ) : null}
       </header>
+
 
       <CenterMenu
         open={menuOpen}
