@@ -402,6 +402,67 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     return res.join("\n");
   }
 
+  if (call.name === "spor_kollega") {
+    const onske = str(call.args["node"] ?? call.args["kollega"] ?? call.args["modell"]).toLowerCase();
+    const oppgave = str(call.args["oppgave"] ?? call.args["sporsmal"] ?? call.args["tekst"]);
+    const kontekst = str(call.args["kontekst"] ?? call.args["context"]);
+    if (!oppgave) return "Mangler «oppgave» – skriv hva kollegaen skal gjøre.";
+
+    const aktive = config.nodes.filter((n) => n.enabled);
+    if (!aktive.length) return "Ingen aktive AI-noder å delegere til.";
+    const treff = onske
+      ? aktive.find(
+          (n) =>
+            n.name.toLowerCase().includes(onske) ||
+            n.model.toLowerCase().includes(onske) ||
+            n.id.toLowerCase().includes(onske),
+        )
+      : undefined;
+    const kollega =
+      treff ??
+      aktive.find((n) => /hermes/i.test(n.name) || /hermes/i.test(n.model)) ??
+      aktive.find((n) => n.role !== "primary") ??
+      aktive[0];
+    if (!kollega) return "Fant ingen passende kollega-node.";
+
+    const meldinger = [
+      {
+        role: "system",
+        content:
+          "Du er en fagkollega som hjelper hovedagenten JARVIS. Svar kort, konkret og på norsk bokmål. " +
+          "Du har ingen verktøy og ingen tilgang til nettet eller maskinen – bruk kun konteksten du får. " +
+          "Er noe usikkert, si det tydelig i stedet for å gjette.",
+      },
+      {
+        role: "user",
+        content: kontekst ? `Kontekst fra JARVIS:\n${kontekst}\n\nOppgave:\n${oppgave}` : oppgave,
+      },
+    ];
+
+    const t0 = Date.now();
+    try {
+      const svar = await backend.aiChat(meldinger, {
+        baseUrl: kollega.baseUrl,
+        model: kollega.model,
+        nodeId: kollega.id,
+        ...(kollega.apiKey ? { apiKey: kollega.apiKey } : {}),
+        oppgave: "chat",
+      });
+      const tekst = (svar?.svar ?? "").trim();
+      if (!tekst) return `${kollega.name} svarte tomt.`;
+      return `Svar fra ${kollega.name} (${kollega.model}, ${Date.now() - t0} ms):\n${tekst}`;
+    } catch (e) {
+      try {
+        const tekst = await callNode(kollega, meldinger as ChatMsg[]);
+        return `Svar fra ${kollega.name} (${kollega.model}, direkte, ${Date.now() - t0} ms):\n${tekst}`;
+      } catch (e2) {
+        return `Fikk ikke kontakt med ${kollega.name}: ${e2 instanceof Error ? e2.message : String(e)}`;
+      }
+    }
+  }
+
+
+
   if (call.name === "system_hent") {
     const name = str(call.args["navn"] ?? call.args["name"]).toLowerCase();
     const path = str(call.args["sti"] ?? call.args["path"]) || "/";
