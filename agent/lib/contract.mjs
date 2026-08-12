@@ -133,7 +133,7 @@ export const ERROR_TEXTS = {
   rate_limit: "For mange forespørsler mot backend-en. Vent litt og prøv igjen.",
   network: "Får ikke kontakt med backend-en. Sjekk at agenten kjører og at adressen stemmer.",
   timeout: "Backend-en svarte ikke i tide.",
-  tls: "TLS-feil. Godkjenn sertifikatet i nettleseren ved å åpne backend-adressen direkte.",
+  tls: "Fikk ikke sikker kontakt (HTTPS) med backend-en. Enten er det selvsignerte sertifikatet ikke godkjent i denne nettleseren, eller så svarer ikke agenten på adressen.",
   server: "Backend-en svarte med en uventet feil.",
 };
 

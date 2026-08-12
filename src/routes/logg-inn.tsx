@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AmbientField } from "@/components/hud/AmbientField";
+import { TlsHjelp } from "@/components/hud/TlsHjelp";
 import {
   backend,
   backendUrl,
@@ -173,33 +174,16 @@ function LoggInn() {
           {feil ? <div className="text-[10px] text-destructive/80">{feil}</div> : null}
 
           {tlsFeil ? (
-            <div className="flex flex-wrap gap-2">
-              <a
-                className={btn}
-                href={statusLenke()}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setTimeout(() => void sjekkBackend(url), 4000)}
-              >
-                ÅPNE OG GODTA SERTIFIKAT
-              </a>
-              <button type="button" className={btn} onClick={() => void sjekkBackend(url)}>
-                PRØV IGJEN
-              </button>
-              {httpAlternativ ? (
-                <button
-                  type="button"
-                  className={btn}
-                  onClick={() => {
-                    setUrl(httpAlternativ);
-                    void sjekkBackend(httpAlternativ);
-                  }}
-                >
-                  BRUK HTTP I STEDET
-                </button>
-              ) : null}
-            </div>
+            <TlsHjelp
+              url={url}
+              onRetry={(ny: string) => {
+                setUrl(ny);
+                void sjekkBackend(ny);
+              }}
+            />
+
           ) : null}
+
 
           <button className={`${btn} w-full`} type="submit" disabled={busy}>
             {busy ? "…" : forstegang ? "OPPRETT OG LOGG INN" : "LOGG INN"}
