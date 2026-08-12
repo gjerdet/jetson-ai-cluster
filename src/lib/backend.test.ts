@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BackendError, backend, backendToken, setBackendToken, setBackendUrl, safe } from "@/lib/backend";
-import { ERROR_CODES } from "@/lib/contract";
+import { BackendError, backend, backendToken, setBackendToken, setBackendUrl, safe, standardBackendUrl } from "@/lib/backend";
+import { DEFAULTS, ERROR_CODES } from "@/lib/contract";
 
 /** Enkel fetch-mock som svarer med gitt status/kropp. */
 function mockFetch(svar: Array<{ status: number; body: unknown; headers?: Record<string, string> }>) {
