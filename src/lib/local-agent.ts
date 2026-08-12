@@ -1,5 +1,5 @@
 import type { HudConfig } from "./hud-store";
-import { backendToken, backendUrl } from "./backend";
+import { backend, backendToken, backendUrl } from "./backend";
 
 
 /** Konfigurasjon for den lokale agent-tjenesten som kjører på Jetson/Pi. */
@@ -30,11 +30,11 @@ export const defaultLocalAgent: LocalAgentConfig = {
  */
 export function agentCfg(config: HudConfig): LocalAgentConfig {
   const cfg = { ...defaultLocalAgent, ...(config.localAgent ?? {}) };
-  if (cfg.enabled && cfg.baseUrl) return cfg;
   const url = backendUrl();
   const token = backendToken();
-  if (url && token) return { ...cfg, enabled: true, baseUrl: url, token };
-  return cfg;
+  if (token) return { ...cfg, enabled: true, baseUrl: url || cfg.baseUrl, token };
+  if (cfg.enabled && cfg.baseUrl && cfg.token) return cfg;
+  return { ...cfg, enabled: false };
 }
 
 
@@ -128,6 +128,10 @@ export const agentRun = (
     method: "POST",
     body: JSON.stringify({ ...opts, timeoutMs: cfg.timeoutMs }),
   });
+
+/** Nettverksjobber går helst via det innloggede backend-API-et. */
+export const backendNetworkCheck = (subnet = "") => backend.nettSjekk(subnet);
+export const backendNetworkScan = (subnet = "", ports = false) => backend.nettSkann(subnet, ports);
 
 /** Kompakt tekstform av et kjøreresultat, brukt i verktøysvar til modellen. */
 export function formatResult(r: ExecResult): string {

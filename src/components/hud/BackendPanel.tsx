@@ -3,6 +3,7 @@ import {
   backend,
   backendUrl,
   backendToken,
+  onBackendState,
   setBackendUrl,
   BackendError,
   safe,
@@ -68,7 +69,13 @@ export function BackendPanel() {
   useEffect(() => {
     void refresh();
     const t = setInterval(() => void refresh(), 15_000);
-    return () => clearInterval(t);
+    const unsubscribe = onBackendState(({ error }) => {
+      if (error?.status === 401 || !backendToken()) setUser(null);
+    });
+    return () => {
+      clearInterval(t);
+      unsubscribe();
+    };
   }, [refresh]);
 
   const auth = async (mode: "login" | "register") => {

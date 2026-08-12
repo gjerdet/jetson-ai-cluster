@@ -157,7 +157,7 @@ async function readBody(req, maks = 5_000_000) {
  * `deps`: { publish(emne, payload), mqttStatus() }
  */
 /** Rutene backend-API-et eier, med eller uten «/api»-prefiks. */
-export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram"];
+export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram", "/verktoy"];
 
 export function erApiRute(route) {
   if (route === "/api" || route.startsWith("/api/")) return true;
@@ -306,6 +306,21 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
   try {
     if (path === "/auth/me") return json(req, res, 200, { user });
+
+    // ---- lokale verktøy på samme Jetson som backend-en -------------------
+    // Kjøres gjennom det innloggede API-et, slik at HUD-en ikke trenger et
+    // separat «lokal agent»-oppsett eller et ekstra agent-token.
+    if ((path === "/verktoy/nett-sjekk" || path === "/verktoy/nett-skann") && method === "POST") {
+      if (!deps.runNetworkTool)
+        return json(req, res, 503, { error: "Nettverksverktøy er ikke tilgjengelig i denne backend-versjonen." });
+      const b = await readBody(req);
+      const resultat = await deps.runNetworkTool({
+        type: path.endsWith("nett-skann") ? "scan" : "check",
+        subnet: String(b.subnett ?? b.subnet ?? b.cidr ?? "").trim(),
+        ports: b.porter === true || b.ports === true,
+      });
+      return json(req, res, 200, resultat);
+    }
 
     if (path === "/auth/logout" && method === "POST") {
       logout(user.token);

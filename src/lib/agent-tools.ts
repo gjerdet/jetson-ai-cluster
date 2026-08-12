@@ -5,9 +5,12 @@ import { fetchIntegration } from "./integrations.functions";
 import { briefingText, refreshFeed, snapshot } from "./world-feed";
 import { pingNode } from "./hud-client";
 import { CIDR_RE, checkScript, scanScript } from "./net-scan";
+import { backendToken } from "./backend";
 
 import {
   agentCfg,
+  backendNetworkCheck,
+  backendNetworkScan,
   agentDeleteScript,
   agentExec,
   agentHealth,
@@ -503,8 +506,10 @@ function approve(cfg: ReturnType<typeof agentCfg>, what: string): boolean {
 /** Verktøy som går mot den lokale agent-tjenesten (OS-kommandoer og skript-sandkasse). */
 async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> {
   const cfg = agentCfg(config);
-  if (!cfg.enabled || !cfg.baseUrl)
-    return "Ingen agent tilgjengelig: logg inn mot backend-en (BACKEND-fanen) eller slå på SYSTEM → KOBLINGER → LOKAL AGENT. Sandkassen kjører på Jetson via agent/server.mjs.";
+  if (!cfg.baseUrl)
+    return "Ingen agentadresse er konfigurert. Angi backend-adressen under SYSTEM → BACKEND.";
+  if (!cfg.enabled || !cfg.token)
+    return "Backend-sesjonen mangler eller har utløpt. Logg inn på nytt under SYSTEM → BACKEND, og prøv oppgaven igjen.";
 
 
   try {
@@ -516,7 +521,9 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       if (!approve(cfg, `nettverksskanning av ${subnet || "eget subnett"}`))
         return "Brukeren avslo skanningen.";
       const scanCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, ports ? 180000 : 90000) };
-      const r = await agentRun(scanCfg, { lang: "bash", content: scanScript(subnet, ports) });
+      const r = backendToken()
+        ? await backendNetworkScan(subnet, ports)
+        : await agentRun(scanCfg, { lang: "bash", content: scanScript(subnet, ports) });
       return formatResult(r);
     }
 
@@ -527,7 +534,9 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       if (!approve(cfg, `nettverkssjekk (gateway, DNS, ARP, porter)`))
         return "Brukeren avslo sjekken.";
       const sjekkCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, 60000) };
-      const r = await agentRun(sjekkCfg, { lang: "bash", content: checkScript(subnet) });
+      const r = backendToken()
+        ? await backendNetworkCheck(subnet)
+        : await agentRun(sjekkCfg, { lang: "bash", content: checkScript(subnet) });
       return formatResult(r);
     }
 

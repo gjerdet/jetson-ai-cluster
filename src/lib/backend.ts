@@ -102,6 +102,17 @@ export interface UpdateStatus {
   oppdatert: number;
 }
 
+export type BackendToolResult = {
+  ok?: boolean;
+  code?: number | null;
+  signal?: string | null;
+  timedOut?: boolean;
+  ms?: number;
+  stdout?: string;
+  stderr?: string;
+  error?: string;
+};
+
 const LS_URL = "jarvis.backend.url";
 const LS_TOKEN = "jarvis.backend.token";
 export const DEFAULT_BACKEND_URL = "https://192.168.12.5:8443";
@@ -323,6 +334,18 @@ export const backend = {
       setBackendToken(null);
     }
   },
+  nettSjekk: (subnett = "") =>
+    call<BackendToolResult>(
+      "/verktoy/nett-sjekk",
+      { method: "POST", body: JSON.stringify({ subnett }) },
+      { timeoutMs: 70_000, retries: 0 },
+    ),
+  nettSkann: (subnett = "", porter = false) =>
+    call<BackendToolResult>(
+      "/verktoy/nett-skann",
+      { method: "POST", body: JSON.stringify({ subnett, porter }) },
+      { timeoutMs: porter ? 190_000 : 100_000, retries: 0 },
+    ),
   brukere: () => call<{ brukere: BackendUser[] }>(ROUTES.users!).then((r) => r.brukere),
   slettBruker: (id: string) => call(`${ROUTES.users}/${encodeURIComponent(id)}`, { method: "DELETE" }),
   byttPassord: (passord: string, brukerId?: string) =>
