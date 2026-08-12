@@ -42,13 +42,17 @@ export function statusRaad(status, endpoint) {
 }
 
 
-/** Henter installerte modeller fra en Ollama-node. */
+/** Henter tilgjengelige modeller fra en Ollama-node eller skytjeneste. */
 export async function listModels(baseUrl, { apiKey, signal } = {}) {
-  const root = String(baseUrl || "").trim().replace(/\/+$/, "").replace(/\/(v1|api\/chat|chat\/completions|chat)$/i, "");
+  const root = normalizeBase(baseUrl).replace(/\/(v1|api\/chat|chat\/completions|chat)$/i, "");
   if (!root) return [];
-  for (const url of [`${root}/api/tags`, `${root}/v1/models`]) {
+  for (const url of [`${root}/v1/models`, `${root}/api/tags`]) {
     try {
-      const r = await fetch(url, { headers: apiKey ? { authorization: `Bearer ${apiKey}` } : {}, signal });
+      const r = await fetch(url, {
+        headers: { ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}), ...providerHeaders(url) },
+        signal,
+      });
+
       if (!r.ok) continue;
       const d = await r.json();
       const navn = (d?.models || d?.data || []).map((m) => m?.name || m?.id).filter(Boolean);
