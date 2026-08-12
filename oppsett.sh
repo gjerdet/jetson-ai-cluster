@@ -239,7 +239,15 @@ fi
 chown -R jarvis:jarvis "$APP_DIR"
 
 NODE_BIN="$(command -v node)"
+# Kataloger agenten må kunne skrive til – de MÅ finnes før systemd setter opp
+# sandkassen, ellers feiler tjenesten allerede før node starter.
+mkdir -p /var/lib/jarvis "$DATA_DIR" "$SANDBOX_DIR" "$LOG_DIR"
+chown -R jarvis:jarvis /var/lib/jarvis "$DATA_DIR" "$SANDBOX_DIR" "$LOG_DIR" 2>/dev/null || true
+
 # Tjenestefila genereres her slik at stiene alltid stemmer med denne installasjonen.
+# Sandkassen er bevisst moderat: for streng herding (ProtectSystem=strict +
+# ProtectHome) gjorde at systemd ikke fikk satt opp mount-namespace på Jetson,
+# og tjenesten havnet i en restart-løkke før node i det hele tatt kjørte.
 cat >/tmp/jarvis-agent.service <<EOF
 [Unit]
 Description=Jarvis lokal agent og backend
@@ -260,13 +268,10 @@ StandardError=journal
 SyslogIdentifier=jarvis-agent
 
 NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
+ProtectSystem=full
 ProtectKernelTunables=true
-ProtectControlGroups=true
 RestrictSUIDSGID=true
-ReadWritePaths=/var/lib/jarvis $DATA_DIR $SANDBOX_DIR
+ReadWritePaths=/var/lib/jarvis $DATA_DIR $SANDBOX_DIR $LOG_DIR
 LimitNOFILE=8192
 
 [Install]
@@ -281,8 +286,9 @@ for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$AGENT_PORT/health" >/dev/n
 if curl -fsS "http://127.0.0.1:$AGENT_PORT/health" >/dev/null 2>&1; then
   ok "Agenten svarer på port $AGENT_PORT"
 else
-  feil "Agenten svarer ikke på port $AGENT_PORT – siste logglinjer:"
-  journalctl -u jarvis-agent -n 30 --no-pager 2>/dev/null || true
+  feil "Agenten svarer ikke på port $AGENT_PORT – status og siste logglinjer:"
+  SYSTEMD_PAGER=cat systemctl status jarvis-agent --no-pager -l -n 20 2>/dev/null || true
+  SYSTEMD_PAGER=cat journalctl -u jarvis-agent -n 40 --no-pager -o cat 2>/dev/null || true
 fi
 
 # ── 6. Web-GUI ───────────────────────────────────────────────────────────────
