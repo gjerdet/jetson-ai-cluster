@@ -20,7 +20,8 @@ export function scanScript(subnet = "", portScan = false): string {
 set -u
 CIDR="${cidr}"
 if [ -z "$CIDR" ]; then
-  CIDR=$(ip -4 -o route show scope link 2>/dev/null | awk '$1 ~ /\\// && $1 !~ /^169\\.254/ {print $1; exit}')
+  DEV=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}')
+  CIDR=$(ip -4 -o route show scope link dev "$DEV" 2>/dev/null | awk '$1 ~ /\\// && $1 !~ /^169\\.254/ {print $1; exit}')
 fi
 if [ -z "$CIDR" ]; then
   echo "Fant ikke noe subnett automatisk. Oppgi f.eks. 192.168.1.0/24."
@@ -93,9 +94,12 @@ set -u
 echo "== 1. GRENSESNITT OG ADRESSER =="
 ip -4 -o addr show scope global 2>/dev/null | awk '{print $2, $4}'
 CIDR="${cidr}"
+DEV=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}')
+EGEN_CIDR=$(ip -4 -o addr show dev "$DEV" scope global 2>/dev/null | awk '{print $4; exit}')
 if [ -z "$CIDR" ]; then
-  CIDR=$(ip -4 -o route show scope link 2>/dev/null | awk '$1 ~ /\\// && $1 !~ /^169\\.254/ {print $1; exit}')
+  CIDR=$(ip -4 -o route show scope link dev "$DEV" 2>/dev/null | awk '$1 ~ /\\// && $1 !~ /^169\\.254/ {print $1; exit}')
 fi
+echo "Aktivt LAN: \${DEV:-ukjent} \${EGEN_CIDR:-ukjent}"
 echo "Subnett: \${CIDR:-ukjent}"
 
 echo
