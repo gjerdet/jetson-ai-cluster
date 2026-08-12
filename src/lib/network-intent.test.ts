@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion, networkContextFromCheck } from "./network-intent";
+import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion, explicitSubnet, networkContextFromCheck } from "./network-intent";
 
 const STATUS = `== 1. GRENSESNITT OG ADRESSER ==
 eth0 192.168.12.5/26
@@ -54,5 +54,18 @@ describe("enhetsskanning", () => {
     const svar = answerDeviceScan("hvor mange enheter er i ditt subnett?", ut);
     expect(svar).toContain("**2**");
     expect(svar).toContain("192.168.12.1");
+  });
+});
+
+describe("eksplisitt subnett", () => {
+  it("gjenkjenner sjekk mot oppgitt subnett", () => {
+    const q = "kan du sjekke om du når noen enheter på subnet 192.168.20.0/24";
+    expect(classifyNetworkQuestion(q)).toBe("devices");
+    expect(explicitSubnet(q)).toBe("192.168.20.0/24");
+  });
+
+  it("normaliserer vertsadresse til nettadresse", () => {
+    expect(explicitSubnet("skann 10.0.5.37/16")).toBe("10.0.0.0/16");
+    expect(explicitSubnet("hva er din ip?")).toBeNull();
   });
 });

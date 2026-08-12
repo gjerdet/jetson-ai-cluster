@@ -51,7 +51,7 @@ import {
 import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
 import { retrieveContext, type Citation } from "@/lib/knowledge";
-import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion, networkContextFromCheck } from "@/lib/network-intent";
+import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion, explicitSubnet, networkContextFromCheck } from "@/lib/network-intent";
 import { requiresFreshLocalEvidence } from "@/lib/agent-policy";
 
 import { MeldingInnhold } from "./MeldingInnhold";
@@ -197,17 +197,25 @@ export function ChatPanel({
       // skjønn. Kjør verktøyet først og svar direkte fra målt output.
       const nettIntensjon = classifyNetworkQuestion(text);
       if (nettIntensjon === "devices") {
-        setStage("verktøy: nett_sjekk");
         const t0 = performance.now();
-        const sjekk = await runTool({ name: "nett_sjekk", args: {}, raw: "VERKTØY: nett_sjekk {}" }, {
-          config,
-          ...(update ? { update } : {}),
-          topics: mqtt.topics,
-        });
-        const kontekst = networkContextFromCheck(sjekk);
-        if (!kontekst) throw new Error(`Kunne ikke bekrefte aktiv LAN-IP før skanning. nett_sjekk svarte:\n${sjekk}`);
-        setStage(`verktøy: nett_skann ${kontekst.subnet}`);
-        const skannArgs = { subnett: kontekst.subnet };
+        // Har brukeren oppgitt et konkret subnett, skanner vi det direkte –
+        // da trenger vi ingen pre-flight for å finne vårt eget nett.
+        const oppgitt = explicitSubnet(text);
+        let sjekk = oppgitt ? `Subnett oppgitt av bruker: ${oppgitt}` : "";
+        let malSubnett = oppgitt;
+        if (!malSubnett) {
+          setStage("verktøy: nett_sjekk");
+          sjekk = await runTool({ name: "nett_sjekk", args: {}, raw: "VERKTØY: nett_sjekk {}" }, {
+            config,
+            ...(update ? { update } : {}),
+            topics: mqtt.topics,
+          });
+          const kontekst = networkContextFromCheck(sjekk);
+          if (!kontekst) throw new Error(`Kunne ikke bekrefte aktiv LAN-IP før skanning. nett_sjekk svarte:\n${sjekk}`);
+          malSubnett = kontekst.subnet;
+        }
+        setStage(`verktøy: nett_skann ${malSubnett}`);
+        const skannArgs = { subnett: malSubnett };
         const resultat = await runTool({ name: "nett_skann", args: skannArgs, raw: `VERKTØY: nett_skann ${JSON.stringify(skannArgs)}` }, {
           config,
           ...(update ? { update } : {}),
@@ -218,7 +226,7 @@ export function ChatPanel({
         trace({
           turId,
           kind: "verktoy",
-          title: `nett_sjekk {} → nett_skann ${JSON.stringify(skannArgs)}`,
+          title: `${oppgitt ? "oppgitt subnett" : "nett_sjekk {}"} → nett_skann ${JSON.stringify(skannArgs)}`,
           why: "bekreftet aktiv LAN-IP og CIDR før skanning, slik at Docker-/container-nett ikke velges",
           detail: `${sjekk}\n\n${resultat}`,
           ms,
@@ -314,6 +322,7 @@ export function ChatPanel({
         const rag = await retrieveContext(text);
         context += rag.context;
         sources = rag.sources;
+        setStage("tenker");
       }
       if (!smaaprat && BRIEF_TRIGGERS.test(text)) {
         if (!snapshot().events.length) await refreshFeed();
