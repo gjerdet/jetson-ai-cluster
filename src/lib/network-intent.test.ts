@@ -8,9 +8,9 @@ Standard gateway: 192.168.12.1`;
 
 describe("nettverksintensjon", () => {
   it("skiller egen IP fra nabo og full adresseliste", () => {
-    expect(classifyNetworkQuestion("hva er din ip?")) .toBe("own-ip");
-    expect(classifyNetworkQuestion("hva er nærmeste ip til deg?")) .toBe("neighboring-ips");
-    expect(classifyNetworkQuestion("kan eg få en liste over alle ip adr i ditt subnett?")) .toBe("subnet-addresses");
+    expect(classifyNetworkQuestion("hva er din ip?")).toBe("own-ip");
+    expect(classifyNetworkQuestion("hva er nærmeste ip til deg?")).toBe("neighboring-ips");
+    expect(classifyNetworkQuestion("kan eg få en liste over alle ip adr i ditt subnett?")).toBe("subnet-addresses");
   });
 
   it("svarer med begge nærmeste brukbare adresser", () => {

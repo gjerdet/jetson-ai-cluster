@@ -19,14 +19,14 @@ export function classifyNetworkQuestion(question: string): NetworkQuestion {
   if (/\b(nærmeste|nabo(?:adresse|ip)?|ved siden av|før og etter)\b.*\bip\b|\bip\b.*\b(nærmeste|nabo(?:adresse|ip)?|ved siden av|før og etter)\b/i.test(question)) {
     return "neighboring-ips";
   }
-  if (
-    /\b(alle|hele|full(?:stendig)?|liste(?:n)?(?: over)?)\b.*\bip(?:-?adresse)?(?:r|ne)?\b.*\bsubnett(?:et)?\b/i.test(question) ||
-    /\bsubnett(?:et)?\b.*\b(alle|hele|full(?:stendig)?|liste(?:n)?(?: over)?)\b.*\bip(?:-?adresse)?(?:r|ne)?\b/i.test(question)
-  ) return "subnet-addresses";
+  const asksForList = /\b(alle|hele|full(?:stendig)?|liste(?:n)?(?: over)?)\b/i.test(question);
+  const mentionsIp = /\bip(?:-?(?:adresse|adr))?(?:r|ne)?\b/i.test(question);
+  const mentionsSubnet = /\bsubnett(?:et)?\b/i.test(question);
+  if (asksForList && mentionsIp && mentionsSubnet) return "subnet-addresses";
   if (/\b(hva er|vis|finn)\b.*\b(din|maskinens|nodens|min)\b.*\bip(?:-?adresse)?\b|\bip(?:-?adresse)?\b.*\b(din|maskinens|nodens)\b/i.test(question)) {
     return "own-ip";
   }
-  if (/\bsubnett(?:et)?\b/i.test(question)) return "subnet";
+  if (mentionsSubnet) return "subnet";
   return null;
 }
 
