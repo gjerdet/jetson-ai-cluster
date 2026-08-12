@@ -106,6 +106,7 @@ import { hentLogg, loggKilder } from "./logger.mjs";
 import { corsBlocked, corsHeaders, rateLimit } from "./security.mjs";
 
 import { decryptSecret, encryptSecret, maskSecret } from "./secrets.mjs";
+import { callChatEndpoint } from "./ai-endpoint.mjs";
 import { listBackups, runBackup } from "./backup.mjs";
 import {
   addDocument,
@@ -442,15 +443,15 @@ export async function handleApi(req, res, route, url, deps = {}) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 120_000);
         try {
-          const r = await fetch(`${baseUrl}/chat/completions`, {
-            method: "POST",
-            headers: { "content-type": "application/json", ...(key ? { authorization: `Bearer ${key}` } : {}) },
-            body: JSON.stringify({ model, messages, stream: false, temperature: Number(b.temperatur) || 0.7 }),
+          const resultat = await callChatEndpoint({
+            baseUrl,
+            model,
+            messages,
+            temperature: Number(b.temperatur) || 0.7,
+            apiKey: key,
             signal: ctrl.signal,
           });
-          if (!r.ok) throw new Error(`Noden svarte ${r.status}`);
-          const data = await r.json();
-          return { svar: data?.choices?.[0]?.message?.content?.trim() || "", model, baseUrl };
+          return { svar: resultat.svar, model, baseUrl, endpoint: resultat.endpoint };
         } finally {
           clearTimeout(timer);
         }
