@@ -122,6 +122,12 @@ export function answerNetworkQuestion(question: string, result: string): string 
 }
 /** Oppsummerer output fra nett_skann til et kort, konkret svar. */
 export function answerDeviceScan(question: string, result: string): string | null {
+  const failure = result.match(/(?:SKANNEFEIL|Feil):\s*([^\n]+)/i)?.[1];
+  const exitCode = Number(result.match(/^exit\s+(\d+)/m)?.[1]);
+  if (failure || (Number.isInteger(exitCode) && exitCode !== 0) || /tidsavbrudd/i.test(result)) {
+    const reason = failure || (result.match(/stderr:\s*([^\n]+)/i)?.[1]) || "skanningen ble ikke fullført";
+    return `Jeg kunne ikke bekrefte enhetene i subnettet. **${reason}** Dette er en skannefeil, ikke et resultat med null enheter.`;
+  }
   const subnet = result.match(/Subnett:\s*([^\s\n]+)/i)?.[1];
   const rows = [...result.matchAll(/^(\d{1,3}(?:\.\d{1,3}){3})\s+(\S+)\s+(\S.*)$/gm)]
     .filter((m) => m[1] !== "0.0.0.0")
@@ -129,7 +135,9 @@ export function answerDeviceScan(question: string, result: string): string | nul
   const counted = Number(result.match(/Antall enheter funnet:\s*(\d+)/i)?.[1]);
   if (!rows.length && !Number.isInteger(counted)) return null;
   const antall = Number.isInteger(counted) ? counted : rows.length;
-  const head = `Jeg skannet ${subnet ? `**${subnet}**` : "subnettet mitt"} og fant **${antall}** aktive enhet${antall === 1 ? "" : "er"}.`;
+  const head = antall === 0
+    ? `Jeg fullførte skanningen av ${subnet ? `**${subnet}**` : "subnettet"}, men kunne **ikke bekrefte noen enheter**. Det betyr ikke at subnettet er tomt; ICMP kan være blokkert, og MAC-adresser er normalt ikke synlige gjennom en ruter.`
+    : `Jeg skannet ${subnet ? `**${subnet}**` : "subnettet mitt"} og bekreftet **${antall}** aktiv${antall === 1 ? " enhet" : "e enheter"}.`;
   if (!rows.length) return head;
   const bareAntall = /\bhvor mange\b/i.test(question) && !/\b(list|vis|hvilke|hvem)\b/i.test(question);
   const vis = bareAntall ? rows.slice(0, 10) : rows;

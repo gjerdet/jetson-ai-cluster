@@ -102,23 +102,40 @@ if [ "$PREFIX" -ge 31 ]; then HOSTS=0; fi
 LIMIT=$HOSTS
 if [ "$LIMIT" -gt 1024 ]; then LIMIT=1024; fi
 num_til_ip() { local N="$1"; printf '%d.%d.%d.%d' $(( (N >> 24) & 255 )) $(( (N >> 16) & 255 )) $(( (N >> 8) & 255 )) $(( N & 255 )); }
+if [ "$LIMIT" -le 0 ]; then echo "SKANNEFEIL: Subnettet har ingen brukbare vertsadresser."; exit 2; fi
+FIRST_IP=$(num_til_ip $((BASE_NUM+1)))
+ROUTE=$(ip -4 route get "$FIRST_IP" 2>&1) || { echo "SKANNEFEIL: Ingen rute til $CIDR: $ROUTE"; exit 2; }
+PING_HITS=$(mktemp)
+trap 'rm -f "$PING_HITS"' EXIT
 echo "Subnett: $CIDR"
 echo "Aktivt LAN: $AKTIVT_GRENSESNITT $EGEN_CIDR"
+echo "Rute til mål: $ROUTE"
 [ "$HOSTS" -le "$LIMIT" ] || echo "Merk: skanner de første $LIMIT av $HOSTS brukbare adressene i $CIDR."
-for i in $(seq 1 "$LIMIT"); do IP=$(num_til_ip $((BASE_NUM+i))); ping -c1 -W1 "$IP" >/dev/null 2>&1 & done
+for i in $(seq 1 "$LIMIT"); do
+  IP=$(num_til_ip $((BASE_NUM+i)))
+  (ping -c1 -W1 "$IP" >/dev/null 2>&1 && printf '%s\n' "$IP" >> "$PING_HITS") &
+done
 wait
 sleep 1
 FOUND=0
+PING_COUNT=$(wc -l < "$PING_HITS" | tr -d ' ')
+NEIGH_COUNT=0
 printf '%-16s %-19s %s\\n' "IP" "MAC" "VERTSNAVN"
 for i in $(seq 1 "$LIMIT"); do
   IP=$(num_til_ip $((BASE_NUM+i)))
   LINE=$(ip neigh show "$IP" 2>/dev/null | head -n1)
   MAC=$(echo "$LINE" | grep -oE '([0-9a-f]{2}:){5}[0-9a-f]{2}' | head -n1)
-  [ -n "$MAC" ] || continue
+  PING_OK=0
+  grep -Fqx "$IP" "$PING_HITS" && PING_OK=1
+  [ -n "$MAC" ] && NEIGH_COUNT=$((NEIGH_COUNT+1))
+  if [ "$PING_OK" -ne 1 ] && [ -z "$MAC" ]; then continue; fi
   NAME=$(getent hosts "$IP" 2>/dev/null | awk '{print $2}' | head -n1)
-  printf '%-16s %-19s %s\\n' "$IP" "$MAC" "\${NAME:--}"
+  printf '%-16s %-19s %s\\n' "$IP" "\${MAC:--}" "\${NAME:--}"
   FOUND=$((FOUND+1))
 done
+echo "Skannestatus: FULLFØRT"
+echo "Svarte på ping: $PING_COUNT"
+echo "Nabooppføringer med MAC: $NEIGH_COUNT"
 echo "Antall enheter funnet: $FOUND"
 ${ports ? `echo "Åpne porter (vanlige tjenester):"
 for i in $(seq 1 "$LIMIT"); do
