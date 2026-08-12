@@ -9,7 +9,7 @@ import {
   BackendError,
   type BackendStatus,
 } from "@/lib/backend";
-import { useSession } from "@/lib/session";
+import { useSession, settLokalModus } from "@/lib/session";
 
 export const Route = createFileRoute("/logg-inn")({
   head: () => ({
@@ -153,10 +153,24 @@ function LoggInn() {
           </button>
         </form>
 
-        <p className="mt-5 text-center text-[9px] leading-relaxed tracking-[0.15em] text-foreground/35">
-          Alt kjører lokalt på Jetson-agenten. Passordet lagres med scrypt, og økten ligger kun i
-          denne fanen.
-        </p>
+        <div className="mt-5 border-t border-primary/10 pt-4">
+          <button
+            type="button"
+            className={`${btn} w-full`}
+            onClick={async () => {
+              settLokalModus(true);
+              await navigate({ to: "/", replace: true });
+            }}
+          >
+            FORTSETT UTEN BACKEND (LOKAL MODUS)
+          </button>
+          <p className="mt-2 text-center text-[9px] leading-relaxed tracking-[0.15em] text-foreground/35">
+            Lokal modus åpner HUD-en uten agenten – alt lagres i nettleseren. Når agenten kjører på
+            Jetson: skriv inn adressen over, trykk KOBLE, og opprett første bruker med e-post og
+            passord (scrypt-hashet lokalt).
+          </p>
+        </div>
+
       </section>
     </main>
   );
