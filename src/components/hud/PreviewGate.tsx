@@ -1,13 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { unlockPreview } from "@/lib/preview-gate.functions";
 import { setPreviewToken } from "@/lib/preview-session";
-
-function isLocalhost() {
-  const h = window.location.hostname;
-  return h === "localhost" || h === "127.0.0.1" || h === "::1";
-}
-
 
 const field =
   "w-full rounded-full border border-primary/20 bg-primary/[0.05] px-4 py-2.5 text-xs text-foreground/90 outline-none transition focus:border-primary/50";
@@ -20,15 +14,9 @@ export function PreviewGate({ onUnlock }: { onUnlock: () => void }) {
   const [busy, setBusy] = useState(false);
   const unlock = useServerFn(unlockPreview);
 
-  useEffect(() => {
-    if (!isLocalhost()) return;
-    // Prøv automatisk opplåsing på localhost slik at lokal utvikling går raskt.
-    void submit({ preventDefault: () => {} } as React.FormEvent);
-  }, []);
-
   const submit = async (e: React.FormEvent) => {
-
     e.preventDefault();
+
     setBusy(true);
     setError(null);
     try {
