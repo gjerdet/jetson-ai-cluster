@@ -59,6 +59,14 @@ const BRIEF_TRIGGERS =
 
 const REMEMBER = /^\s*(husk|remember)[:\s]+(.+)$/is;
 
+/** Meldinger som ber om at noe faktisk blir gjort. */
+const OPPDRAG =
+  /(skann|scan|sjekk|finn|let|søk|list|vis|hent|mål|test|kjør|start|restart|feilsøk|diagnos|overvåk|lag|sett opp|installer|fiks|rett|analyser|hvor mange|hvilke)/i;
+/** Typiske bortforklaringer der modellen svarer uten å ha prøvd. */
+const UNNVIKELSE =
+  /(ingen enheter|har ikke tilgang|ikke mulighet|kan ikke se|jeg mangler|ingen registrerte|vi kan sammen|ønsker du at jeg|tar jeg gjerne imot|si ifra hvis)/i;
+
+
 export function ChatPanel({
   config,
   update,
@@ -227,8 +235,11 @@ export function ChatPanel({
           : callTracked(primary, thread).then((result) => ({ text: result, node: primary }));
       };
 
-      const runder = smaaprat ? 1 : 4;
+      const runder = smaaprat ? 1 : 8;
+      const oppdrag = !smaaprat && OPPDRAG.test(text);
+      let dyttet = false;
       for (let round = 0; round < runder; round++) {
+
         // Når backend-chat er valgt går hver runde kun via POST /ai/chat.
         // Backend-en lastbalanserer selv mellom Jetson-nodene; er en node låst
         // i innstillingene, sendes den med som ønsket node.
@@ -277,9 +288,23 @@ export function ChatPanel({
         answeredBy = call.node.name;
         const calls = parseToolCalls(raw, customToolNames(config));
         if (!calls.length) {
+          // Ba brukeren om at noe skulle gjøres, men modellen svarte med en
+          // bortforklaring uten å ha kjørt et eneste verktøy? Da dytter vi den
+          // én gang til med en tydelig instruks om å handle.
+          if (oppdrag && !dyttet && !runs.length && UNNVIKELSE.test(raw)) {
+            dyttet = true;
+            thread.push({ role: "assistant", content: raw });
+            thread.push({
+              role: "user",
+              content:
+                "Du svarte uten å bruke verktøy. Utfør oppgaven nå: velg det verktøyet som faktisk kan svare (nett_skann for nettverk/enheter i subnettet, os_kjor eller agent_status for maskin og tjenester, mqtt_les for sensorer), eller skriv et eget skript med skript_test. Svar kun med verktøykallet på formen VERKTØY: navn {...}.",
+            });
+            continue;
+          }
           answer = raw.trim();
           break;
         }
+
         const visible = stripToolCalls(raw);
         if (visible) out.push({ role: "assistant", content: visible, node: call.node.name });
         thread.push({ role: "assistant", content: raw });
