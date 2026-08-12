@@ -338,7 +338,7 @@ export const backend = {
     call<PoolStatus>(`${ROUTES.aiPool}?oppgave=${encodeURIComponent(oppgave)}`, {}, { timeoutMs: 10_000 }),
   aiChat: (
     meldinger: { role: string; content: string }[],
-    o: { baseUrl?: string; model?: string; nodeId?: string; oppgave?: string } = {},
+    o: { baseUrl?: string; model?: string; nodeId?: string; oppgave?: string; apiKey?: string } = {},
   ) =>
     call<AiChatReply>(
       ROUTES.aiChat!,
