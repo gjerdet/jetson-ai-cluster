@@ -164,7 +164,7 @@ export function SettingsPanel({
         ))}
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-auto pr-1">
+      <div className="min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden pr-1">
         {tab === "backend" ? <BackendPanel /> : null}
         {tab === "kunnskap" ? <KnowledgePanel /> : null}
         {tab === "stemme" ? <VoiceSection /> : null}
