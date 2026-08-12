@@ -1,7 +1,7 @@
-import { MessageSquare, Cpu, Globe2, Settings2, Home, LineChart, Activity, Network, ScrollText, HeartPulse } from "lucide-react";
+import { MessageSquare, Cpu, Globe2, Settings2, Home, LineChart, Activity, Network, ScrollText, HeartPulse, Brain } from "lucide-react";
 import { ReactorCore } from "./ReactorCore";
 
-export type WinId = "chat" | "nodes" | "world" | "home" | "dash" | "health" | "pool" | "cluster" | "logs" | "settings";
+export type WinId = "chat" | "nodes" | "world" | "home" | "dash" | "health" | "pool" | "cluster" | "logs" | "settings" | "agi";
 
 const ITEMS: { id: WinId; label: string; icon: typeof Cpu; angle: number }[] = [
   { id: "chat", label: "KOMMANDO", icon: MessageSquare, angle: -90 },
@@ -12,8 +12,9 @@ const ITEMS: { id: WinId; label: string; icon: typeof Cpu; angle: number }[] = [
   { id: "health", label: "HELSE", icon: Activity, angle: 90 },
   { id: "cluster", label: "KLYNGE", icon: HeartPulse, angle: 126 },
   { id: "pool", label: "POOL", icon: Network, angle: 162 },
-  { id: "logs", label: "LOGGER", icon: ScrollText, angle: 198 },
-  { id: "settings", label: "SYSTEM", icon: Settings2, angle: 234 },
+  { id: "agi", label: "AGI", icon: Brain, angle: 198 },
+  { id: "logs", label: "LOGGER", icon: ScrollText, angle: 234 },
+  { id: "settings", label: "SYSTEM", icon: Settings2, angle: 270 },
 ];
 
 export function CenterMenu({

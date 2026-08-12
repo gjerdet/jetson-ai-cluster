@@ -24,7 +24,7 @@ import {
   userCount,
   userFromRequest,
 } from "./auth.mjs";
-import { evaluate, listRules, logDoc, saveRules, rulesStatus } from "./rules.mjs";
+import { evaluate as evaluateRule, listRules, logDoc, saveRules, rulesStatus } from "./rules.mjs";
 import { notifyAll, saveTelegram, sendMessage, telegramCfg } from "./telegram.mjs";
 import { eksporterKonfig, importerKonfig, inspiserKonfig, versjonsinfo } from "./versjon.mjs";
 import {
@@ -53,6 +53,47 @@ import {
   trainingManifest,
   ttsConfig,
 } from "./tts.mjs";
+
+import {
+  forget as forgetMemory,
+  getMemory,
+  memoryContext,
+  memoryStats,
+  recall,
+  remember,
+  timeline as memoryTimeline,
+} from "./memory.mjs";
+import {
+  activePlanCount,
+  cancelPlan,
+  createPlan,
+  getPlan,
+  listPlans,
+  loggPlan,
+  markerPlanFerdig,
+  nesteSteg,
+  oppdaterSteg,
+  resumePlan,
+} from "./planner.mjs";
+import { evaluate as evaluateReply, evaluateChatReply, evaluationStats, listEvaluations } from "./evaluator.mjs";
+import {
+  approveSuggestion,
+  initiativeStatus,
+  isActive as isInitiativeActive,
+  listAudit as listInitiativeAudit,
+  listSuggestions as listInitiativeSuggestions,
+  rejectSuggestion,
+  runNow as runInitiativeNow,
+  setActive as setInitiativeActive,
+} from "./initiative.mjs";
+import {
+  deleteGeneratedTool,
+  enableTool,
+  generateTool,
+  getGeneratedTool,
+  listGeneratedTools,
+  testTool,
+} from "./toolgen.mjs";
 
 /** Gjeldende innstillinger = standardverdier overstyrt av lagrede verdier. */
 const currentSettings = () => ({ ...SETTINGS_DEFAULTS, ...(doc("settings", {}) || {}) });
@@ -359,8 +400,18 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const systemMelding = personalityPrompt && !harSystem
         ? [{ role: "system", content: personalityPrompt }]
         : [];
+      // Injiser relevant minnekontekst for å gi AI-en episodisk hukommelse.
+      const sisteBrukerMelding = meldinger
+        .filter((m) => m && m.role === "user" && typeof m.content === "string")
+        .pop()?.content;
+      const minneKontekst = sisteBrukerMelding ? memoryContext(sisteBrukerMelding, { topK: 5, maksLengde: 1200 }) : "";
+      const memoryMessage = minneKontekst
+        ? [{ role: "system", content: `Relevant minne fra tidligere:\n${minneKontekst}` }]
+        : [];
+
       const messages = [
         ...systemMelding,
+        ...memoryMessage,
         ...meldinger
           .filter((m) => m && typeof m.content === "string")
           .slice(-40)
@@ -449,7 +500,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
         value: typeof b.verdi === "number" ? b.verdi : str(b.verdi, "Verdi", { maks: 2000 }),
         time: num(b.tid, "Tid", { min: 0, maks: Date.now() + 86_400_000, standard: Date.now() }),
       });
-      await evaluate(
+      await evaluateRule(
         { topic: row.e, value: row.v ?? row.s, previous: null },
         { publish: deps.publish, notify: notifyAll },
       );
@@ -833,6 +884,169 @@ export async function handleApi(req, res, route, url, deps = {}) {
       if (!admin) return json(req, res, 403, { error: "Kun admin" });
       if (method === "GET") return json(req, res, 200, { kopier: await listBackups() });
       if (method === "POST") return json(req, res, 200, { ok: true, navn: await runBackup() });
+    }
+
+    // ---- AGI: minne -------------------------------------------------------
+    if (path === "/minne" && method === "GET")
+      return json(req, res, 200, memoryStats());
+
+    if (path === "/minne" && method === "POST") {
+      const b = await readBody(req);
+      const item = remember({
+        tekst: str(b.tekst, "Tekst", { maks: 2000, min: 1 }),
+        type: b.type,
+        kontekst: b.kontekst,
+        kilder: b.kilder,
+        viktighet: num(b.viktighet, "Viktighet", { min: 1, maks: 10, standard: 5 }),
+        pinned: b.pinned,
+      });
+      return json(req, res, 200, { minne: item });
+    }
+
+    if (path.startsWith("/minne/") && method === "GET") {
+      const id = decodeURIComponent(path.slice("/minne/".length));
+      const m = getMemory(id);
+      return m ? json(req, res, 200, { minne: m }) : json(req, res, 404, { error: "Fant ikke minnet" });
+    }
+
+    if (path.startsWith("/minne/") && method === "DELETE") {
+      const id = decodeURIComponent(path.slice("/minne/".length));
+      return json(req, res, 200, forgetMemory(id));
+    }
+
+    if (path === "/minne/hent" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, {
+        treff: recall(str(b.query ?? b.q, "Spørsmål", { maks: 1000, min: 1 }), {
+          topK: num(b.topK, "Antall", { min: 1, maks: 50, standard: 5 }),
+          type: b.type,
+        }),
+      });
+    }
+
+    if (path === "/minne/tidslinje" && method === "GET") {
+      const q = url.searchParams;
+      return json(req, res, 200, {
+        minner: memoryTimeline({
+          limit: num(q.get("maks"), "Antall", { min: 1, maks: 200, standard: 50 }),
+          type: q.get("type") || undefined,
+        }),
+      });
+    }
+
+    // ---- AGI: planer ------------------------------------------------------
+    if (path === "/planer" && method === "GET")
+      return json(req, res, 200, { planer: listPlans({ aktiv: q.get("aktiv") === "1", limit: 50 }) });
+
+    if (path === "/planer" && method === "POST") {
+      const b = await readBody(req);
+      const plan = await createPlan(str(b.mål, "Mål", { maks: 500, min: 1 }), {
+        kilde: b.kilde || "bruker",
+        kontekst: b.kontekst,
+      });
+      return json(req, res, 200, { plan });
+    }
+
+    if (path.startsWith("/planer/") && method === "GET") {
+      const id = decodeURIComponent(path.slice("/planer/".length));
+      const plan = getPlan(id);
+      return plan ? json(req, res, 200, { plan }) : json(req, res, 404, { error: "Fant ikke planen" });
+    }
+
+    if (path.startsWith("/planer/") && method === "DELETE") {
+      const id = decodeURIComponent(path.slice("/planer/".length));
+      return json(req, res, 200, { plan: cancelPlan(id) });
+    }
+
+    if (path.startsWith("/planer/") && method === "PATCH") {
+      const id = decodeURIComponent(path.slice("/planer/".length));
+      const b = await readBody(req);
+      if (b.status === "aktiv") return json(req, res, 200, { plan: resumePlan(id) });
+      if (b.status === "fullført") return json(req, res, 200, { plan: markerPlanFerdig(id, { oppsummering: b.oppsummering }) });
+      return json(req, res, 400, { error: "Ukjent status" });
+    }
+
+    if (path === "/planer/steg" && method === "POST") {
+      const b = await readBody(req);
+      const plan = oppdaterSteg(str(b.planId, "Plan-ID"), str(b.stegId, "Steg-ID"), {
+        status: b.status,
+        resultat: b.resultat,
+      });
+      return json(req, res, 200, { plan });
+    }
+
+    // ---- AGI: evalueringer ------------------------------------------------
+    if (path === "/evalueringer" && method === "GET")
+      return json(req, res, 200, { evalueringer: listEvaluations(50), statistikk: evaluationStats() });
+
+    if (path === "/evalueringer" && method === "POST") {
+      const b = await readBody(req);
+      const ev = await evaluateChatReply({
+        spørsmål: str(b.spørsmål, "Spørsmål", { maks: 1000, min: 1 }),
+        svar: str(b.svar, "Svar", { maks: 4000, min: 1 }),
+        verktøy: Array.isArray(b.verktøy) ? b.verktøy : [],
+      });
+      return json(req, res, 200, { evaluering: ev });
+    }
+
+    // ---- AGI: initiativ ---------------------------------------------------
+    if (path === "/initiativ" && method === "GET")
+      return json(req, res, 200, initiativeStatus());
+
+    if (path === "/initiativ" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, setInitiativeActive(b.aktiv === true));
+    }
+
+    if (path === "/initiativ/forslag" && method === "GET")
+      return json(req, res, 200, { forslag: listInitiativeSuggestions(20) });
+
+    if (path === "/initiativ/forslag" && method === "POST") {
+      const b = await readBody(req);
+      if (b.godkjenn) return json(req, res, 200, { forslag: approveSuggestion(str(b.id, "ID")) });
+      if (b.avvis) return json(req, res, 200, { forslag: rejectSuggestion(str(b.id, "ID")) });
+      return json(req, res, 400, { error: "Ukjent handling" });
+    }
+
+    if (path === "/initiativ/audit" && method === "GET")
+      return json(req, res, 200, { audit: listInitiativeAudit(50) });
+
+    if (path === "/initiativ/kjor" && method === "POST") {
+      await runInitiativeNow();
+      return json(req, res, 200, initiativeStatus());
+    }
+
+    // ---- AGI: genererte verktøy -------------------------------------------
+    if (path === "/verktoy/genererte" && method === "GET")
+      return json(req, res, 200, { verktoy: listGeneratedTools() });
+
+    if (path === "/verktoy/genererte" && method === "POST") {
+      const b = await readBody(req);
+      const tool = await generateTool(str(b.beskrivelse, "Beskrivelse", { maks: 1000, min: 1 }));
+      return json(req, res, 200, { verktoy: tool });
+    }
+
+    if (path.startsWith("/verktoy/genererte/") && method === "GET") {
+      const id = decodeURIComponent(path.slice("/verktoy/genererte/".length));
+      const t = getGeneratedTool(id);
+      return t ? json(req, res, 200, { verktoy: t }) : json(req, res, 404, { error: "Fant ikke verktøyet" });
+    }
+
+    if (path.startsWith("/verktoy/genererte/") && method === "DELETE") {
+      const id = decodeURIComponent(path.slice("/verktoy/genererte/".length));
+      return json(req, res, 200, deleteGeneratedTool(id));
+    }
+
+    if (path.startsWith("/verktoy/genererte/") && method === "PATCH") {
+      const id = decodeURIComponent(path.slice("/verktoy/genererte/".length));
+      const b = await readBody(req);
+      return json(req, res, 200, { verktoy: enableTool(id, b.enabled === true) });
+    }
+
+    if (path === "/verktoy/genererte/test" && method === "POST") {
+      const b = await readBody(req);
+      const resultat = await testTool(str(b.id, "ID"), b.args ?? {});
+      return json(req, res, 200, resultat);
     }
 
     return json(req, res, 404, { error: `Ukjent API-rute ${path}` });

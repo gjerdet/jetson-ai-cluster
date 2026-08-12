@@ -42,6 +42,13 @@ import {
   type ProvisionJob,
   type TtsConfig,
   type VoiceClip,
+  type MemoryItem,
+  type Plan,
+  type Evaluation,
+  type InitiativeSuggestion,
+  type GeneratedTool,
+  type InitiativeStatus,
+  type MemoryStats,
 } from "@/lib/contract";
 
 export type {
@@ -76,6 +83,13 @@ export type {
   ProvisionJob,
   TtsConfig,
   VoiceClip,
+  MemoryItem,
+  Plan,
+  Evaluation,
+  InitiativeSuggestion,
+  GeneratedTool,
+  InitiativeStatus,
+  MemoryStats,
 };
 
 const LS_URL = "jarvis.backend.url";
@@ -493,6 +507,68 @@ export const backend = {
       {},
       { timeoutMs: 20_000 },
     ),
+
+  // ---- AGI / autonomi ----
+  hentMinneStatistikk: () => call<MemoryStats>(ROUTES.memory!),
+  lagreMinne: (m: Partial<MemoryItem>) => call<{ minne: MemoryItem }>(ROUTES.memory!, { method: "POST", body: JSON.stringify(m) }),
+  hentMinne: (id: string) => call<{ minne: MemoryItem }>(`${ROUTES.memory}/${id}`),
+  slettMinne: (id: string) => call(`${ROUTES.memory}/${id}`, { method: "DELETE" }),
+  sokMinne: (q: string, topK = 5) =>
+    call<{ treff: MemoryItem[] }>(ROUTES.memoryRecall!, { method: "POST", body: JSON.stringify({ query: q, topK }) }),
+  minneTidslinje: (o: { maks?: number; type?: string } = {}) =>
+    call<{ minner: MemoryItem[] }>(
+      `${ROUTES.memoryTimeline}?maks=${o.maks ?? 50}${o.type ? `&type=${encodeURIComponent(o.type)}` : ""}`,
+    ),
+
+  hentPlaner: (aktiv = false) => call<{ planer: Plan[] }>(`${ROUTES.plans}?aktiv=${aktiv ? 1 : 0}`),
+  lagPlan: (mål: string, kontekst?: string) =>
+    call<{ plan: Plan }>(ROUTES.plans!, { method: "POST", body: JSON.stringify({ mål, kontekst }) }),
+  hentPlan: (id: string) => call<{ plan: Plan }>(`${ROUTES.plans}/${id}`),
+  avbrytPlan: (id: string) => call<{ plan: Plan }>(`${ROUTES.plans}/${id}`, { method: "DELETE" }),
+  gjenopptaPlan: (id: string) => call<{ plan: Plan }>(`${ROUTES.plans}/${id}`, { method: "PATCH", body: JSON.stringify({ status: "aktiv" }) }),
+  markerPlanFerdig: (id: string, oppsummering?: string) =>
+    call<{ plan: Plan }>(`${ROUTES.plans}/${id}`, { method: "PATCH", body: JSON.stringify({ status: "fullført", oppsummering }) }),
+  oppdaterPlanSteg: (planId: string, stegId: string, status: string, resultat?: string) =>
+    call<{ plan: Plan }>(ROUTES.planSteps!, {
+      method: "POST",
+      body: JSON.stringify({ planId, stegId, status, resultat }),
+    }),
+
+  hentEvalueringer: () => call<{ evalueringer: Evaluation[]; statistikk: { antall: number; snitt: number; underTerskel: number } }>(ROUTES.evaluations!),
+  evaluerSvar: (spørsmål: string, svar: string, verktøy?: unknown[]) =>
+    call<{ evaluering: Evaluation }>(ROUTES.evaluations!, {
+      method: "POST",
+      body: JSON.stringify({ spørsmål, svar, verktøy }),
+    }),
+
+  hentInitiativStatus: () => call<InitiativeStatus>(ROUTES.initiative!),
+  settInitiativAktiv: (aktiv: boolean) =>
+    call<InitiativeStatus>(ROUTES.initiative!, { method: "POST", body: JSON.stringify({ aktiv }) }),
+  hentInitiativForslag: () => call<{ forslag: InitiativeSuggestion[] }>(ROUTES.initiativeSuggestions!),
+  godkjennForslag: (id: string) =>
+    call<{ forslag: InitiativeSuggestion }>(ROUTES.initiativeSuggestions!, {
+      method: "POST",
+      body: JSON.stringify({ id, godkjenn: true }),
+    }),
+  avvisForslag: (id: string) =>
+    call<{ forslag: InitiativeSuggestion }>(ROUTES.initiativeSuggestions!, {
+      method: "POST",
+      body: JSON.stringify({ id, avvis: true }),
+    }),
+  kjorInitiativ: () => call<InitiativeStatus>("/initiativ/kjor", { method: "POST" }),
+  hentInitiativAudit: () => call<{ audit: { tid: number; hendelse: string; risiko: string; godkjent: boolean; auto: boolean }[] }>("/initiativ/audit"),
+
+  hentGenererteVerktoy: () => call<{ verktoy: GeneratedTool[] }>(ROUTES.generatedTools!),
+  genererVerktoy: (beskrivelse: string) =>
+    call<{ verktoy: GeneratedTool }>(ROUTES.generatedTools!, { method: "POST", body: JSON.stringify({ beskrivelse }) }),
+  slettGenerertVerktoy: (id: string) => call(`${ROUTES.generatedTools}/${id}`, { method: "DELETE" }),
+  aktiverGenerertVerktoy: (id: string, enabled: boolean) =>
+    call<{ verktoy: GeneratedTool }>(`${ROUTES.generatedTools}/${id}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
+  testGenerertVerktoy: (id: string, args: Record<string, unknown> = {}) =>
+    call<{ ok: boolean; resultat?: unknown; feil?: string }>(ROUTES.generatedToolTest!, {
+      method: "POST",
+      body: JSON.stringify({ id, args }),
+    }),
 };
 
 export type VersionInfo = {

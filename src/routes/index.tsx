@@ -13,6 +13,7 @@ import { HealthPanel } from "@/components/hud/HealthPanel";
 import { PoolPanel } from "@/components/hud/PoolPanel";
 import { LogsPanel } from "@/components/hud/LogsPanel";
 import { ClusterHealthPanel } from "@/components/hud/ClusterHealthPanel";
+import { AgiPanel } from "@/components/hud/AgiPanel";
 import { BackendStatusBadge } from "@/components/hud/BackendStatusBadge";
 import { useHudConfig } from "@/lib/hud-store";
 import { useSession } from "@/lib/session";
@@ -49,6 +50,7 @@ const LAYOUT: Record<WinId, { x: number; y: number; w: number; h: number }> = {
   dash: { x: 120, y: 120, w: 640, h: 560 },
   health: { x: 160, y: 130, w: 460, h: 560 },
   pool: { x: 200, y: 150, w: 480, h: 540 },
+  agi: { x: 260, y: 100, w: 520, h: 580 },
   logs: { x: 140, y: 110, w: 720, h: 560 },
   cluster: { x: 170, y: 120, w: 700, h: 580 },
   settings: { x: 0, y: 0, w: 0, h: 0 },
@@ -62,6 +64,7 @@ const TITLES: Record<WinId, { title: string; subtitle: string }> = {
   dash: { title: "GRAFER", subtitle: "moduler for alt som er tilkoblet" },
   health: { title: "HELSE", subtitle: "selvovervåking av noder og tjenester" },
   pool: { title: "POOL", subtitle: "lastbalansering og valgt node per forespørsel" },
+  agi: { title: "AGI", subtitle: "minne, planlegging, initiativ og læring" },
   logs: { title: "LOGGER", subtitle: "sanntidslogg fra oppsett og tjenester" },
   cluster: { title: "KLYNGE", subtitle: "GPU, modeller og tjenester per node" },
   settings: { title: "SYSTEM", subtitle: "innstillinger, evner og plugins" },
@@ -161,6 +164,7 @@ function Index() {
               {id === "dash" ? <DashboardPanel config={config} update={update} /> : null}
               {id === "health" ? <HealthPanel config={config} /> : null}
               {id === "pool" ? <PoolPanel config={config} /> : null}
+              {id === "agi" ? <AgiPanel /> : null}
               {id === "logs" ? <LogsPanel /> : null}
               {id === "cluster" ? <ClusterHealthPanel /> : null}
               {id === "settings" ? <SettingsPanel config={config} update={update} /> : null}
