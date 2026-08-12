@@ -104,7 +104,33 @@ export const ROUTES: {
   ttsVoices: string;
   ttsClips: string;
   ttsManifest: string;
+  logs: string;
+  logSources: string;
 };
+
+/** En loggkilde HUD-en kan lese (systemd-enhet eller loggfil). */
+export interface LogSource {
+  id: string;
+  navn: string;
+  type: "systemd" | "fil";
+  enhet: string | null;
+  sti: string | null;
+  status: string;
+}
+
+/** Innholdet i en loggkilde. */
+export interface LogTail {
+  kilde: string;
+  navn: string;
+  type: "systemd" | "fil";
+  enhet?: string;
+  sti?: string;
+  status: string;
+  endret?: number;
+  tekst: string;
+  tid: number;
+}
+
 export const ERROR_CODES: {
   UNAUTHORIZED: ErrorCode;
   FORBIDDEN: ErrorCode;

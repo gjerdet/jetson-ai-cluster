@@ -67,13 +67,45 @@ DATA_DIR="${AGENT_DATA:-/var/lib/jarvis/data}"
 SANDBOX_DIR="${AGENT_SANDBOX:-/var/lib/jarvis/sandbox}"
 ENV_FILE="/etc/jarvis/agent.env"
 
+LOG_DIR="${JARVIS_LOG_DIR:-/var/log/jarvis}"
+LOGG="$LOG_DIR/oppsett.log"
+
 [ -d "$AGENT_DIR" ] || { feil "Fant ikke $AGENT_DIR – kjør skriptet fra prosjektmappa."; exit 1; }
+
+# Alt som skrives havner også i loggen som LOGGER-panelet i web-GUI-et leser.
+mkdir -p "$LOG_DIR"
+exec > >(tee -a "$LOGG") 2>&1
+echo "=== oppsett.sh startet $(date -Is) ==="
+
+# Idempotens: gjenbruk verdier fra en eksisterende installasjon.
+FRA_FOER=0
+if [ -f "$ENV_FILE" ]; then
+  FRA_FOER=1
+  les_env() { grep -E "^$1=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-; }
+  AGENT_PORT="$(les_env AGENT_PORT || true)"; AGENT_PORT="${AGENT_PORT:-8787}"
+  CHAT_MODELL="$(les_env JARVIS_AI_MODEL || true)"; CHAT_MODELL="${CHAT_MODELL:-llama3.2:3b}"
+  H="$(les_env JARVIS_HERMES_MODEL || true)"; [ -n "$H" ] && HERMES_MODELL="$H"
+  E="$(les_env JARVIS_EMBED_MODEL || true)"; [ -n "$E" ] && EMBED_MODELL="$E"
+  EP="$(les_env JARVIS_ADMIN_EPOST || true)"; [ -n "$EP" ] && EPOST="$EP"
+fi
+
+# Skriver en fil kun når innholdet faktisk endrer seg (idempotent).
+skriv_hvis_endret() {
+  local mal="$1" maal="$2"
+  if [ -f "$maal" ] && cmp -s "$mal" "$maal"; then rm -f "$mal"; return 1; fi
+  mv "$mal" "$maal"; return 0
+}
 
 echo
 echo -e "${GRN}╔══════════════════════════════════════════════╗${RST}"
 echo -e "${GRN}║   J A R V I S   ·   O P P S E T T            ║${RST}"
 echo -e "${GRN}╚══════════════════════════════════════════════╝${RST}"
 echo
+if [ "$FRA_FOER" -eq 1 ]; then
+  ok "Fant eksisterende installasjon – konfig, data og innlogging beholdes"
+  echo "   (skriptet er idempotent: kjør det så ofte du vil)"
+  echo
+fi
 
 # ── Spørsmål (kun i interaktiv modus, og bare hvis konfig mangler) ───────────
 if [ "$STILLE" -eq 0 ] && [ ! -f "$ENV_FILE" ]; then
@@ -120,18 +152,25 @@ fi
 
 si "Lar Ollama lytte på hele nettverket (0.0.0.0:11434)"
 mkdir -p /etc/systemd/system/ollama.service.d
-cat >/etc/systemd/system/ollama.service.d/override.conf <<'EOF'
+cat >/tmp/jarvis-ollama-override.conf <<'EOF'
 [Service]
 Environment="OLLAMA_HOST=0.0.0.0:11434"
 Environment="OLLAMA_KEEP_ALIVE=30m"
 EOF
-systemctl daemon-reload
+if skriv_hvis_endret /tmp/jarvis-ollama-override.conf /etc/systemd/system/ollama.service.d/override.conf; then
+  systemctl daemon-reload
+  systemctl restart ollama >/dev/null 2>&1 || true
+fi
 systemctl enable --now ollama >/dev/null 2>&1 || adv "Fikk ikke startet ollama-tjenesten"
 for i in $(seq 1 30); do curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break; sleep 1; done
 
 if [ "$HOPP_MODELLER" -eq 0 ]; then
   for m in "$CHAT_MODELL" "$HERMES_MODELL" "$EMBED_MODELL"; do
     [ -n "$m" ] || continue
+    if ollama list 2>/dev/null | awk 'NR>1{print $1}' | grep -qx "$m"; then
+      ok "Modell $m finnes allerede – hopper over"
+      continue
+    fi
     si "Henter modell $m (kan ta noen minutter) …"
     ollama pull "$m" || adv "Klarte ikke hente $m – hopper over"
   done
@@ -180,14 +219,24 @@ fi
 
 # ── 5. Agenten som systemd-tjeneste ──────────────────────────────────────────
 si "Installerer agenten i $APP_DIR"
+if [ -d "$APP_DIR" ]; then
+  SIKKER="/var/lib/jarvis/backup/agent-$(date +%Y%m%d-%H%M%S)"
+  mkdir -p "$SIKKER"
+  cp -a "$APP_DIR/." "$SIKKER/" 2>/dev/null || true
+  ok "Sikkerhetskopi av forrige agent: $SIKKER"
+fi
 mkdir -p "$APP_DIR"
+# Koden erstattes, men data/ og node_modules beholdes.
 cp -r "$AGENT_DIR/." "$APP_DIR/"
 (cd "$APP_DIR" && npm install --omit=dev --no-audit --no-fund >/dev/null)
 chown -R jarvis:jarvis "$APP_DIR"
 
-cp "$AGENT_DIR/jarvis-agent.service" /etc/systemd/system/jarvis-agent.service
-systemctl daemon-reload
-systemctl enable --now jarvis-agent
+cp "$AGENT_DIR/jarvis-agent.service" /tmp/jarvis-agent.service
+ENDRET_AGENT=0
+skriv_hvis_endret /tmp/jarvis-agent.service /etc/systemd/system/jarvis-agent.service && ENDRET_AGENT=1
+[ "$ENDRET_AGENT" -eq 1 ] && systemctl daemon-reload
+systemctl enable jarvis-agent >/dev/null 2>&1 || true
+systemctl restart jarvis-agent
 for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$AGENT_PORT/health" >/dev/null 2>&1 && break; sleep 1; done
 if curl -fsS "http://127.0.0.1:$AGENT_PORT/health" >/dev/null 2>&1; then
   ok "Agenten svarer på port $AGENT_PORT"
@@ -206,7 +255,7 @@ if [ "$HOPP_GUI" -eq 0 ]; then
   mkdir -p "$GUI_DIR"
   cp -r "$REPO_DIR/." "$GUI_DIR/" 2>/dev/null || true
   chown -R jarvis:jarvis "$GUI_DIR"
-  cat >/etc/systemd/system/jarvis-gui.service <<EOF
+  cat >/tmp/jarvis-gui.service <<EOF
 [Unit]
 Description=Jarvis web-GUI
 After=network-online.target jarvis-agent.service
@@ -226,15 +275,26 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
-  systemctl daemon-reload
-  systemctl enable --now jarvis-gui >/dev/null 2>&1 || adv "Fikk ikke startet jarvis-gui"
+  skriv_hvis_endret /tmp/jarvis-gui.service /etc/systemd/system/jarvis-gui.service && systemctl daemon-reload
+  systemctl enable jarvis-gui >/dev/null 2>&1 || true
+  systemctl restart jarvis-gui >/dev/null 2>&1 || adv "Fikk ikke startet jarvis-gui"
   for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$GUI_PORT/" >/dev/null 2>&1 && break; sleep 1; done
   curl -fsS "http://127.0.0.1:$GUI_PORT/" >/dev/null 2>&1 \
     && ok "GUI svarer på port $GUI_PORT" \
     || adv "GUI svarer ikke ennå – se: journalctl -u jarvis-gui -f"
 fi
 
-# ── 7. Oppsummering ──────────────────────────────────────────────────────────
+# ── 7. Automatisk helsesjekk ─────────────────────────────────────────────────
+si "Kjører helsesjekk (GPU, modeller, tjenester) …"
+HELSE_ARG=()
+[ "$HOPP_GUI" -eq 1 ] && HELSE_ARG+=(--uten-gui)
+HELSE_KODE=0
+AGENT_PORT="$AGENT_PORT" JARVIS_GUI_PORT="$GUI_PORT" \
+JARVIS_CHAT_MODEL="$CHAT_MODELL" JARVIS_HERMES_MODEL="$HERMES_MODELL" JARVIS_EMBED_MODEL="$EMBED_MODELL" \
+JARVIS_LOG_DIR="$LOG_DIR" \
+  bash "$AGENT_DIR/scripts/helsesjekk.sh" "${HELSE_ARG[@]+"${HELSE_ARG[@]}"}" || HELSE_KODE=$?
+
+# ── 8. Oppsummering ──────────────────────────────────────────────────────────
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 [ -n "$IP" ] || IP="127.0.0.1"
 
@@ -258,8 +318,16 @@ fi
 echo
 echo " Neste steg i GUI-et: NODER › HURTIGOPPSETT → skriv inn $IP"
 echo
+if [ "${HELSE_KODE:-0}" -ne 0 ]; then
+  echo -e " ${GUL}Helsesjekken fant feil${RST} – se listen over, eller åpne LOGGER i web-GUI-et."
+  echo "   Kjør på nytt: sudo bash agent/scripts/helsesjekk.sh"
+  echo
+fi
 echo " Nyttige kommandoer:"
 echo "   systemctl status jarvis-agent jarvis-gui"
 echo "   journalctl -u jarvis-agent -f"
+echo "   sudo bash agent/scripts/helsesjekk.sh        # sjekk GPU, modeller og tjenester"
+echo "   sudo bash agent/scripts/legg-til-node.sh --master $IP   # kjøres på en NY Jetson"
 echo "   sudo bash agent/scripts/update-jetson.sh     # oppdater senere"
+echo "   Full logg: $LOGG"
 echo -e "${GRN}────────────────────────────────────────────────${RST}"

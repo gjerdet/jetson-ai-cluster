@@ -40,6 +40,8 @@ export type {
   ErrorCode,
   KnowledgeDoc,
   KnowledgeHit,
+  LogSource,
+  LogTail,
   TtsConfig,
   VoiceClip,
   RagConfig,
