@@ -57,6 +57,7 @@ export function useSession() {
   }, [refresh]);
 
   const loggUt = useCallback(async () => {
+    settLokalModus(false);
     await safe(() => backend.logout());
     setUser(null);
     setState("ute");
