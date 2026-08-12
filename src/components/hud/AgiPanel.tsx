@@ -112,7 +112,7 @@ export function AgiPanel() {
     }
   };
 
-  const [nyttMinne, setNyttMinne] = useState({ tekst: "", type: "faktum", viktighet: 5, kontekst: "" });
+  const [nyttMinne, setNyttMinne] = useState<{ tekst: string; type: ContractMemoryItem["type"]; viktighet: number; kontekst: string }>({ tekst: "", type: "faktum", viktighet: 5, kontekst: "" });
   const lagreMinne = async () => {
     if (!nyttMinne.tekst.trim()) return;
     setLoading(true);
