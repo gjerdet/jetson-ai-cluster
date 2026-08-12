@@ -504,7 +504,8 @@ function approve(cfg: ReturnType<typeof agentCfg>, what: string): boolean {
 async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> {
   const cfg = agentCfg(config);
   if (!cfg.enabled || !cfg.baseUrl)
-    return "Lokal agent er ikke aktivert. Slå den på under SYSTEM → KOBLINGER → LOKAL AGENT (agent/server.mjs må kjøre på Jetson).";
+    return "Ingen agent tilgjengelig: logg inn mot backend-en (BACKEND-fanen) eller slå på SYSTEM → KOBLINGER → LOKAL AGENT. Sandkassen kjører på Jetson via agent/server.mjs.";
+
 
   try {
     if (call.name === "nett_skann") {

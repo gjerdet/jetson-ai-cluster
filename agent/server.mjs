@@ -17,6 +17,8 @@ import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
 import { handleApi, erApiRute } from "./lib/api.mjs";
+import { userFromRequest } from "./lib/auth.mjs";
+
 import { addSample, doc, flushNow, initStore, latest, pruneSamples, warmLatest } from "./lib/store.mjs";
 import { MqttClient, parseMqttUrl } from "./lib/mqtt.mjs";
 import { createMqttHealth } from "./lib/mqtt-health.mjs";
@@ -230,11 +232,15 @@ const requestHandler = async (req, res) => {
   if (TOKEN) {
     const auth = req.headers.authorization || "";
     const forventet = `Bearer ${TOKEN}`;
-    const ok =
+    const okToken =
       auth.length === forventet.length &&
       crypto.timingSafeEqual(Buffer.from(auth), Buffer.from(forventet));
-    if (!ok) return json(req, res, 401, { error: "Ugyldig token" });
+    // Innloggede brukere (samme sesjon som resten av GUI-et) slipper også inn.
+    // Da trenger ikke HUD-en et eget agent-token for å kjøre nett-verktøyene.
+    const bruker = okToken ? null : userFromRequest(req);
+    if (!okToken && !bruker) return json(req, res, 401, { error: "Ugyldig token" });
   }
+
 
 
   try {

@@ -1,4 +1,6 @@
 import type { HudConfig } from "./hud-store";
+import { backendToken, backendUrl } from "./backend";
+
 
 /** Konfigurasjon for den lokale agent-tjenesten som kjører på Jetson/Pi. */
 export type LocalAgentConfig = {
@@ -19,9 +21,22 @@ export const defaultLocalAgent: LocalAgentConfig = {
   timeoutMs: 15000,
 };
 
+/**
+ * Effektiv agent-konfigurasjon.
+ *
+ * Er ikke «LOKAL AGENT» satt opp eksplisitt, faller vi tilbake til backend-en
+ * du allerede er logget inn på (samme tjeneste på Jetson kjører sandkassen).
+ * Da virker nett_sjekk/nett_skann uten ekstra oppsett.
+ */
 export function agentCfg(config: HudConfig): LocalAgentConfig {
-  return { ...defaultLocalAgent, ...(config.localAgent ?? {}) };
+  const cfg = { ...defaultLocalAgent, ...(config.localAgent ?? {}) };
+  if (cfg.enabled && cfg.baseUrl) return cfg;
+  const url = backendUrl();
+  const token = backendToken();
+  if (url && token) return { ...cfg, enabled: true, baseUrl: url, token };
+  return cfg;
 }
+
 
 export type AgentHealth = {
   ok: boolean;
