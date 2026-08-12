@@ -129,6 +129,26 @@ fi
 chown -R jarvis:jarvis "$APP_DIR"
 ok "Agentkode oppdatert"
 
+# Sørg for at oppdatering fra GUI alltid er installert etter en oppdatering.
+mkdir -p /etc/jarvis /var/lib/jarvis /var/log/jarvis
+printf '%s\n' "$SOURCE_DIR" >/etc/jarvis/source-dir
+chmod 600 /etc/jarvis/source-dir
+if [ -f "$APP_DIR/jarvis-update.service" ]; then
+  cp "$APP_DIR/jarvis-update.service" /etc/systemd/system/jarvis-update.service
+  SYSTEMCTL_BIN="$(command -v systemctl || echo /usr/bin/systemctl)"
+  cat >/etc/sudoers.d/jarvis-update <<EOF
+jarvis ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block jarvis-update.service
+jarvis ALL=(root) NOPASSWD: /bin/systemctl start --no-block jarvis-update.service
+jarvis ALL=(root) NOPASSWD: $SYSTEMCTL_BIN start --no-block jarvis-update.service
+EOF
+  chmod 440 /etc/sudoers.d/jarvis-update
+  visudo -cf /etc/sudoers.d/jarvis-update >/dev/null || rm -f /etc/sudoers.d/jarvis-update
+  systemctl daemon-reload
+  ok "Oppdatering fra GUI er aktivert"
+fi
+chown jarvis:jarvis /var/log/jarvis 2>/dev/null || true
+
+
 # ── 4. Bygg GUI ───────────────────────────────────────────────────────────────
 if [ -f "$SOURCE_DIR/package.json" ] && [ "${HOPP_GUI:-0}" -eq 0 ]; then
   si "Bygger web-GUI …"
