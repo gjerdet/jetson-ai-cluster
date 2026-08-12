@@ -215,7 +215,11 @@ export function ChatPanel({
           ? await backend
               .aiChat(thread.map((m) => ({ role: m.role, content: m.content })), {
                 oppgave: round === 0 ? "chat" : "verktoy",
-                ...(config.loadBalance === false && config.aiNodeId ? { nodeId: config.aiNodeId } : {}),
+                // Et eksplisitt modellvalg skal alltid vinne. Send adresse og
+                // modell også, siden HUD-konfigen kan være nyere enn backend-poolen.
+                ...(chosen
+                  ? { nodeId: chosen.id, baseUrl: chosen.baseUrl, model: chosen.model }
+                  : {}),
               })
               .then((r) => {
                 logRouting({
