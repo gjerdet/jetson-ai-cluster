@@ -1,17 +1,18 @@
-import { MessageSquare, Cpu, Globe2, Settings2, Home, LineChart, Activity, Network } from "lucide-react";
+import { MessageSquare, Cpu, Globe2, Settings2, Home, LineChart, Activity, Network, ScrollText } from "lucide-react";
 import { ReactorCore } from "./ReactorCore";
 
-export type WinId = "chat" | "nodes" | "world" | "home" | "dash" | "health" | "pool" | "settings";
+export type WinId = "chat" | "nodes" | "world" | "home" | "dash" | "health" | "pool" | "logs" | "settings";
 
 const ITEMS: { id: WinId; label: string; icon: typeof Cpu; angle: number }[] = [
   { id: "chat", label: "KOMMANDO", icon: MessageSquare, angle: -90 },
-  { id: "nodes", label: "NODER", icon: Cpu, angle: -45 },
-  { id: "world", label: "WORLD", icon: Globe2, angle: 0 },
-  { id: "home", label: "SMARTHUS", icon: Home, angle: 45 },
-  { id: "dash", label: "GRAFER", icon: LineChart, angle: 90 },
-  { id: "health", label: "HELSE", icon: Activity, angle: 135 },
-  { id: "pool", label: "POOL", icon: Network, angle: 180 },
-  { id: "settings", label: "SYSTEM", icon: Settings2, angle: 225 },
+  { id: "nodes", label: "NODER", icon: Cpu, angle: -50 },
+  { id: "world", label: "WORLD", icon: Globe2, angle: -10 },
+  { id: "home", label: "SMARTHUS", icon: Home, angle: 30 },
+  { id: "dash", label: "GRAFER", icon: LineChart, angle: 70 },
+  { id: "health", label: "HELSE", icon: Activity, angle: 110 },
+  { id: "pool", label: "POOL", icon: Network, angle: 150 },
+  { id: "logs", label: "LOGGER", icon: ScrollText, angle: 190 },
+  { id: "settings", label: "SYSTEM", icon: Settings2, angle: 230 },
 ];
 
 export function CenterMenu({
