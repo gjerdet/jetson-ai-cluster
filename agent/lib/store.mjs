@@ -13,6 +13,7 @@ const SAMPLE_DIR = path.join(DATA_DIR, "samples");
 const RETENTION_DAYS = Number(process.env.AGENT_RETENTION_DAYS || 90);
 
 const docs = new Map();
+const mtimes = new Map();
 const dirty = new Set();
 let flushTimer = null;
 
@@ -29,9 +30,20 @@ export async function initStore() {
   }
 }
 
-/** Leser et dokument (cachet i minnet). */
+/**
+ * Leser et dokument (cachet i minnet).
+ * Cachen forkastes hvis fila på disk er endret utenfra (f.eks. av bruker-CLI-et),
+ * slik at en kjørende tjeneste plukker opp nye brukere uten omstart.
+ */
 export function doc(name, fallback) {
-  if (docs.has(name)) return docs.get(name);
+  let mtime = 0;
+  try {
+    mtime = fsSync.statSync(file(name)).mtimeMs;
+  } catch {
+    mtime = 0;
+  }
+  if (docs.has(name) && !dirty.has(name) && mtimes.get(name) === mtime) return docs.get(name);
+  if (docs.has(name) && dirty.has(name)) return docs.get(name);
   let value = fallback;
   try {
     value = JSON.parse(fsSync.readFileSync(file(name), "utf8"));
@@ -48,8 +60,10 @@ export function doc(name, fallback) {
     value = fallback;
   }
   docs.set(name, value);
+  mtimes.set(name, mtime);
   return value;
 }
+
 
 /** Atomisk skriving: skriv til .tmp og bytt navn – aldri halve filer. */
 function writeAtomic(name, value) {
@@ -57,6 +71,11 @@ function writeAtomic(name, value) {
   const tmp = `${target}.tmp`;
   fsSync.writeFileSync(tmp, JSON.stringify(value, null, 2), { encoding: "utf8", mode: 0o600 });
   fsSync.renameSync(tmp, target);
+  try {
+    mtimes.set(name, fsSync.statSync(target).mtimeMs);
+  } catch {
+    /* ignorer */
+  }
 }
 
 /** Skriver et dokument (samlet skriving etter 200 ms). */
