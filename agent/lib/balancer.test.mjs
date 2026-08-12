@@ -48,7 +48,10 @@ describe("lastbalansering", () => {
   });
 });
 
-test("adaptiv ruting: noden med mest ledig GPU velges først", () => {
+describe("adaptiv ruting på GPU og helse", () => {
+  const expect2 = (a, b) => expect(a).toBe(b);
+  const expectOk = (a) => expect(a).toBe(true);
+it("adaptiv ruting: noden med mest ledig GPU velges først", () => {
   resetBalancer();
   const noder = [
     { id: "a", navn: "A", baseUrl: "http://a", vekt: 1 },
@@ -56,11 +59,11 @@ test("adaptiv ruting: noden med mest ledig GPU velges først", () => {
   ];
   settRessurser("a", { frittProsent: 10, utnyttelse: 90, niva: "advarsel", sjekket: Date.now() });
   settRessurser("b", { frittProsent: 85, utnyttelse: 5, niva: "ok", sjekket: Date.now() });
-  assert.equal(rutingsRekkefolge(noder)[0].id, "b");
-  assert.ok(ressursfaktor("b") > ressursfaktor("a"));
+  expect2(rutingsRekkefolge(noder)[0].id, "b");
+  expectOk(ressursfaktor("b") > ressursfaktor("a"));
 });
 
-test("syk node nedprioriteres selv med høy vekt", () => {
+it("syk node nedprioriteres selv med høy vekt", () => {
   resetBalancer();
   const noder = [
     { id: "syk", navn: "Syk", baseUrl: "http://s", vekt: 10 },
@@ -68,16 +71,17 @@ test("syk node nedprioriteres selv med høy vekt", () => {
   ];
   settRessurser("syk", { frittProsent: 50, utnyttelse: 10, niva: "feil", sjekket: Date.now() });
   settRessurser("frisk", { frittProsent: 60, utnyttelse: 10, niva: "ok", sjekket: Date.now() });
-  assert.equal(ressursfaktor("syk"), 0.3);
-  assert.ok(rutingsRekkefolge(noder).map((n) => n.id).includes("frisk"));
+  expect2(ressursfaktor("syk"), 0.3);
+  expectOk(rutingsRekkefolge(noder).map((n) => n.id).includes("frisk"));
 });
 
-test("vurderSnapshot flagger lite GPU-minne og død tjeneste", () => {
+it("vurderSnapshot flagger lite GPU-minne og død tjeneste", () => {
   const v = vurderSnapshot({
     gpu: { totalMb: 8000, frittMb: 400, utnyttelse: 99, tempC: 60 },
     tjenester: [{ navn: "ollama", status: "inactive" }],
     modeller: { ok: true, modeller: [{ navn: "llama3.2:3b" }], lastet: [] },
   });
-  assert.equal(v.niva, "feil");
-  assert.ok(v.varsler.some((x) => x.includes("GPU-minne")));
+  expect2(v.niva, "feil");
+  expectOk(v.varsler.some((x) => x.includes("GPU-minne")));
+});
 });
