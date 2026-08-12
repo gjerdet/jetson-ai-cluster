@@ -17,6 +17,7 @@ import {
   type FullBundle,
 } from "@/lib/version";
 import { UpdateSection } from "./UpdateSection";
+import { DistributeSection } from "./DistributeSection";
 import { API_VERSION } from "@/lib/contract";
 
 const btn =
@@ -39,6 +40,7 @@ export function VersionSection() {
   const [modus, setModus] = useState<"flett" | "erstatt">("flett");
   const [forhandsvis, setForhandsvis] = useState<(ConfigInspect & { fil: string }) | null>(null);
   const [rollback, setRollback] = useState<{ tid: number; pakke: FullBundle } | null>(null);
+  const [utrulling, setUtrulling] = useState(0);
   const valgtPakke = useRef<FullBundle | null>(null);
   const filInput = useRef<HTMLInputElement>(null);
 
@@ -129,6 +131,8 @@ export function VersionSection() {
       setMelding(
         `Importert: ${data.skrevet.length} backend-dokumenter og ${hudAntall} HUD-nøkler. Last siden på nytt for å se alt.`,
       );
+      // Utløser automatisk utrulling til resten av klyngen (kan slås av).
+      setUtrulling((n) => n + 1);
       void hent();
     } else {
       setMelding(`Backend feilet (${error?.message ?? "ukjent feil"}). ${hudAntall} HUD-nøkler ble likevel gjenopprettet lokalt.`);
@@ -231,6 +235,8 @@ export function VersionSection() {
       ) : null}
 
       {melding ? <p className="text-[9px] leading-relaxed text-foreground/70">{melding}</p> : null}
+
+      <DistributeSection trigger={utrulling} modus={modus} />
 
       <UpdateSection agent={info?.agent ?? null} />
 
