@@ -235,8 +235,11 @@ export function ChatPanel({
           : callTracked(primary, thread).then((result) => ({ text: result, node: primary }));
       };
 
-      const runder = smaaprat ? 1 : 4;
+      const runder = smaaprat ? 1 : 8;
+      const oppdrag = !smaaprat && OPPDRAG.test(text);
+      let dyttet = false;
       for (let round = 0; round < runder; round++) {
+
         // Når backend-chat er valgt går hver runde kun via POST /ai/chat.
         // Backend-en lastbalanserer selv mellom Jetson-nodene; er en node låst
         // i innstillingene, sendes den med som ønsket node.
