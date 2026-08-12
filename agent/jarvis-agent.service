@@ -1,6 +1,6 @@
 [Unit]
 Description=Jarvis lokal agent og backend
-Documentation=file:///opt/jarvis/agent/README.md
+Documentation=file:///opt/jarvis-agent/README.md
 After=network-online.target
 Wants=network-online.target
 
@@ -8,9 +8,9 @@ Wants=network-online.target
 Type=simple
 User=jarvis
 Group=jarvis
-WorkingDirectory=/opt/jarvis/agent
+WorkingDirectory=/opt/jarvis-agent
 EnvironmentFile=/etc/jarvis/agent.env
-ExecStart=/usr/bin/node /opt/jarvis/agent/server.mjs
+ExecStart=/usr/bin/node /opt/jarvis-agent/server.mjs
 Restart=always
 RestartSec=5
 StandardOutput=journal
