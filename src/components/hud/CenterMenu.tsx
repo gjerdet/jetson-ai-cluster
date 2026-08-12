@@ -3,19 +3,25 @@ import { ReactorCore } from "./ReactorCore";
 
 export type WinId = "chat" | "nodes" | "world" | "home" | "dash" | "health" | "pool" | "cluster" | "logs" | "settings" | "agi";
 
-const ITEMS: { id: WinId; label: string; icon: typeof Cpu; angle: number }[] = [
-  { id: "chat", label: "KOMMANDO", icon: MessageSquare, angle: -90 },
-  { id: "nodes", label: "NODER", icon: Cpu, angle: -54 },
-  { id: "world", label: "WORLD", icon: Globe2, angle: -18 },
-  { id: "home", label: "SMARTHUS", icon: Home, angle: 18 },
-  { id: "dash", label: "GRAFER", icon: LineChart, angle: 54 },
-  { id: "health", label: "HELSE", icon: Activity, angle: 90 },
-  { id: "cluster", label: "KLYNGE", icon: HeartPulse, angle: 126 },
-  { id: "pool", label: "POOL", icon: Network, angle: 162 },
-  { id: "agi", label: "AGI", icon: Brain, angle: 198 },
-  { id: "logs", label: "LOGGER", icon: ScrollText, angle: 234 },
-  { id: "settings", label: "SYSTEM", icon: Settings2, angle: 270 },
+const BASE: { id: WinId; label: string; icon: typeof Cpu }[] = [
+  { id: "chat", label: "KOMMANDO", icon: MessageSquare },
+  { id: "nodes", label: "NODER", icon: Cpu },
+  { id: "world", label: "WORLD", icon: Globe2 },
+  { id: "home", label: "SMARTHUS", icon: Home },
+  { id: "dash", label: "GRAFER", icon: LineChart },
+  { id: "health", label: "HELSE", icon: Activity },
+  { id: "cluster", label: "KLYNGE", icon: HeartPulse },
+  { id: "pool", label: "POOL", icon: Network },
+  { id: "agi", label: "AGI", icon: Brain },
+  { id: "logs", label: "LOGGER", icon: ScrollText },
+  { id: "settings", label: "SYSTEM", icon: Settings2 },
 ];
+
+// jevn fordeling rundt sirkelen slik at ingen etiketter havner oppå hverandre
+const ITEMS = BASE.map((it, i) => ({
+  ...it,
+  angle: -90 + (i * 360) / BASE.length,
+}));
 
 export function CenterMenu({
   open,
@@ -30,7 +36,7 @@ export function CenterMenu({
   onSelect: (id: WinId) => void;
   activeNodes: number;
 }) {
-  const radius = 150;
+  const radius = 170;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
