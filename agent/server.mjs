@@ -18,6 +18,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { handleApi, erApiRute } from "./lib/api.mjs";
 import { userFromRequest } from "./lib/auth.mjs";
+import { networkCheckScript, networkScanScript } from "./lib/network-tools.mjs";
 
 import { addSample, doc, flushNow, initStore, latest, pruneSamples, warmLatest } from "./lib/store.mjs";
 import { MqttClient, parseMqttUrl } from "./lib/mqtt.mjs";
@@ -458,6 +459,22 @@ const apiDeps = {
   restartMqtt: startMqtt,
   rulesStatus,
   tls: !!TLS_OPTIONS,
+  runNetworkTool: async ({ type, subnet, ports }) => {
+    const script = type === "scan"
+      ? networkScanScript(subnet, ports === true)
+      : networkCheckScript(subnet);
+    await ensureSandbox();
+    const tmp = safeScriptPath(`_nett_${type}_${Date.now()}.sh`);
+    await fs.writeFile(tmp.full, script, "utf8");
+    try {
+      return await execute("bash", [tmp.full], {
+        timeoutMs: type === "scan" ? (ports ? 180_000 : 90_000) : 60_000,
+        cwd: SANDBOX,
+      });
+    } finally {
+      await fs.unlink(tmp.full).catch(() => {});
+    }
+  },
 };
 
 

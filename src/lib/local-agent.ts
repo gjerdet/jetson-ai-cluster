@@ -1,5 +1,5 @@
 import type { HudConfig } from "./hud-store";
-import { backendToken, backendUrl } from "./backend";
+import { backend, backendToken, backendUrl } from "./backend";
 
 
 /** Konfigurasjon for den lokale agent-tjenesten som kjører på Jetson/Pi. */
@@ -128,6 +128,10 @@ export const agentRun = (
     method: "POST",
     body: JSON.stringify({ ...opts, timeoutMs: cfg.timeoutMs }),
   });
+
+/** Nettverksjobber går helst via det innloggede backend-API-et. */
+export const backendNetworkCheck = (subnet = "") => backend.nettSjekk(subnet);
+export const backendNetworkScan = (subnet = "", ports = false) => backend.nettSkann(subnet, ports);
 
 /** Kompakt tekstform av et kjøreresultat, brukt i verktøysvar til modellen. */
 export function formatResult(r: ExecResult): string {

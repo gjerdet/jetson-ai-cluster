@@ -8,6 +8,8 @@ import { CIDR_RE, checkScript, scanScript } from "./net-scan";
 
 import {
   agentCfg,
+  backendNetworkCheck,
+  backendNetworkScan,
   agentDeleteScript,
   agentExec,
   agentHealth,
@@ -516,7 +518,9 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       if (!approve(cfg, `nettverksskanning av ${subnet || "eget subnett"}`))
         return "Brukeren avslo skanningen.";
       const scanCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, ports ? 180000 : 90000) };
-      const r = await agentRun(scanCfg, { lang: "bash", content: scanScript(subnet, ports) });
+      const r = backendToken()
+        ? await backendNetworkScan(subnet, ports)
+        : await agentRun(scanCfg, { lang: "bash", content: scanScript(subnet, ports) });
       return formatResult(r);
     }
 
@@ -527,7 +531,9 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       if (!approve(cfg, `nettverkssjekk (gateway, DNS, ARP, porter)`))
         return "Brukeren avslo sjekken.";
       const sjekkCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, 60000) };
-      const r = await agentRun(sjekkCfg, { lang: "bash", content: checkScript(subnet) });
+      const r = backendToken()
+        ? await backendNetworkCheck(subnet)
+        : await agentRun(sjekkCfg, { lang: "bash", content: checkScript(subnet) });
       return formatResult(r);
     }
 
