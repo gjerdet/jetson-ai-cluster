@@ -59,6 +59,14 @@ const BRIEF_TRIGGERS =
 
 const REMEMBER = /^\s*(husk|remember)[:\s]+(.+)$/is;
 
+/** Meldinger som ber om at noe faktisk blir gjort. */
+const OPPDRAG =
+  /(skann|scan|sjekk|finn|let|søk|list|vis|hent|mål|test|kjør|start|restart|feilsøk|diagnos|overvåk|lag|sett opp|installer|fiks|rett|analyser|hvor mange|hvilke)/i;
+/** Typiske bortforklaringer der modellen svarer uten å ha prøvd. */
+const UNNVIKELSE =
+  /(ingen enheter|har ikke tilgang|ikke mulighet|kan ikke se|jeg mangler|ingen registrerte|vi kan sammen|ønsker du at jeg|tar jeg gjerne imot|si ifra hvis)/i;
+
+
 export function ChatPanel({
   config,
   update,
