@@ -183,7 +183,7 @@ export function WorldMap({
       ref={boxRef}
       className={
         expanded
-          ? "hud-panel fixed inset-3 z-[200] touch-none overflow-hidden rounded-lg border border-primary/25 md:inset-8"
+          ? "hud-panel hud-solid fixed inset-3 z-[200] touch-none overflow-hidden rounded-lg border border-primary/25 md:inset-8"
           : `relative w-full touch-none overflow-hidden rounded border border-primary/20 bg-primary/[0.02] ${fill ? "min-h-0 flex-1" : ""}`
       }
     >

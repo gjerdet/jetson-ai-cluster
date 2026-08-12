@@ -204,6 +204,13 @@
   );
 }
 
+.hud-solid {
+  /* Lettlest bakgrunn for kart og store paneler – fortsatt HUD-preg */
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(130%);
+  border-color: oklch(0.78 0.13 200 / 0.4);
+}
+
 .hud-panel {
   background: color-mix(in oklab, var(--background) var(--hud-opacity, 5%), transparent);
   backdrop-filter: blur(2px) saturate(115%);
@@ -487,4 +494,14 @@
   display: none;
   width: 0;
   height: 0;
+}
+
+/* Ingen horisontal rulling i HUD-en – alt skal brytes i stedet */
+html,
+body {
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+.hud-root {
+  max-width: 100vw;
 }
