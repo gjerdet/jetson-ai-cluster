@@ -1,3 +1,4 @@
+import { TestKobling } from "./TestKobling";
 import { useState } from "react";
 import {
   Bot,
@@ -811,6 +812,7 @@ export function SettingsPanel({
                     />
                   </label>
                   <DutyPicker node={n} onChange={(duties) => patchNode(n.id, { duties })} />
+                  <TestKobling baseUrl={n.baseUrl} model={n.model} apiKey={n.apiKey ?? ""} />
                 </div>
               </div>
             ))}
