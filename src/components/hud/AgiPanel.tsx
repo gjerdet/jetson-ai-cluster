@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { MemoryItem as ContractMemoryItem } from "@/lib/contract";
 import {
   Brain,
   Bot,
