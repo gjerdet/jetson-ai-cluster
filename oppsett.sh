@@ -300,14 +300,20 @@ systemctl stop jarvis-agent 2>/dev/null || true
 frigjor_port "$AGENT_PORT"
 systemctl restart jarvis-agent || adv "systemctl restart jarvis-agent feilet"
 
-for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$AGENT_PORT/api/status" >/dev/null 2>&1 && break; sleep 1; done
-if curl -fsS "http://127.0.0.1:$AGENT_PORT/api/status" >/dev/null 2>&1; then
+# Agenten kan kjøre HTTP eller HTTPS avhengig av AGENT_TLS_* – prøv begge.
+agent_svarer() {
+  curl -fsS "http://127.0.0.1:$AGENT_PORT/api/status" >/dev/null 2>&1 ||
+    curl -fsSk "https://127.0.0.1:$AGENT_PORT/api/status" >/dev/null 2>&1
+}
+for i in $(seq 1 30); do agent_svarer && break; sleep 1; done
+if agent_svarer; then
   ok "Agenten svarer på port $AGENT_PORT"
 else
   feil "Agenten svarer ikke på port $AGENT_PORT – status og siste logglinjer:"
   SYSTEMD_PAGER=cat systemctl status jarvis-agent --no-pager -l -n 20 2>/dev/null || true
   SYSTEMD_PAGER=cat journalctl -u jarvis-agent -n 40 --no-pager -o cat 2>/dev/null || true
 fi
+
 
 # ── 6. Web-GUI ───────────────────────────────────────────────────────────────
 if [ "$HOPP_GUI" -eq 0 ] && [ -f "$REPO_DIR/package.json" ]; then
