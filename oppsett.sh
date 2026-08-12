@@ -84,9 +84,9 @@ if [ -f "$ENV_FILE" ]; then
   les_env() { grep -E "^$1=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-; }
   AGENT_PORT="$(les_env AGENT_PORT || true)"; AGENT_PORT="${AGENT_PORT:-8787}"
   CHAT_MODELL="$(les_env JARVIS_AI_MODEL || true)"; CHAT_MODELL="${CHAT_MODELL:-llama3.2:3b}"
-  H="$(les_env JARVIS_HERMES_MODEL || true)"; [ -n "$H" ] && HERMES_MODELL="$H"
-  E="$(les_env JARVIS_EMBED_MODEL || true)"; [ -n "$E" ] && EMBED_MODELL="$E"
-  EP="$(les_env JARVIS_ADMIN_EPOST || true)"; [ -n "$EP" ] && EPOST="$EP"
+  H="$(les_env JARVIS_HERMES_MODEL || true)"; if [ -n "$H" ]; then HERMES_MODELL="$H"; fi
+  E="$(les_env JARVIS_EMBED_MODEL || true)"; if [ -n "$E" ]; then EMBED_MODELL="$E"; fi
+  EP="$(les_env JARVIS_ADMIN_EPOST || true)"; if [ -n "$EP" ]; then EPOST="$EP"; fi
 fi
 
 # Skriver en fil kun når innholdet faktisk endrer seg (idempotent).
@@ -161,7 +161,11 @@ if skriv_hvis_endret /tmp/jarvis-ollama-override.conf /etc/systemd/system/ollama
   systemctl daemon-reload
   systemctl restart ollama >/dev/null 2>&1 || true
 fi
-systemctl enable --now ollama >/dev/null 2>&1 || adv "Fikk ikke startet ollama-tjenesten"
+if ! systemctl enable --now ollama >/dev/null 2>&1; then
+  adv "Fant ingen systemd-tjeneste for ollama – prøver å installere på nytt"
+  curl -fsSL https://ollama.com/install.sh | sh || adv "Ollama-installasjon feilet"
+  systemctl enable --now ollama >/dev/null 2>&1 || adv "Fikk fortsatt ikke startet ollama-tjenesten"
+fi
 for i in $(seq 1 30); do curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break; sleep 1; done
 
 if [ "$HOPP_MODELLER" -eq 0 ]; then
@@ -270,7 +274,7 @@ WantedBy=multi-user.target
 EOF
 ENDRET_AGENT=0
 skriv_hvis_endret /tmp/jarvis-agent.service /etc/systemd/system/jarvis-agent.service && ENDRET_AGENT=1
-[ "$ENDRET_AGENT" -eq 1 ] && systemctl daemon-reload
+if [ "$ENDRET_AGENT" -eq 1 ]; then systemctl daemon-reload; fi
 systemctl enable jarvis-agent >/dev/null 2>&1 || adv "Fikk ikke aktivert jarvis-agent"
 systemctl restart jarvis-agent || adv "systemctl restart jarvis-agent feilet"
 for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$AGENT_PORT/health" >/dev/null 2>&1 && break; sleep 1; done
@@ -347,7 +351,7 @@ fi
 # ── 7. Automatisk helsesjekk ─────────────────────────────────────────────────
 si "Kjører helsesjekk (GPU, modeller, tjenester) …"
 HELSE_ARG=()
-[ "$HOPP_GUI" -eq 1 ] && HELSE_ARG+=(--uten-gui)
+if [ "$HOPP_GUI" -eq 1 ]; then HELSE_ARG+=(--uten-gui); fi
 HELSE_KODE=0
 AGENT_PORT="$AGENT_PORT" JARVIS_GUI_PORT="$GUI_PORT" \
 JARVIS_CHAT_MODEL="$CHAT_MODELL" JARVIS_HERMES_MODEL="$HERMES_MODELL" JARVIS_EMBED_MODEL="$EMBED_MODELL" \
