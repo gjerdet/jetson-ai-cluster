@@ -176,27 +176,30 @@ export function ChatPanel({
     setBusy(true);
     setStage("tenker");
     try {
+      // Rask vei for småprat: hopp over kunnskapssøk og verktøyprompt,
+      // slik at «hei» svares på med én enkelt modellrunde.
+      const smaaprat = text.length <= 40 && SMAAPRAT.test(text);
       const live = mqttBrief();
       const sys = [
         systemPrompt(config),
         live,
-        mqttOnline() ? MQTT_TOOL_PROMPT : "",
-        TOOL_PROMPT,
-        customToolPrompt(config),
-        toolAvailability(config, Object.keys(mqtt.topics).length),
+        smaaprat ? "" : mqttOnline() ? MQTT_TOOL_PROMPT : "",
+        smaaprat ? "" : TOOL_PROMPT,
+        smaaprat ? "" : customToolPrompt(config),
+        smaaprat ? "" : toolAvailability(config, Object.keys(mqtt.topics).length),
       ]
         .filter(Boolean)
         .join("\n");
       let context = "";
       // kunnskapsinnhenting: hent relevante biter fra den lokale kunnskapsbasen
       let sources: Citation[] = [];
-      if (config.knowledge !== false) {
+      if (config.knowledge !== false && !smaaprat) {
         setStage("henter kunnskap");
         const rag = await retrieveContext(text);
         context += rag.context;
         sources = rag.sources;
       }
-      if (BRIEF_TRIGGERS.test(text)) {
+      if (!smaaprat && BRIEF_TRIGGERS.test(text)) {
         if (!snapshot().events.length) await refreshFeed();
         context = `\n\n[WORLD MONITOR-DATA]\n${briefingText(10)}`;
       }
@@ -220,7 +223,8 @@ export function ChatPanel({
           : callTracked(primary, thread).then((result) => ({ text: result, node: primary }));
       };
 
-      for (let round = 0; round < 4; round++) {
+      const runder = smaaprat ? 1 : 4;
+      for (let round = 0; round < runder; round++) {
         // Når backend-chat er valgt går hver runde kun via POST /ai/chat.
         // Backend-en lastbalanserer selv mellom Jetson-nodene; er en node låst
         // i innstillingene, sendes den med som ønsket node.
