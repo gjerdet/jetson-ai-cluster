@@ -164,6 +164,7 @@ function Index() {
               {id === "dash" ? <DashboardPanel config={config} update={update} /> : null}
               {id === "health" ? <HealthPanel config={config} /> : null}
               {id === "pool" ? <PoolPanel config={config} /> : null}
+              {id === "agi" ? <AgiPanel /> : null}
               {id === "logs" ? <LogsPanel /> : null}
               {id === "cluster" ? <ClusterHealthPanel /> : null}
               {id === "settings" ? <SettingsPanel config={config} update={update} /> : null}
