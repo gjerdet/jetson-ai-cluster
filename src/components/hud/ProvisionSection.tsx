@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, ServerCog, Terminal } from "lucide-react";
 import { backend, safe, type ProvisionJob } from "@/lib/backend";
+import { NODE_DUTIES, NODE_DUTY_LABELS, type NodeDuty } from "@/lib/hud-store";
 
 const btn =
   "flex items-center gap-2 rounded-full border border-primary/30 bg-primary/[0.08] px-3 py-1.5 text-[9px] uppercase tracking-[0.2em] text-primary/90 transition hover:bg-primary/20 disabled:opacity-40";
@@ -25,6 +26,8 @@ export function ProvisionSection() {
   const [passord, setPassord] = useState("");
   const [modeller, setModeller] = useState("llama3.2:3b");
   const [prefiks, setPrefiks] = useState("NODE");
+  const [rolle, setRolle] = useState("worker");
+  const [oppgaver, setOppgaver] = useState<NodeDuty[]>(["chat", "verktoy"]);
   const [jobber, setJobber] = useState<ProvisionJob[]>([]);
   const [aapen, setAapen] = useState<string | null>(null);
   const [melding, setMelding] = useState<string | null>(null);
@@ -56,6 +59,8 @@ export function ProvisionSection() {
         passord,
         modeller: modeller.split(/[\s,]+/).filter(Boolean),
         navnPrefiks: prefiks,
+        rolle,
+        oppgaver,
       }),
     );
     setBusy(false);
@@ -115,6 +120,38 @@ export function ProvisionSection() {
           placeholder="navneprefiks (NODE)"
           className="hud-input"
         />
+        <select value={rolle} onChange={(e) => setRolle(e.target.value)} className="hud-select h-6">
+          <option value="worker">arbeider</option>
+          <option value="primary">primær</option>
+          <option value="observer">observatør</option>
+        </select>
+      </div>
+
+      <div className="space-y-1">
+        <span className="text-[9px] uppercase tracking-[0.2em] text-primary/50">oppgaver noden skal ta</span>
+        <div className="flex flex-wrap gap-1.5">
+          {NODE_DUTIES.map((d) => {
+            const på = oppgaver.includes(d);
+            return (
+              <button
+                key={d}
+                onClick={() =>
+                  setOppgaver((o) => (på ? o.filter((x) => x !== d) : [...o, d]))
+                }
+                className={`rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.15em] transition ${
+                  på
+                    ? "border-primary/50 bg-primary/20 text-primary"
+                    : "border-primary/15 bg-primary/[0.04] text-muted-foreground hover:bg-primary/10"
+                }`}
+              >
+                {NODE_DUTY_LABELS[d]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
         <button className={btn} disabled={busy || !verter.length || !bruker.trim()} onClick={() => void start()}>
           {busy ? <Loader2 className="size-3 animate-spin" /> : <ServerCog className="size-3" />}
           rull ut {verter.length ? `${verter.length} stk` : ""}
