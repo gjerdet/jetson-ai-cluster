@@ -438,7 +438,7 @@ export function AgiPanel() {
                     <div className="text-[10px]">{f.tekst}</div>
                     <span className="rounded border border-primary/20 px-1 text-[9px] uppercase">{f.risiko}</span>
                   </div>
-                  {f.handling?.type !== "none" ? (
+                  {f.handling && f.handling.type !== "none" ? (
                     <div className="text-[10px] text-muted-foreground">
                       Handling: {f.handling.type} {f.handling.payload ? `· ${f.handling.payload}` : ""}
                     </div>
