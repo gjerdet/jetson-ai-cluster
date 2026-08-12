@@ -83,6 +83,13 @@ si "Tar sikkerhetskopi …"
 [ -f "/etc/systemd/system/$GUI_SERVICE.service" ] && cp -a "/etc/systemd/system/$GUI_SERVICE.service" "$BACKUP/"
 ok "Backup lagret i $BACKUP"
 
+# Innlogging er slått av i lokalt miljø – fjern evt. gammel innstilling som
+# fortsatt krever pålogging mot API-et.
+if [ -f "$ENV_FILE" ] && grep -qE '^AGENT_KREV_INNLOGGING=' "$ENV_FILE"; then
+  sed -i 's/^AGENT_KREV_INNLOGGING=.*/AGENT_KREV_INNLOGGING=0/' "$ENV_FILE"
+  ok "Innlogging deaktivert i $ENV_FILE"
+fi
+
 # ── 2. Hent ny kode ───────────────────────────────────────────────────────────
 REPO_EIER="$(stat -c '%U' "$SOURCE_DIR")"
 REPO_GRUPPE="$(stat -c '%G' "$SOURCE_DIR")"
