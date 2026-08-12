@@ -441,3 +441,32 @@ sudo /opt/jarvis/agent/scripts/update-jetson.sh main
 Skriptet tar sikkerhetskopi av `data/` og `agent.env`, henter ny kode, installerer
 avhengigheter, bygger HUD-en og restarter `jarvis-agent`. Det skriver ut kommandoen
 for å rulle tilbake til forrige commit hvis noe skulle feile.
+
+
+## Klyngehelse og konfigdistribusjon
+
+**KLYNGE-panelet** (sentermenyen) viser per node:
+
+- GPU: ledig minne, last og temperatur (`nvidia-smi`, ellers Tegra-sysfs).
+- Modeller: hvilke som er lastet ned og hvilke som ligger i minnet nå.
+- Tjenester: `jarvis-agent`, `ollama`, `jarvis-gui`, `mosquitto`.
+- Faresignaler: gult under 20 % ledig GPU eller over 75 °C, rødt under 8 %,
+  over 85 °C, død tjeneste eller manglende modell.
+
+Målingene mater lastbalansereren: en node med mye ledig GPU og frisk status får
+flere forespørsler, en node med nivå «feil» nedprioriteres kraftig. Faktoren
+vises som «adaptiv faktor» i POOL-panelet.
+
+For at en node skal kunne rapportere GPU og tjenester må den ha sin egen
+jarvis-agent kjørende, og adressen må fylles inn i feltet **agent-adresse**
+under NODER (f.eks. `http://192.168.1.42:8787`). Alle noder må dele samme
+`AGENT_TOKEN` i `/etc/jarvis/agent.env`. Uten agent-adresse faller helsesjekken
+tilbake til en ren Ollama-sjekk.
+
+**Konfigdistribusjon:** under SYSTEM › Versjon & konfig ligger «Distribusjon til
+klyngen». Trykk «Rull ut nå» for å sende konfig-pakken til alle noder med
+agent-adresse. Hver node importerer pakken, og backend-en verifiserer etterpå at
+nodens egen eksport har nøyaktig samme sjekksum. Er «rull ut automatisk ved
+endring» huket av (standard), skjer utrullingen automatisk hver gang du henter
+inn en ny konfig-pakke. Hemmeligheter – passord, API-nøkler, Telegram-token og
+agent-token – følger aldri med i pakken.
