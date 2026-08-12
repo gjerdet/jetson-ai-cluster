@@ -29,10 +29,22 @@ function numberToIp(value: number): string {
  */
 function asksAboutDevices(question: string): boolean {
   const devices = /\b(enhet(?:er|ene|en)?|maskin(?:er|ene)?|klient(?:er|ene)?|host(?:s|er)?|noder|dingser|utstyr)\b/i.test(question);
-  const scan = /\b(skann(?:e|er|ing)?|scan|kartlegg|oppdag|finn ut hvem|hvem er (?:p\u00e5|koblet)|hva er koblet|list(?:e)? opp)\b/i.test(question);
-  const netContext = /\b(subnett(?:et)?|nettet|nettverk(?:et)?|lan|ip-?omr\u00e5det)\b/i.test(question);
+  const scan = /\b(skann(?:e|er|ing)?|scan|kartlegg|oppdag|sjekk(?:e|er)?|n\u00e5r(?:r)?|n\u00e5|svarer|aktive|finn ut hvem|hvem er (?:p\u00e5|koblet)|hva er koblet|list(?:e)? opp)\b/i.test(question);
+  const netContext = /\b(subnett?(?:et)?|nettet|nettverk(?:et)?|lan|ip-?omr\u00e5det)\b/i.test(question) || IPV4_CIDR.test(question);
   if (scan && (devices || netContext)) return true;
   return devices && netContext;
+}
+
+/** Plukker ut et eksplisitt subnett brukeren har oppgitt i spørsmålet. */
+export function explicitSubnet(question: string): string | null {
+  const m = question.match(IPV4_CIDR);
+  if (!m) return null;
+  const prefix = Number(m[2]);
+  if (!Number.isInteger(prefix) || prefix < 8 || prefix > 32) return null;
+  const num = ipToNumber(m[1] as string);
+  if (num == null) return null;
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  return `${numberToIp((num & mask) >>> 0)}/${prefix}`;
 }
 
 export function classifyNetworkQuestion(question: string): NetworkQuestion {
@@ -44,7 +56,7 @@ export function classifyNetworkQuestion(question: string): NetworkQuestion {
   }
   const asksForList = /\b(alle|hele|full(?:stendig)?|liste(?:n)?(?: over)?)\b/i.test(question);
   const mentionsIp = /\bip(?:-?(?:adresse|adr))?(?:r|ne)?\b/i.test(question);
-  const mentionsSubnet = /\bsubnett(?:et)?\b/i.test(question);
+  const mentionsSubnet = /\bsubnett?(?:et)?\b/i.test(question);
   if (asksForList && mentionsIp && mentionsSubnet) return "subnet-addresses";
   if (/\b(hva er|vis|finn)\b.*\b(din|maskinens|nodens|min)\b.*\bip(?:-?adresse)?\b|\bip(?:-?adresse)?\b.*\b(din|maskinens|nodens)\b/i.test(question)) {
     return "own-ip";
