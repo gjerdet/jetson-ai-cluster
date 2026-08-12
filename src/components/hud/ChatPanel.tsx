@@ -339,7 +339,7 @@ export function ChatPanel({
 
       const runder = smaaprat ? 1 : 8;
       const oppdrag = !smaaprat && OPPDRAG.test(text);
-      const kreverLokalEvidens = !smaaprat && requiresFreshLocalEvidence(text);
+      const kreverLokalEvidens = !smaaprat && requiresFreshLocalEvidence(text, config.nodes.map((n) => n.name));
       let dyttet = false;
       for (let round = 0; round < runder; round++) {
 
