@@ -461,8 +461,21 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
     return "Lokal agent er ikke aktivert. Slå den på under SYSTEM → KOBLINGER → LOKAL AGENT (agent/server.mjs må kjøre på Jetson).";
 
   try {
+    if (call.name === "nett_skann") {
+      const subnet = str(call.args["subnett"] ?? call.args["subnet"] ?? call.args["cidr"]).trim();
+      const ports = call.args["porter"] === true || call.args["ports"] === true;
+      if (subnet && !CIDR_RE.test(subnet))
+        return `Ugyldig subnett «${subnet}». Bruk formen 192.168.1.0/24.`;
+      if (!approve(cfg, `nettverksskanning av ${subnet || "eget subnett"}`))
+        return "Brukeren avslo skanningen.";
+      const scanCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, ports ? 180000 : 90000) };
+      const r = await agentRun(scanCfg, { lang: "bash", content: scanScript(subnet, ports) });
+      return formatResult(r);
+    }
+
     if (call.name === "agent_status") {
       const h = await agentHealth(cfg);
+
       return [
         `Agent: ${h.host ?? "?"} · ${h.platform ?? "?"}`,
         `Oppetid ${Math.round((h.uptimeSec ?? 0) / 3600)} t · last ${(h.loadavg ?? []).join(" / ")}`,
