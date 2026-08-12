@@ -9,7 +9,7 @@ export function requiresFreshLocalEvidence(text: string): boolean {
       normalized,
     );
   const observableState =
-    /\b(kjører|hardware|maskinvare|cpu|gpu|minne|ram|disk|operativsystem|os|plattform|modell|hostname|vertsnavn|ip|nettverk|subnett|gateway|dns|port|prosess|tjeneste|status|temperatur|last|oppetid|installert|tilkoblet)\b/.test(
+    /\b(kjører|hardware|maskinvare\w*|cpu|gpu|minne\w*|ram|disk\w*|operativsystem\w*|os|plattform\w*|modell\w*|hostname|vertsnavn\w*|ip|nettverk\w*|subnett\w*|gateway\w*|dns|port\w*|prosess\w*|tjenest\w*|status|temperatur\w*|last|oppetid|installert\w*|tilkoblet\w*)\b/.test(
       normalized,
     );
 
