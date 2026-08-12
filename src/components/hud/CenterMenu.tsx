@@ -36,7 +36,7 @@ export function CenterMenu({
   onSelect: (id: WinId) => void;
   activeNodes: number;
 }) {
-  const radius = 150;
+  const radius = 170;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
