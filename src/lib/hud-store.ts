@@ -567,6 +567,7 @@ export const defaultConfig: HudConfig = {
   confirmCommands: true,
   loadBalance: true,
   keepHistory: true,
+  chatViaBackend: true,
   knowledge: true,
   evaluator: defaultEvaluator,
   localAgent: {
@@ -601,6 +602,10 @@ export function useHudConfig() {
         setConfig({
           ...defaultConfig,
           ...parsed,
+          // Eldre konfigurasjoner mangler feltet og sendte derfor chat direkte
+          // fra nettleseren til AI-noden. Det feiler ofte på mobil på grunn av
+          // CORS/TLS. Eksplisitt `false` beholdes for avansert direktekobling.
+          chatViaBackend: parsed.chatViaBackend ?? true,
           evaluator: { ...defaultEvaluator, ...(parsed.evaluator ?? {}) },
         });
       }
