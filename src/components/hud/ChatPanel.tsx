@@ -50,6 +50,8 @@ import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
 import { retrieveContext, type Citation } from "@/lib/knowledge";
 
+import { MeldingInnhold } from "./MeldingInnhold";
+
 const SMAAPRAT =
   /^(hei|hallo|halla|heisann|yo|hey|hi|god\s*(morgen|kveld|dag)|takk|ok(ei)?|hvordan går det|er du der|test)\b[\s!.?,]*$/i;
 const BRIEF_TRIGGERS =
@@ -400,7 +402,7 @@ export function ChatPanel({
                   : "text-sm leading-relaxed whitespace-pre-wrap text-foreground/90"
               }
             >
-              {m.content}
+              <MeldingInnhold tekst={m.content} />
             </div>
             {m.sources?.length ? (
               <details className="mt-1 rounded border border-primary/20 bg-primary/[0.03] px-2 py-1 text-left">
@@ -509,14 +511,18 @@ export function ChatPanel({
         <div ref={endRef} />
       </div>
       <div className="flex items-center gap-2 border-t border-primary/20 pt-2">
-        <input
+        <textarea
           value={input}
+          rows={Math.min(10, Math.max(1, input.split("\n").length))}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") void send();
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void send();
+            }
           }}
-          placeholder="Snakk til systemet…"
-          className="hud-input flex-1"
+          placeholder="Snakk til systemet… (Shift+Enter = ny linje, ``` for kode)"
+          className="hud-input flex-1 resize-none"
         />
         <button
           onClick={() => {
