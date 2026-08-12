@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { HudWindow } from "@/components/hud/HudWindow";
 import { AmbientField } from "@/components/hud/AmbientField";
@@ -13,6 +13,7 @@ import { HealthPanel } from "@/components/hud/HealthPanel";
 import { PoolPanel } from "@/components/hud/PoolPanel";
 import { BackendStatusBadge } from "@/components/hud/BackendStatusBadge";
 import { useHudConfig } from "@/lib/hud-store";
+import { useSession } from "@/lib/session";
 import { setRules, setTelegramChat } from "@/lib/mqtt-bridge";
 
 export const Route = createFileRoute("/")({
