@@ -53,10 +53,16 @@ export function chatText(data) {
 /** Prøver kjente lokale API-formater i rekkefølge og gir en konkret feil. */
 export async function callChatEndpoint(input) {
   const { baseUrl, model, messages, temperature, apiKey, signal } = input || {};
+  const timeoutMs = Math.max(5_000, Number(input?.timeoutMs) || 300_000);
   const endpoints = chatEndpoints(baseUrl);
   if (!endpoints.length) throw new Error("AI-adressen mangler.");
   const feil = [];
   for (const endpoint of endpoints) {
+    // Egen tidsgrense per endepunkt, slik at ett tregt forsøk ikke spiser hele budsjettet.
+    const ctrl = new AbortController();
+    const avbrytt = () => ctrl.abort();
+    signal?.addEventListener?.("abort", avbrytt);
+    const timer = setTimeout(avbrytt, timeoutMs);
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -65,7 +71,7 @@ export async function callChatEndpoint(input) {
           ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
         },
         body: JSON.stringify(chatPayload(endpoint, { model, messages, temperature })),
-        signal,
+        signal: ctrl.signal,
       });
       if (!response.ok) {
         const detail = (await response.text().catch(() => "")).slice(0, 180);
@@ -81,16 +87,25 @@ export async function callChatEndpoint(input) {
       return { svar, endpoint };
     } catch (error) {
       if (signal?.aborted) throw error;
-      feil.push(`${endpoint}: ${error?.message || String(error)}`);
+      const tidsavbrudd = ctrl.signal.aborted || /abort/i.test(error?.message || "");
+      feil.push(
+        tidsavbrudd
+          ? `${endpoint}: modellen svarte ikke innen ${Math.round(timeoutMs / 1000)} s (den er trolig fortsatt i gang med å laste eller generere)`
+          : `${endpoint}: ${error?.message || String(error)}`,
+      );
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener?.("abort", avbrytt);
     }
   }
+
   const samlet = feil.join(" | ");
   if (erModellMangler(samlet) && !input?._retry) {
     const modeller = await listModels(baseUrl, { apiKey, signal });
     const alternativ = modeller.find((m) => m !== model);
     if (alternativ) {
       const res = await callChatEndpoint({
-        baseUrl, model: alternativ, messages, temperature, apiKey, signal, _retry: true,
+        baseUrl, model: alternativ, messages, temperature, apiKey, signal, timeoutMs, _retry: true,
       });
       return { ...res, model: alternativ, byttetModell: true };
     }
