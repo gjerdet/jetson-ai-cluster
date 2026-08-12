@@ -21,7 +21,43 @@ feil(){ echo -e "${RED}✗ $*${RST}"; }
 [ "$(id -u)" -eq 0 ] || { feil "Må kjøres som root:  sudo bash $0"; exit 1; }
 
 REF="${1:-main}"
-APP_DIR="${JARVIS_DIR:-/opt/jarvis-agent}"
+
+# Finn git-repoet automatisk. Rekkefølge:
+#   1. Nåværende mappe hvis den er et git-repo
+#   2. JARVIS_DIR
+#   3. /opt/jarvis-agent (standard installasjonssti)
+#   4. Parent-mapper til nåværende mappe (opptil 3 nivåer)
+finn_repo() {
+  local d="$1"
+  while [ "$d" != "/" ] && [ -n "$d" ]; do
+    [ -d "$d/.git" ] && { echo "$d"; return 0; }
+    d="$(dirname "$d")"
+  done
+  return 1
+}
+
+APP_DIR=""
+for candidate in "$(pwd)" "${JARVIS_DIR:-}" "/opt/jarvis-agent"; do
+  [ -n "$candidate" ] || continue
+  if repo_path="$(finn_repo "$candidate")"; then
+    APP_DIR="$repo_path"
+    break
+  fi
+done
+
+# Siste utvei: søk oppover fra nåværende mappe
+if [ -z "$APP_DIR" ]; then
+  APP_DIR="$(finn_repo "$(pwd)")" || true
+fi
+
+if [ -z "$APP_DIR" ] || [ ! -d "$APP_DIR/.git" ]; then
+  feil "Fant ikke Jarvis-git-repoet."
+  echo "Kjør fra repo-mappen, eller sett JARVIS_DIR:"
+  echo "  sudo JARVIS_DIR=/opt/jarvis-agent bash $0"
+  echo "  sudo bash $0   (fra mappen med .git)"
+  exit 1
+fi
+
 GUI_DIR="${JARVIS_GUI_DIR:-/opt/jarvis-gui}"
 DATA_DIR="${AGENT_DATA:-$APP_DIR/agent/data}"
 ENV_FILE="/etc/jarvis/agent.env"
