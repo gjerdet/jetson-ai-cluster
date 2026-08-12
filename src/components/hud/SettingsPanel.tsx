@@ -656,6 +656,29 @@ export function SettingsPanel({
             <label className="flex items-center gap-2 text-foreground/80">
               <input
                 type="checkbox"
+                checked={config.autoRoute !== false}
+                onChange={(e) => update({ ...config, autoRoute: e.target.checked })}
+                className="accent-[oklch(0.78_0.13_200)]"
+              />
+              Automatisk modell-ruting (tungt → OpenRouter/Hermes, småprat → lokal)
+            </label>
+
+            <label className="flex items-center gap-2 text-foreground/80">
+              <input
+                type="checkbox"
+                checked={feilsok}
+                onChange={(e) => {
+                  setDebug(e.target.checked);
+                  setFeilsok(e.target.checked);
+                }}
+                className="accent-[oklch(0.78_0.13_200)]"
+              />
+              Feilsøkingsmodus – logg alle verktøykall og beslutninger (se VERKTØY-vinduet)
+            </label>
+
+            <label className="flex items-center gap-2 text-foreground/80">
+              <input
+                type="checkbox"
                 checked={config.keepHistory !== false}
                 onChange={(e) => update({ ...config, keepHistory: e.target.checked })}
                 className="accent-[oklch(0.78_0.13_200)]"
