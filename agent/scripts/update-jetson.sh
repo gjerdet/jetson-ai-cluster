@@ -54,6 +54,13 @@ ok "Backup lagret i $BACKUP"
 FOER="$(git rev-parse --short HEAD 2>/dev/null || echo ukjent)"
 si "Henter ny versjon ($REF) …"
 git fetch --all --tags --prune
+
+# Hvis det finnes lokale endringer (f.eks. konfigfiler), lagre dem midlertidig.
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+  adv "Lokale endringer i repoet oppdaget – lagrer i stash"
+  git stash push -m "auto-stash-før-oppdatering-$STAMP" || true
+fi
+
 git checkout "$REF"
 git pull --ff-only
 ETTER="$(git rev-parse --short HEAD 2>/dev/null || echo ukjent)"
