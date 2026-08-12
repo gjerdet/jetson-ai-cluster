@@ -30,11 +30,11 @@ export const defaultLocalAgent: LocalAgentConfig = {
  */
 export function agentCfg(config: HudConfig): LocalAgentConfig {
   const cfg = { ...defaultLocalAgent, ...(config.localAgent ?? {}) };
-  if (cfg.enabled && cfg.baseUrl) return cfg;
   const url = backendUrl();
   const token = backendToken();
-  if (url && token) return { ...cfg, enabled: true, baseUrl: url, token };
-  return cfg;
+  if (token) return { ...cfg, enabled: true, baseUrl: url || cfg.baseUrl, token };
+  if (cfg.enabled && cfg.baseUrl && cfg.token) return cfg;
+  return { ...cfg, enabled: false };
 }
 
 
