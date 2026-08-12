@@ -123,6 +123,18 @@ export function ChatPanel({
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
 
+  // enkel tidtaker slik at det alltid synes at noe skjer
+  useEffect(() => {
+    if (!busy) {
+      setElapsed(0);
+      return;
+    }
+    const t0 = Date.now();
+    const id = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [busy]);
+
+
   const active = config.nodes.filter((n) => n.enabled);
   // valgt AI-node (f.eks. Hermes) vinner over rollen «primary»
   const chosen = config.aiNodeId ? active.find((n) => n.id === config.aiNodeId) : undefined;
