@@ -5,18 +5,12 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { isPreviewHostname } from "./preview-hosts";
 
 const PREVIEW_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7; // 7 dager
 
 function isPreviewHost(host: string) {
-  return (
-    host === "localhost" ||
-    host.startsWith("localhost:") ||
-    host === "127.0.0.1" ||
-    host.endsWith(".lovable.app") ||
-    host.endsWith(".lovableproject.com") ||
-    host.endsWith(".lovable.dev")
-  );
+  return isPreviewHostname(host);
 }
 
 function sign(data: string, secret: string) {

@@ -10,6 +10,8 @@ import {
   type BackendStatus,
 } from "@/lib/backend";
 import { useSession } from "@/lib/session";
+import { getPreviewToken } from "@/lib/preview-session";
+import { detectPreviewEnvironment } from "@/lib/preview-hosts";
 
 export const Route = createFileRoute("/logg-inn")({
   head: () => ({
@@ -54,6 +56,14 @@ function LoggInn() {
   const [passord, setPassord] = useState("");
   const [feil, setFeil] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // I Lovable-preview med åpen forhåndsvisningsgate skal man ikke møte
+  // backend-innloggingen — send brukeren rett inn i HUD-en.
+  useEffect(() => {
+    if (detectPreviewEnvironment() && getPreviewToken()) {
+      void navigate({ to: "/", replace: true });
+    }
+  }, [navigate]);
 
   useEffect(() => {
     if (sessionStatus) setStatus(sessionStatus);

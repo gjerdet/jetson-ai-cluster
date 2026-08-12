@@ -5,20 +5,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { verifyPreviewToken } from "./preview-gate.functions";
+import { detectPreviewEnvironment } from "./preview-hosts";
 
 const STORAGE_KEY = "jarvis-preview-token";
 
 export function isPreviewHost() {
-  if (typeof window === "undefined") return false;
-  const host = window.location.hostname;
-  return (
-    host === "localhost" ||
-    host.startsWith("localhost:") ||
-    host === "127.0.0.1" ||
-    host.endsWith(".lovable.app") ||
-    host.endsWith(".lovableproject.com") ||
-    host.endsWith(".lovable.dev")
-  );
+  return detectPreviewEnvironment();
 }
 
 export function getPreviewToken() {
