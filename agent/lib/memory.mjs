@@ -44,6 +44,7 @@ export function remember({
   viktighet = 5,
   ttlDager = DEFAULT_TTL_DAYS,
   pinned = false,
+  tag = "",
 }) {
   if (!tekst || typeof tekst !== "string") throw new Error("Minnet må ha tekst.");
   const item = {
@@ -56,6 +57,7 @@ export function remember({
     viktighet: Math.max(1, Math.min(10, Number(viktighet) || 5)),
     utløp: Date.now() + Math.max(1, Number(ttlDager) || DEFAULT_TTL_DAYS) * 86_400_000,
     pinned: !!pinned,
+    tag: String(tag || "").slice(0, 100),
   };
   const d = db();
   d.list.unshift(item);
@@ -63,6 +65,16 @@ export function remember({
   d.list = [...d.list.filter((m) => m.pinned), ...d.list.filter((m) => !m.pinned)].slice(0, MAX_ITEMS);
   persist(d);
   return item;
+}
+
+/** Erstatter et dynamisk systemfaktum i stedet for å samle utdaterte kopier. */
+export function rememberCurrent({ tag, ...input }) {
+  const key = String(tag || "").trim();
+  if (!key) throw new Error("Et løpende systemminne må ha tag.");
+  const d = db();
+  d.list = d.list.filter((item) => item.tag !== key);
+  persist(d);
+  return remember({ ...input, tag: key });
 }
 
 export function recall(query, { topK = 5, type, fra, til } = {}) {

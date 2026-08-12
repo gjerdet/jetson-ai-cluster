@@ -51,7 +51,7 @@ import {
 import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
 import { retrieveContext, type Citation } from "@/lib/knowledge";
-import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion } from "@/lib/network-intent";
+import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion, networkContextFromCheck } from "@/lib/network-intent";
 import { requiresFreshLocalEvidence } from "@/lib/agent-policy";
 
 import { MeldingInnhold } from "./MeldingInnhold";
@@ -197,9 +197,18 @@ export function ChatPanel({
       // skjønn. Kjør verktøyet først og svar direkte fra målt output.
       const nettIntensjon = classifyNetworkQuestion(text);
       if (nettIntensjon === "devices") {
-        setStage("verktøy: nett_skann");
+        setStage("verktøy: nett_sjekk");
         const t0 = performance.now();
-        const resultat = await runTool({ name: "nett_skann", args: {}, raw: "VERKTØY: nett_skann {}" }, {
+        const sjekk = await runTool({ name: "nett_sjekk", args: {}, raw: "VERKTØY: nett_sjekk {}" }, {
+          config,
+          ...(update ? { update } : {}),
+          topics: mqtt.topics,
+        });
+        const kontekst = networkContextFromCheck(sjekk);
+        if (!kontekst) throw new Error(`Kunne ikke bekrefte aktiv LAN-IP før skanning. nett_sjekk svarte:\n${sjekk}`);
+        setStage(`verktøy: nett_skann ${kontekst.subnet}`);
+        const skannArgs = { subnett: kontekst.subnet };
+        const resultat = await runTool({ name: "nett_skann", args: skannArgs, raw: `VERKTØY: nett_skann ${JSON.stringify(skannArgs)}` }, {
           config,
           ...(update ? { update } : {}),
           topics: mqtt.topics,
@@ -209,9 +218,9 @@ export function ChatPanel({
         trace({
           turId,
           kind: "verktoy",
-          title: "nett_skann {}",
-          why: "brukeren spør hvilke/hvor mange enheter som finnes – krever faktisk skanning",
-          detail: resultat,
+          title: `nett_sjekk {} → nett_skann ${JSON.stringify(skannArgs)}`,
+          why: "bekreftet aktiv LAN-IP og CIDR før skanning, slik at Docker-/container-nett ikke velges",
+          detail: `${sjekk}\n\n${resultat}`,
           ms,
           ok: Boolean(svar),
         });
@@ -223,7 +232,10 @@ export function ChatPanel({
               content: svar,
               node: "BACKEND · NETTVERK",
               time: Date.now(),
-              runs: [{ name: "nett_skann", args: {}, result: resultat, ms, time: Date.now(), ok: true }],
+              runs: [
+                { name: "nett_sjekk", args: {}, result: sjekk, ms: 0, time: Date.now(), ok: true },
+                { name: "nett_skann", args: skannArgs, result: resultat, ms, time: Date.now(), ok: true },
+              ],
             },
           ]);
           return;

@@ -61,6 +61,7 @@ import {
   memoryStats,
   recall,
   remember,
+  rememberCurrent,
   timeline as memoryTimeline,
 } from "./memory.mjs";
 import {
@@ -319,6 +320,20 @@ export async function handleApi(req, res, route, url, deps = {}) {
         subnet: String(b.subnett ?? b.subnet ?? b.cidr ?? "").trim(),
         ports: b.porter === true || b.ports === true,
       });
+      const stdout = String(resultat?.stdout || "");
+      const aktivtLan = stdout.match(/^Aktivt LAN:\s+(\S+)\s+(\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2})$/m);
+      const subnett = stdout.match(/^Subnett:\s+(\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2})$/m)?.[1];
+      if (aktivtLan?.[1] && aktivtLan[2] && subnett) {
+        rememberCurrent({
+          tag: "lokalt-nettverk",
+          tekst: `Aktivt LAN på denne noden er ${aktivtLan[1]} med IP ${aktivtLan[2]} og subnett ${subnett}. Målt med nett_sjekk/nett_skann; mål på nytt før nettverksoppgaver.`,
+          type: "faktum",
+          kontekst: "Dynamisk systemkontekst",
+          kilder: [path],
+          viktighet: 10,
+          ttlDager: 2,
+        });
+      }
       return json(req, res, 200, resultat);
     }
 

@@ -7,16 +7,50 @@ const safeCidr = (value) => {
   return cidr;
 };
 
+const activeLanDiscovery = `
+velg_aktivt_lan() {
+  local RUTE DEV SRC ADDR
+  RUTE=$(ip -4 route get 1.1.1.1 2>/dev/null | head -n1 || true)
+  DEV=$(echo "$RUTE" | awk '{for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}')
+  SRC=$(echo "$RUTE" | awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}')
+  if [ -z "$DEV" ]; then
+    DEV=$(ip -4 route show default 2>/dev/null | awk '$1=="default" && $5 !~ /^(docker|br-|veth|virbr|lo)/ {print $5; exit}')
+  fi
+  if [ -z "$DEV" ]; then
+    DEV=$(ip -4 -o addr show scope global 2>/dev/null | awk '$2 !~ /^(docker|br-|veth|virbr|lo)/ {print $2; exit}')
+  fi
+  ADDR=$(ip -4 -o addr show dev "$DEV" scope global 2>/dev/null | awk '{print $4; exit}')
+  [ -n "$SRC" ] || SRC=\${ADDR%/*}
+  if [ -z "$DEV" ] || [ -z "$ADDR" ]; then return 1; fi
+  AKTIVT_GRENSESNITT="$DEV"
+  EGEN_IP="$SRC"
+  EGEN_CIDR="$ADDR"
+}
+
+nettverk_fra_cidr() {
+  local CIDR_IN="$1" IP PREFIX A B C D IPNUM MASK NETNUM
+  IP=\${CIDR_IN%/*}; PREFIX=\${CIDR_IN#*/}
+  IFS=. read -r A B C D <<< "$IP"
+  IPNUM=$(( (A << 24) + (B << 16) + (C << 8) + D ))
+  if [ "$PREFIX" -eq 0 ]; then MASK=0; else MASK=$(( (0xFFFFFFFF << (32-PREFIX)) & 0xFFFFFFFF )); fi
+  NETNUM=$(( IPNUM & MASK ))
+  printf '%d.%d.%d.%d/%d' $(( (NETNUM >> 24) & 255 )) $(( (NETNUM >> 16) & 255 )) $(( (NETNUM >> 8) & 255 )) $(( NETNUM & 255 )) "$PREFIX"
+}
+`;
+
 export function networkCheckScript(subnet = "") {
   const cidr = safeCidr(subnet);
   return `#!/usr/bin/env bash
 set -u
+${activeLanDiscovery}
+velg_aktivt_lan || { echo "Fant ikke et aktivt fysisk LAN-grensesnitt."; exit 1; }
 echo "== 1. GRENSESNITT OG ADRESSER =="
 ip -4 -o addr show scope global 2>/dev/null | awk '{print $2, $4}'
 CIDR="${cidr}"
 if [ -z "$CIDR" ]; then
-  CIDR=$(ip -4 -o route show scope link 2>/dev/null | awk '$1 ~ /\\// && $1 !~ /^169\\.254/ {print $1; exit}')
+  CIDR=$(nettverk_fra_cidr "$EGEN_CIDR")
 fi
+echo "Aktivt LAN: $AKTIVT_GRENSESNITT $EGEN_CIDR"
 echo "Subnett: \${CIDR:-ukjent}"
 echo
 echo "== 2. GATEWAY =="
@@ -52,23 +86,32 @@ export function networkScanScript(subnet = "", ports = false) {
   const cidr = safeCidr(subnet);
   return `#!/usr/bin/env bash
 set -u
+${activeLanDiscovery}
+velg_aktivt_lan || { echo "Fant ikke et aktivt fysisk LAN-grensesnitt."; exit 1; }
 CIDR="${cidr}"
 if [ -z "$CIDR" ]; then
-  CIDR=$(ip -4 -o route show scope link 2>/dev/null | awk '$1 ~ /\\// && $1 !~ /^169\\.254/ {print $1; exit}')
+  CIDR=$(nettverk_fra_cidr "$EGEN_CIDR")
 fi
 if [ -z "$CIDR" ]; then echo "Fant ikke subnett automatisk."; exit 1; fi
 PREFIX=\${CIDR#*/}
 BASE=\${CIDR%/*}
-NET=$(echo "$BASE" | cut -d. -f1-3)
+IFS=. read -r A B C D <<< "$BASE"
+BASE_NUM=$(( (A << 24) + (B << 16) + (C << 8) + D ))
+HOSTS=$(( (1 << (32-PREFIX)) - 2 ))
+if [ "$PREFIX" -ge 31 ]; then HOSTS=0; fi
+LIMIT=$HOSTS
+if [ "$LIMIT" -gt 1024 ]; then LIMIT=1024; fi
+num_til_ip() { local N="$1"; printf '%d.%d.%d.%d' $(( (N >> 24) & 255 )) $(( (N >> 16) & 255 )) $(( (N >> 8) & 255 )) $(( N & 255 )); }
 echo "Subnett: $CIDR"
-[ "$PREFIX" = "24" ] || echo "Merk: skanner kun de 254 første adressene i $CIDR."
-for i in $(seq 1 254); do ping -c1 -W1 "$NET.$i" >/dev/null 2>&1 & done
+echo "Aktivt LAN: $AKTIVT_GRENSESNITT $EGEN_CIDR"
+[ "$HOSTS" -le "$LIMIT" ] || echo "Merk: skanner de første $LIMIT av $HOSTS brukbare adressene i $CIDR."
+for i in $(seq 1 "$LIMIT"); do IP=$(num_til_ip $((BASE_NUM+i))); ping -c1 -W1 "$IP" >/dev/null 2>&1 & done
 wait
 sleep 1
 FOUND=0
 printf '%-16s %-19s %s\\n' "IP" "MAC" "VERTSNAVN"
-for i in $(seq 1 254); do
-  IP="$NET.$i"
+for i in $(seq 1 "$LIMIT"); do
+  IP=$(num_til_ip $((BASE_NUM+i)))
   LINE=$(ip neigh show "$IP" 2>/dev/null | head -n1)
   MAC=$(echo "$LINE" | grep -oE '([0-9a-f]{2}:){5}[0-9a-f]{2}' | head -n1)
   [ -n "$MAC" ] || continue
@@ -78,8 +121,8 @@ for i in $(seq 1 254); do
 done
 echo "Antall enheter funnet: $FOUND"
 ${ports ? `echo "Åpne porter (vanlige tjenester):"
-for i in $(seq 1 254); do
-  IP="$NET.$i"
+for i in $(seq 1 "$LIMIT"); do
+  IP=$(num_til_ip $((BASE_NUM+i)))
   ip neigh show "$IP" 2>/dev/null | grep -qE '([0-9a-f]{2}:){5}' || continue
   OPEN=""
   for P in 22 80 443 1883 8080 8443 8787 11434; do
