@@ -25,6 +25,7 @@ const HEMMELIGE_FELT = new Set([
   "salt",
   "secret",
   "privateKey",
+  "agentToken",
 ]);
 
 function skrubb(value) {

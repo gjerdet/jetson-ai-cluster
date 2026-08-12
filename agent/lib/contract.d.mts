@@ -38,6 +38,90 @@ export interface ClusterNode {
   sistSett: number;
   kilde: "manuell" | "auto";
   notat?: string;
+  /** Adressen til nodens egen Jarvis-agent (brukes til helse og konfigdistribusjon). */
+  agentUrl?: string;
+  /** Delt agent-token for denne noden (eksporteres aldri). */
+  agentToken?: string;
+}
+
+export interface GpuStatus {
+  kilde: string;
+  navn: string;
+  totalMb: number;
+  bruktMb: number;
+  frittMb: number;
+  utnyttelse: number | null;
+  tempC: number | null;
+}
+
+export interface NodeSnapshot {
+  vert: string;
+  tid: number;
+  oppetidSek?: number;
+  gpu: GpuStatus | null;
+  tjenester: { navn: string; status: string }[];
+  modeller: {
+    ok: boolean;
+    base: string;
+    modeller: { navn: string; storrelseMb: number }[];
+    lastet: { navn: string; vramMb: number; utloper: string | null }[];
+    feil: string | null;
+  };
+  minne: { totalMb: number; frittMb: number } | null;
+  last: number | null;
+  kjerner?: number;
+}
+
+export type HealthLevel = "ok" | "advarsel" | "feil";
+
+export interface NodeHealth {
+  id: string;
+  navn: string;
+  baseUrl: string;
+  agentUrl: string | null;
+  modell: string;
+  online: boolean;
+  via: "lokal" | "agent" | "ollama";
+  svarMs: number;
+  snapshot: NodeSnapshot | null;
+  niva: HealthLevel;
+  varsler: string[];
+  frittProsent: number | null;
+  balanserer: { inflight: number; snittMs: number | null; feil: number; kall: number } | null;
+  feil: string | null;
+}
+
+export interface ClusterHealth {
+  tid: number;
+  antall: number;
+  feil: number;
+  advarsler: number;
+  niva: HealthLevel;
+  noder: NodeHealth[];
+}
+
+export interface DistributeNodeResult {
+  id: string;
+  navn: string;
+  agentUrl: string;
+  ok: boolean;
+  verifisert: boolean;
+  nodeSjekksum?: string | null;
+  konfigVersjon?: number | null;
+  skrevet: string[];
+  msek: number;
+  feil: string | null;
+}
+
+export interface DistributeResult {
+  sjekksum: string;
+  modus: "flett" | "erstatt";
+  dokumenter: string[];
+  sendt: number;
+  ok: number;
+  verifisert: number;
+  hoppetOver: string[];
+  resultater: DistributeNodeResult[];
 }
 
 export interface SettingsField {
@@ -106,6 +190,9 @@ export const ROUTES: {
   ttsManifest: string;
   logs: string;
   logSources: string;
+  clusterLocal: string;
+  clusterHealth: string;
+  configDistribute: string;
 };
 
 /** En loggkilde HUD-en kan lese (systemd-enhet eller loggfil). */

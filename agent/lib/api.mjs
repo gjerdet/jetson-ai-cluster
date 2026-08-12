@@ -36,6 +36,8 @@ import {
   validateSettings,
 } from "./contract.mjs";
 import { kjorBalansert, poolFor, poolStatus } from "./balancer.mjs";
+import { lokalSnapshot } from "./gpu.mjs";
+import { distribuerKonfig, klyngeHelse, tomKlyngeCache } from "./klynge.mjs";
 import {
   addClip,
   clipDir,
@@ -171,6 +173,45 @@ export async function handleApi(req, res, route, url, deps = {}) {
       return json(req, res, 200, first ? login(cred.email, cred.password) : { user });
     } catch (e) {
       return json(req, res, 400, { error: String(e?.message || e) });
+    }
+  }
+
+  /**
+   * Agent-til-agent: en annen Jarvis-node kan hente lokal maskinvarestatus
+   * og motta konfig-pakker med det delte agent-tokenet. Innloggede brukere
+   * slipper også inn (HUD-en bruker samme rute).
+   */
+  const agentTokenOk = () => {
+    const forventet = String(process.env.AGENT_TOKEN || "");
+    if (!forventet) return false;
+    const oppgitt =
+      String(req.headers["x-agent-token"] || "") ||
+      String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+    return oppgitt === forventet;
+  };
+
+  if (path === "/klynge/lokal" && method === "GET") {
+    if (!userFromRequest(req) && !agentTokenOk())
+      return json(req, res, 401, { error: "Krever innlogging eller agent-token." });
+    return json(req, res, 200, { snapshot: await lokalSnapshot() });
+  }
+
+  // Konfigdistribusjon fra en annen node (verifikasjonen leser eksporten etterpå).
+  if (agentTokenOk() && !userFromRequest(req)) {
+    if (path === "/versjon" && method === "GET") return json(req, res, 200, versjonsinfo());
+    if (path === "/config/eksport" && method === "GET") {
+      const bare = (url.searchParams.get("bare") || "").split(",").filter(Boolean);
+      return json(req, res, 200, eksporterKonfig(bare));
+    }
+    if (path === "/config/import" && method === "POST") {
+      try {
+        const b = await readBody(req);
+        const pakke = b.pakke ?? b;
+        if (b.kunSjekk) return json(req, res, 200, inspiserKonfig(pakke));
+        return json(req, res, 200, importerKonfig(pakke, { modus: b.modus, bare: b.bare }));
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
     }
   }
 
@@ -665,6 +706,30 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const pakke = b.pakke ?? b;
       if (b.kunSjekk) return json(req, res, 200, inspiserKonfig(pakke));
       return json(req, res, 200, importerKonfig(pakke, { modus: b.modus, bare: b.bare }));
+    }
+
+    // ---- klyngehelse (GPU, modeller, tjenester per node) -----------------
+    if (path === "/klynge/helse" && method === "GET") {
+      const db = doc("nodes", { list: [] });
+      const force = url.searchParams.get("frisk") === "1";
+      return json(req, res, 200, await klyngeHelse(db.list, { token: process.env.AGENT_TOKEN || "", force }));
+    }
+
+    // ---- distribuer konfig til alle noder + verifiser --------------------
+    if (path === "/config/distribuer" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      const b = await readBody(req);
+      const bare = Array.isArray(b.bare) ? b.bare.filter((x) => typeof x === "string") : [];
+      const pakke = b.pakke && typeof b.pakke === "object" ? b.pakke : eksporterKonfig(bare);
+      inspiserKonfig(pakke);
+      const db = doc("nodes", { list: [] });
+      const resultat = await distribuerKonfig(db.list, pakke, {
+        modus: b.modus === "erstatt" ? "erstatt" : "flett",
+        bare,
+        token: process.env.AGENT_TOKEN || "",
+      });
+      tomKlyngeCache();
+      return json(req, res, 200, resultat);
     }
 
     // ---- logger (systemd + oppsett) --------------------------------------
