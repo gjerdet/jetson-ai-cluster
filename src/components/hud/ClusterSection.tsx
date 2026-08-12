@@ -15,6 +15,7 @@ const tilKlynge = (n: ModelNode): ClusterNode => ({
   oppgaver: n.duties?.length ? n.duties : ["chat", "verktoy"],
   aktiv: n.enabled,
   vekt: n.weight ?? 1,
+  agentUrl: n.agentUrl ?? "",
   sistSett: Date.now(),
   kilde: "manuell",
 });
@@ -27,6 +28,7 @@ const fraKlynge = (n: ClusterNode): ModelNode => ({
   role: n.rolle,
   duties: n.oppgaver,
   weight: n.vekt,
+  agentUrl: n.agentUrl ?? "",
   enabled: n.aktiv,
 });
 

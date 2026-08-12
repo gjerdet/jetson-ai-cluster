@@ -81,6 +81,12 @@ export function NodesPanel({
               <option value="observer">observatør</option>
             </select>
             <input
+              value={n.agentUrl ?? ""}
+              onChange={(e) => patch(n.id, { agentUrl: e.target.value })}
+              placeholder="agent-adresse for klyngehelse/konfig (http://ip:8787)"
+              className="hud-input col-span-2"
+            />
+            <input
               value={n.apiKey ?? ""}
               onChange={(e) => patch(n.id, { apiKey: e.target.value })}
               placeholder="API-nøkkel (valgfritt)"
