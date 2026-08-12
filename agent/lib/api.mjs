@@ -475,7 +475,10 @@ export async function handleApi(req, res, route, url, deps = {}) {
         vekt: 1,
       };
       // Eksplisitt adresse fra klienten overstyrer balanseringen.
-      const pool = b.baseUrl || !registrerte.length ? [fallbackNode] : registrerte;
+      // Er noden allerede registrert i klyngen, balanseres det som før.
+      // Ellers brukes adressen klienten sendte med (HUD-nodene).
+      const kjentNode = typeof b.nodeId === "string" && registrerte.some((n) => n.id === b.nodeId);
+      const pool = !kjentNode && (b.baseUrl || !registrerte.length) ? [fallbackNode] : registrerte;
       const oppgave = typeof b.oppgave === "string" ? b.oppgave : "chat";
       const foretrukket = typeof b.nodeId === "string" ? b.nodeId : "";
 
