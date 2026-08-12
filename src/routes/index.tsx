@@ -62,9 +62,18 @@ const TITLES: Record<WinId, { title: string; subtitle: string }> = {
 
 function Index() {
   const { config, update, loaded } = useHudConfig();
+  const navigate = useNavigate();
+  const { state, user, loggUt } = useSession();
   const [open, setOpen] = useState<WinId[]>([]);
   const [order, setOrder] = useState<WinId[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // ingen økt mot den lokale agenten → send brukeren til innloggingen
+  useEffect(() => {
+    if (state === "ute") void navigate({ to: "/logg-inn", replace: true });
+  }, [state, navigate]);
+
+
 
   // regler skal gjelde selv om SMARTHUS-vinduet er lukket
   useEffect(() => {
