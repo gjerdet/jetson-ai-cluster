@@ -21,9 +21,30 @@ git clone <din-github-url> && cd <repository-name>
 sudo bash agent/scripts/install-jetson.sh
 ```
 
-Innloggingen legges i `/root/jarvis-innlogging.txt`. Åpne deretter HUD-en, gå til **NODER → HURTIGOPPSETT**, skriv inn Jetson-IP-en, og den registrerer `JETSON-01` + `HERMES` og tester tilkoblingen automatisk.
+Etterpå finner du innloggingen i `/root/jarvis-innlogging.txt`. Åpne HUD-en, gå til `/logg-inn`, skriv inn `http://<jetson-ip>:8787` og trykk **KOBLE**. Logg inn med e-post og passord fra filen.
+
+Deretter: **NODER → HURTIGOPPSETT**, skriv inn Jetson-IP-en, så registreres `JETSON-01` + `HERMES` automatisk med tilkoblingstest.
 
 Full guide: [docs/JETSON-SETUP.md](docs/JETSON-SETUP.md)
+
+## Første innlogging
+
+HUD-en krever en kjørende backend-agent. Det finnes ingen «lokal modus» uten passord.
+
+### Med installasjonsskriptet
+1. Kjør `sudo bash agent/scripts/install-jetson.sh`.
+2. Les innloggingen: `sudo cat /root/jarvis-innlogging.txt`.
+3. Åpne HUD-en → `/logg-inn` → skriv `http://<jetson-ip>:8787` → **KOBLE**.
+4. Logg inn med e-post/passord fra filen.
+
+### Manuell oppstart
+1. Start agenten: `cd agent && AGENT_TOKEN=$(openssl rand -hex 32) node server.mjs`.
+2. Åpne HUD-en → `/logg-inn` → skriv backend-adressen → **KOBLE**.
+3. Siden det ikke finnes brukere ennå, vises **OPPRETT OG LOGG INN**.
+4. Fyll inn e-post og passord (minst 8 tegn). Brukeren blir automatisk `admin`.
+5. Neste gang logger du inn med samme e-post/passord.
+
+Passordet hashes med scrypt i agenten, og økten lagres som bearer-token i nettleserens `sessionStorage`.
 
 ## Stemme
 
