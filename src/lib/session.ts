@@ -24,8 +24,8 @@ export function settLokalModus(på: boolean) {
 const LOKAL_BRUKER: BackendUser = {
   id: "lokal",
   email: "lokal@jarvis",
-  rolle: "admin",
-} as BackendUser;
+  role: "admin",
+};
 
 export function useSession() {
   const [state, setState] = useState<SessionState>("sjekker");
