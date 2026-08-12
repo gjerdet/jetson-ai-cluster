@@ -20,7 +20,7 @@ velg_aktivt_lan() {
     DEV=$(ip -4 -o addr show scope global 2>/dev/null | awk '$2 !~ /^(docker|br-|veth|virbr|lo)/ {print $2; exit}')
   fi
   ADDR=$(ip -4 -o addr show dev "$DEV" scope global 2>/dev/null | awk '{print $4; exit}')
-  [ -n "$SRC" ] || SRC=${ADDR%/*}
+  [ -n "$SRC" ] || SRC=\${ADDR%/*}
   if [ -z "$DEV" ] || [ -z "$ADDR" ]; then return 1; fi
   AKTIVT_GRENSESNITT="$DEV"
   EGEN_IP="$SRC"
@@ -29,7 +29,7 @@ velg_aktivt_lan() {
 
 nettverk_fra_cidr() {
   local CIDR_IN="$1" IP PREFIX A B C D IPNUM MASK NETNUM
-  IP=${CIDR_IN%/*}; PREFIX=${CIDR_IN#*/}
+  IP=\${CIDR_IN%/*}; PREFIX=\${CIDR_IN#*/}
   IFS=. read -r A B C D <<< "$IP"
   IPNUM=$(( (A << 24) + (B << 16) + (C << 8) + D ))
   if [ "$PREFIX" -eq 0 ]; then MASK=0; else MASK=$(( (0xFFFFFFFF << (32-PREFIX)) & 0xFFFFFFFF )); fi
@@ -51,12 +51,12 @@ if [ -z "$CIDR" ]; then
   CIDR=$(nettverk_fra_cidr "$EGEN_CIDR")
 fi
 echo "Aktivt LAN: $AKTIVT_GRENSESNITT $EGEN_CIDR"
-echo "Subnett: ${CIDR:-ukjent}"
+echo "Subnett: \${CIDR:-ukjent}"
 echo
 echo "== 2. GATEWAY =="
 GW=$(ip -4 route show default 2>/dev/null | awk '{print $3; exit}')
-echo "Standard gateway: ${GW:-ingen}"
-if [ -n "${GW:-}" ]; then
+echo "Standard gateway: \${GW:-ingen}"
+if [ -n "\${GW:-}" ]; then
   ping -c2 -W1 "$GW" >/dev/null 2>&1 && echo "Gateway svarer: JA" || echo "Gateway svarer: NEI"
 fi
 echo
@@ -78,7 +78,7 @@ echo
 echo "== 6. LYTTENDE PORTER PÅ DENNE NODEN =="
 (ss -tulnp 2>/dev/null || netstat -tulnp 2>/dev/null) | head -n 30
 echo
-echo "Neste steg: kjør nett_skann for full enhetsliste i ${CIDR:-subnettet}."
+echo "Neste steg: kjør nett_skann for full enhetsliste i \${CIDR:-subnettet}."
 `;
 }
 
@@ -93,8 +93,8 @@ if [ -z "$CIDR" ]; then
   CIDR=$(nettverk_fra_cidr "$EGEN_CIDR")
 fi
 if [ -z "$CIDR" ]; then echo "Fant ikke subnett automatisk."; exit 1; fi
-PREFIX=${CIDR#*/}
-BASE=${CIDR%/*}
+PREFIX=\${CIDR#*/}
+BASE=\${CIDR%/*}
 IFS=. read -r A B C D <<< "$BASE"
 BASE_NUM=$(( (A << 24) + (B << 16) + (C << 8) + D ))
 HOSTS=$(( (1 << (32-PREFIX)) - 2 ))
@@ -124,7 +124,7 @@ for i in $(seq 1 "$LIMIT"); do
   grep -Fqx "$IP" "$HITS" && PING_OK=1
   if [ "$PING_OK" -ne 1 ] && [ -z "$MAC" ]; then continue; fi
   NAME=$(getent hosts "$IP" 2>/dev/null | awk '{print $2}' | head -n1)
-  printf '%-16s %-19s %s\n' "$IP" "${MAC:--}" "${NAME:--}"
+  printf '%-16s %-19s %s\n' "$IP" "\${MAC:--}" "\${NAME:--}"
   FOUND=$((FOUND+1))
 done
 echo "Antall enheter funnet: $FOUND"
