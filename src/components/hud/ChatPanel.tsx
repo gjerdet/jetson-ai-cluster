@@ -51,6 +51,7 @@ import {
 import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
 import { retrieveContext, type Citation } from "@/lib/knowledge";
+import { answerNetworkQuestion, classifyNetworkQuestion } from "@/lib/network-intent";
 
 import { MeldingInnhold } from "./MeldingInnhold";
 
@@ -67,26 +68,6 @@ const OPPDRAG =
 /** Typiske bortforklaringer der modellen svarer uten å ha prøvd. */
 const UNNVIKELSE =
   /(ingen enheter|har ikke tilgang|ikke mulighet|kan ikke se|jeg mangler|ingen registrerte|vi kan sammen|ønsker du at jeg|tar jeg gjerne imot|si ifra hvis)/i;
-
-/** Spørsmål som kan besvares direkte og sikkert fra Jetsonens nettverksstatus. */
-const DIREKTE_NETTVERK = /\b(gateway|standardrute|default gateway|ip(?:-adresse)?|subnett|dns)\b/i;
-
-function direkteNettverkSvar(sporsmal: string, resultat: string): string | null {
-  if (/\b(gateway|standardrute|default gateway)\b/i.test(sporsmal)) {
-    const gateway = resultat.match(/Standard gateway:\s*([^\s\n]+)/i)?.[1];
-    if (gateway && gateway !== "ingen") return `Min standard gateway er **${gateway}**.`;
-  }
-  if (/\bip(?:-adresse)?\b/i.test(sporsmal)) {
-    const adresse = resultat.match(/^[^\s=]+\s+(\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2})$/m)?.[1];
-    if (adresse) return `Min IP-adresse er **${adresse}**.`;
-  }
-  if (/\bsubnett\b/i.test(sporsmal)) {
-    const subnett = resultat.match(/Subnett:\s*([^\s\n]+)/i)?.[1];
-    if (subnett && subnett !== "ukjent") return `Jeg er koblet til subnettet **${subnett}**.`;
-  }
-  return null;
-}
-
 
 export function ChatPanel({
   config,
@@ -213,7 +194,7 @@ export function ChatPanel({
     try {
       // Maskinens grunnleggende nettverksdata skal ikke overlates til modellens
       // skjønn. Kjør verktøyet først og svar direkte fra målt output.
-      if (DIREKTE_NETTVERK.test(text)) {
+      if (classifyNetworkQuestion(text)) {
         setStage("verktøy: nett_sjekk");
         const t0 = performance.now();
         const resultat = await runTool({ name: "nett_sjekk", args: {}, raw: "VERKTØY: nett_sjekk {}" }, {
@@ -221,7 +202,7 @@ export function ChatPanel({
           ...(update ? { update } : {}),
           topics: mqtt.topics,
         });
-        const svar = direkteNettverkSvar(text, resultat);
+        const svar = answerNetworkQuestion(text, resultat);
         trace({
           turId,
           kind: "verktoy",
