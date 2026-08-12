@@ -21,6 +21,11 @@ export const CONFIG_DOCS = [
   "rag",
   "telegram",
   "config",
+  "memory",
+  "plans",
+  "evaluations",
+  "initiative",
+  "generatedTools",
 ];
 
 export const RULE_OPERATORS = ["over", "under", "lik", "endres"];
@@ -86,6 +91,18 @@ export const ROUTES = {
   clusterHealth: "/klynge/helse",
   configDistribute: "/config/distribuer",
   provision: "/noder/provisjoner",
+
+  // AGI / autonomi
+  memory: "/minne",
+  memoryRecall: "/minne/hent",
+  memoryTimeline: "/minne/tidslinje",
+  plans: "/planer",
+  planSteps: "/planer/steg",
+  evaluations: "/evalueringer",
+  initiative: "/initiativ",
+  initiativeSuggestions: "/initiativ/forslag",
+  generatedTools: "/verktoy/genererte",
+  generatedToolTest: "/verktoy/genererte/test",
 
 };
 

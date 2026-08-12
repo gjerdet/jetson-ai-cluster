@@ -194,6 +194,16 @@ export const ROUTES: {
   clusterHealth: string;
   configDistribute: string;
   provision: string;
+  memory: string;
+  memoryRecall: string;
+  memoryTimeline: string;
+  plans: string;
+  planSteps: string;
+  evaluations: string;
+  initiative: string;
+  initiativeSuggestions: string;
+  generatedTools: string;
+  generatedToolTest: string;
 };
 
 /** En loggkilde HUD-en kan lese (systemd-enhet eller loggfil). */
@@ -519,4 +529,88 @@ export interface VoiceClip {
   bytes: number;
   sekunder: number;
   opprettet: string;
+}
+
+export interface MemoryItem {
+  id: string;
+  tid: number;
+  type: "hendelse" | "beslutning" | "faktum" | "erfaring" | "mål" | "plan";
+  tekst: string;
+  kontekst: string;
+  kilder: string[];
+  viktighet: number;
+  utløp: number;
+  pinned: boolean;
+}
+
+export interface PlanStep {
+  id: string;
+  navn: string;
+  beskrivelse: string;
+  avhengigheter: string[];
+  type: "ai" | "verktoy" | "sjekk" | "vent";
+  status: "venter" | "aktiv" | "fullført" | "feilet";
+  resultat: string | null;
+}
+
+export interface Plan {
+  id: string;
+  tid: number;
+  mål: string;
+  kilde: string;
+  status: "venter" | "aktiv" | "fullført" | "feilet" | "påvent";
+  steg: PlanStep[];
+  logg: { tid: number; nivå: string; tekst: string }[];
+  ferdig?: number;
+  oppsummering?: string;
+}
+
+export interface Evaluation {
+  id: string;
+  tid: number;
+  spørsmål: string;
+  svar: string;
+  verktøy: unknown[];
+  score: number;
+  threshold: number;
+  kriterier: Record<string, number>;
+  problemer: string;
+  forbedring: string;
+  retryAnbefalt: boolean;
+  kontekst: string;
+}
+
+export interface InitiativeSuggestion {
+  id: string;
+  tid: number;
+  tekst: string;
+  risiko: "lav" | "medium" | "høy";
+  kilde: string;
+  handling: { type: string; payload?: string } | null;
+  status: "venter" | "godkjent" | "avvist";
+}
+
+export interface GeneratedTool {
+  id: string;
+  tid: number;
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  code: string;
+  enabled: boolean;
+  testet: boolean;
+  testResult: { ok: boolean; resultat?: unknown; feil?: string } | null;
+}
+
+export interface InitiativeStatus {
+  aktiv: boolean;
+  sisteKjøring: number;
+  antallForslag: number;
+  antallAudit: number;
+}
+
+export interface MemoryStats {
+  antall: number;
+  perType: Record<string, number>;
+  maks: number;
 }

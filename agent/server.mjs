@@ -26,6 +26,8 @@ import { evaluate, rulesStatus } from "./lib/rules.mjs";
 import { notifyAll, startTelegram } from "./lib/telegram.mjs";
 import { corsBlocked, corsHeaders, rateLimit, validateEnv, withRequestLog, allowedOrigins, logDir } from "./lib/security.mjs";
 import { startBackups } from "./lib/backup.mjs";
+import { start as startInitiative, setActive as setInitiativeActive } from "./lib/initiative.mjs";
+import { pruneExpired as pruneMemory } from "./lib/memory.mjs";
 
 const PORT = Number(process.env.AGENT_PORT || 8787);
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
@@ -461,7 +463,11 @@ await warmLatest();
 startMqtt();
 startTelegram({ rulesStatus });
 startBackups();
+startInitiative();
+// Autonomi er av som standard; brukeren må skru den på i GUI-et.
+setInitiativeActive(false);
 setInterval(() => pruneSamples().catch(() => {}), 6 * 60 * 60 * 1000);
+setInterval(() => pruneMemory().catch((e) => console.error("[jarvis-agent] minne-rydding feil:", e)), 60 * 60 * 1000);
 setInterval(() => flushNow(), 30_000).unref();
 
 const scheme = TLS_OPTIONS ? "https" : "http";

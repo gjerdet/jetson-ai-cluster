@@ -72,4 +72,12 @@ export type {
   TelegramConfig,
   ThreadSummary,
   UserRole,
+  MemoryItem,
+  Plan,
+  PlanStep,
+  Evaluation,
+  InitiativeSuggestion,
+  GeneratedTool,
+  InitiativeStatus,
+  MemoryStats,
 } from "../../agent/lib/contract.mjs";
