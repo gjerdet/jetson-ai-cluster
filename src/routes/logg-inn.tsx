@@ -55,7 +55,14 @@ function LoggInn() {
   const [epost, setEpost] = useState("");
   const [passord, setPassord] = useState("");
   const [feil, setFeil] = useState<string | null>(null);
+  const [tlsFeil, setTlsFeil] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const erTls = (e: unknown) => e instanceof BackendError && e.code === ERROR_CODES.TLS;
+  const statusLenke = () => `${url.replace(/\/+$/, "")}/api/status`;
+  const httpAlternativ = url.startsWith("https://")
+    ? url.replace(/^https:/, "http:").replace(/:8443\b/, ":8787")
+    : null;
 
   // I Lovable-preview med åpen forhåndsvisningsgate skal man ikke møte
   // backend-innloggingen — send brukeren rett inn i HUD-en.
