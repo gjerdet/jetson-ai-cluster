@@ -16,7 +16,7 @@ import fsSync from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
-import { handleApi } from "./lib/api.mjs";
+import { handleApi, erApiRute } from "./lib/api.mjs";
 import { addSample, doc, flushNow, initStore, latest, pruneSamples, warmLatest } from "./lib/store.mjs";
 import { MqttClient, parseMqttUrl } from "./lib/mqtt.mjs";
 import { createMqttHealth } from "./lib/mqtt-health.mjs";
@@ -210,7 +210,7 @@ const requestHandler = async (req, res) => {
     return json(req, res, 403, { error: "Origin er ikke tillatt. Sett AGENT_ORIGINS på agenten." });
 
   // Backend-API (egen innlogging – ikke agent-tokenet)
-  if (route.startsWith("/api")) {
+  if (erApiRute(route)) {
     await handleApi(req, res, route, url, apiDeps);
     return;
   }

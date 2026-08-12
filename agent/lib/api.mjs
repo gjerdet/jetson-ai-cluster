@@ -110,9 +110,19 @@ async function readBody(req, maks = 5_000_000) {
  * Håndterer alle /api-ruter. Returnerer true når forespørselen er besvart.
  * `deps`: { publish(emne, payload), mqttStatus() }
  */
+/** Rutene backend-API-et eier, med eller uten «/api»-prefiks. */
+export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram"];
+
+export function erApiRute(route) {
+  if (route === "/api" || route.startsWith("/api/")) return true;
+  return BACKEND_PREFIKSER.some((p) => route === p || route.startsWith(`${p}/`));
+}
+
 export async function handleApi(req, res, route, url, deps = {}) {
-  if (!route.startsWith("/api")) return false;
-  const path = route.slice(4) || "/";
+  // Både «/api/...» og de bare backend-rutene («/auth/...») håndteres her,
+  // slik at eldre klienter og direkte kall mot /auth/logg-inn treffer riktig.
+  if (!erApiRute(route)) return false;
+  const path = (route.startsWith("/api") ? route.slice(4) : route) || "/";
   const method = req.method || "GET";
 
   if (method === "OPTIONS") {
