@@ -66,6 +66,12 @@ async function main() {
       console.log(`Nytt passord satt for ${u.email}.`);
       break;
     }
+    case "rolle": {
+      if (!a || !b) return hjelp();
+      const u = settRolle(a, String(b).toLowerCase());
+      console.log(`${u.email} er nå ${u.role}.`);
+      break;
+    }
     case "slett": {
       if (!a) return hjelp();
       const u = finn(a);
