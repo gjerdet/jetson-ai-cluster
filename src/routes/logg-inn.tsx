@@ -55,6 +55,14 @@ function LoggInn() {
   const [feil, setFeil] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // I Lovable-preview med åpen forhåndsvisningsgate skal man ikke møte
+  // backend-innloggingen — send brukeren rett inn i HUD-en.
+  useEffect(() => {
+    if (detectPreviewEnvironment() && getPreviewToken()) {
+      void navigate({ to: "/", replace: true });
+    }
+  }, [navigate]);
+
   useEffect(() => {
     if (sessionStatus) setStatus(sessionStatus);
   }, [sessionStatus]);
