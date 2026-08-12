@@ -9,7 +9,7 @@ import {
   BackendError,
   type BackendStatus,
 } from "@/lib/backend";
-import { useSession } from "@/lib/session";
+import { useSession, settLokalModus } from "@/lib/session";
 
 export const Route = createFileRoute("/logg-inn")({
   head: () => ({
