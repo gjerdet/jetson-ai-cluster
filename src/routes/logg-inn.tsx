@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AmbientField } from "@/components/hud/AmbientField";
+import { TlsHjelp } from "@/components/hud/TlsHjelp";
 import {
   backend,
   backendUrl,
