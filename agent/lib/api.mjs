@@ -434,7 +434,10 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const meldinger = Array.isArray(b.meldinger) ? b.meldinger : [];
       if (!meldinger.length) return json(req, res, 400, { error: "Ingen meldinger" });
       const cfg = doc("ai", { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1", apiKey: "", system: "" });
-      const key = decryptSecret(cfg.apiKey);
+      // En nøkkel som følger med forespørselen (f.eks. OpenRouter fra HUD-en) vinner.
+      const key = (typeof b.apiKey === "string" && b.apiKey.trim())
+        ? b.apiKey.trim()
+        : decryptSecret(cfg.apiKey);
       const personalityPrompt = buildPersonalityPrompt(cfg.personality) || cfg.system || "";
       const harSystem = meldinger.some((m) => m && m.role === "system");
       const systemMelding = personalityPrompt && !harSystem
@@ -472,7 +475,10 @@ export async function handleApi(req, res, route, url, deps = {}) {
         vekt: 1,
       };
       // Eksplisitt adresse fra klienten overstyrer balanseringen.
-      const pool = b.baseUrl || !registrerte.length ? [fallbackNode] : registrerte;
+      // Er noden allerede registrert i klyngen, balanseres det som før.
+      // Ellers brukes adressen klienten sendte med (HUD-nodene).
+      const kjentNode = typeof b.nodeId === "string" && registrerte.some((n) => n.id === b.nodeId);
+      const pool = !kjentNode && (b.baseUrl || !registrerte.length) ? [fallbackNode] : registrerte;
       const oppgave = typeof b.oppgave === "string" ? b.oppgave : "chat";
       const foretrukket = typeof b.nodeId === "string" ? b.nodeId : "";
 

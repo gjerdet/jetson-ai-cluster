@@ -2,6 +2,7 @@ import { TestKobling } from "./TestKobling";
 import { useState } from "react";
 import { Plus, Trash2, Activity } from "lucide-react";
 import { pingNode } from "@/lib/hud-client";
+import { backend } from "@/lib/backend";
 import { newNode, type HudConfig, type ModelNode } from "@/lib/hud-store";
 import { QuickSetup } from "./QuickSetup";
 import { ProvisionSection } from "./ProvisionSection";
@@ -104,7 +105,18 @@ export function NodesPanel({
             <button
               onClick={async () => {
                 setTesting(n.id);
-                const ms = await pingNode(n);
+                // Går via backend først (unngår CORS), med direkte ping som reserve.
+                let ms: number | null = null;
+                try {
+                  const r = await backend.testAi({
+                    baseUrl: n.baseUrl,
+                    ...(n.model ? { model: n.model } : {}),
+                    ...(n.apiKey ? { apiKey: n.apiKey } : {}),
+                  });
+                  ms = r.ok ? (r.ms ?? 0) : null;
+                } catch {
+                  ms = await pingNode(n);
+                }
                 setLatency((l) => ({ ...l, [n.id]: ms }));
                 setTesting(null);
               }}
