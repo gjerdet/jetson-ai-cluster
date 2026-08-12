@@ -114,15 +114,24 @@ sjekk_tjeneste() {
     resultat advarsel "Tjeneste $unit" "systemd er ikke tilgjengelig"
     return
   fi
-  if ! systemctl list-unit-files 2>/dev/null | grep -q "^${unit}.service"; then
+  # LoadState er pålitelig – «list-unit-files | grep» bommer når systemd
+  # sender output gjennom en pager eller kolonnene er formatert annerledes.
+  local load
+  load="$(SYSTEMD_PAGER=cat systemctl show -p LoadState --value "$unit" 2>/dev/null)"
+  if [ "$load" = "not-found" ] || [ -z "$load" ]; then
     resultat "$kritisk" "Tjeneste $unit" "er ikke installert"
     return
   fi
   if systemctl is-active --quiet "$unit"; then
-    SIDEN="$(systemctl show -p ActiveEnterTimestamp --value "$unit" 2>/dev/null)"
+    SIDEN="$(SYSTEMD_PAGER=cat systemctl show -p ActiveEnterTimestamp --value "$unit" 2>/dev/null)"
     resultat ok "Tjeneste $unit" "aktiv siden ${SIDEN:-ukjent}"
   else
-    resultat "$kritisk" "Tjeneste $unit" "er ikke aktiv – «journalctl -u $unit -n 50»"
+    local sub aarsak
+    sub="$(SYSTEMD_PAGER=cat systemctl show -p SubState --value "$unit" 2>/dev/null)"
+    aarsak="$(SYSTEMD_PAGER=cat journalctl -u "$unit" -n 40 --no-pager -o cat 2>/dev/null \
+              | grep -Ei 'error|failed|cannot|exception|refused|denied|namespac' | tail -1)"
+    resultat "$kritisk" "Tjeneste $unit" \
+      "kjører ikke (${sub:-inaktiv})${aarsak:+ – ${aarsak:0:160}}"
   fi
 }
 sjekk_tjeneste ollama feil
