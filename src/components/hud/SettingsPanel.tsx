@@ -1,5 +1,6 @@
 import { TestKobling } from "./TestKobling";
 import { useState } from "react";
+import { debugOn, setDebug } from "@/lib/debug-log";
 import {
   Bot,
   Wrench,
@@ -124,6 +125,7 @@ export function SettingsPanel({
   config: HudConfig;
   update: (c: HudConfig) => void;
 }) {
+  const [feilsok, setFeilsok] = useState(() => debugOn());
   const [tab, setTab] = useState<Tab>("system");
 
   const patchNode = (id: string, p: Partial<ModelNode>) =>
