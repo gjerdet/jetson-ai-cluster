@@ -228,27 +228,87 @@ fi
 mkdir -p "$APP_DIR"
 # Koden erstattes, men data/ og node_modules beholdes.
 cp -r "$AGENT_DIR/." "$APP_DIR/"
-(cd "$APP_DIR" && npm install --omit=dev --no-audit --no-fund >/dev/null)
+if ! (cd "$APP_DIR" && NODE_ENV=production npm install --omit=dev --no-audit --no-fund); then
+  feil "npm install for agenten feilet – se loggen over"
+  exit 1
+fi
 chown -R jarvis:jarvis "$APP_DIR"
 
-cp "$AGENT_DIR/jarvis-agent.service" /tmp/jarvis-agent.service
+NODE_BIN="$(command -v node)"
+# Tjenestefila genereres her slik at stiene alltid stemmer med denne installasjonen.
+cat >/tmp/jarvis-agent.service <<EOF
+[Unit]
+Description=Jarvis lokal agent og backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jarvis
+Group=jarvis
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ENV_FILE
+ExecStart=$NODE_BIN $APP_DIR/server.mjs
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jarvis-agent
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/jarvis $DATA_DIR $SANDBOX_DIR
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target
+EOF
 ENDRET_AGENT=0
 skriv_hvis_endret /tmp/jarvis-agent.service /etc/systemd/system/jarvis-agent.service && ENDRET_AGENT=1
 [ "$ENDRET_AGENT" -eq 1 ] && systemctl daemon-reload
-systemctl enable jarvis-agent >/dev/null 2>&1 || true
-systemctl restart jarvis-agent
+systemctl enable jarvis-agent >/dev/null 2>&1 || adv "Fikk ikke aktivert jarvis-agent"
+systemctl restart jarvis-agent || adv "systemctl restart jarvis-agent feilet"
 for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$AGENT_PORT/health" >/dev/null 2>&1 && break; sleep 1; done
 if curl -fsS "http://127.0.0.1:$AGENT_PORT/health" >/dev/null 2>&1; then
   ok "Agenten svarer på port $AGENT_PORT"
 else
-  adv "Agenten svarer ikke ennå – se: journalctl -u jarvis-agent -f"
+  feil "Agenten svarer ikke på port $AGENT_PORT – siste logglinjer:"
+  journalctl -u jarvis-agent -n 30 --no-pager 2>/dev/null || true
 fi
 
 # ── 6. Web-GUI ───────────────────────────────────────────────────────────────
 if [ "$HOPP_GUI" -eq 0 ] && [ -f "$REPO_DIR/package.json" ]; then
   si "Bygger web-GUI-et (kan ta et par minutter) …"
-  (cd "$REPO_DIR" && npm install --no-audit --no-fund >/dev/null && npm run build >/dev/null) \
-    && ok "GUI bygget" || { adv "Bygg feilet – hopper over GUI-tjenesten"; HOPP_GUI=1; }
+  BYGG_OK=0
+  bygg_gui() {
+    (
+      cd "$REPO_DIR"
+      # Byggeverktøyene ligger i devDependencies – de MÅ installeres.
+      unset NODE_ENV
+      npm config delete production >/dev/null 2>&1 || true
+      npm config delete omit >/dev/null 2>&1 || true
+      npm install --include=dev --no-audit --no-fund
+      npm run build
+    )
+  }
+  if bygg_gui; then
+    BYGG_OK=1
+  else
+    adv "Første byggeforsøk feilet – rydder node_modules og prøver på nytt …"
+    rm -rf "$REPO_DIR/node_modules"
+    bygg_gui && BYGG_OK=1
+  fi
+  if [ "$BYGG_OK" -eq 1 ]; then
+    ok "GUI bygget"
+  else
+    adv "Bygg feilet – hopper over GUI-tjenesten (agenten kjører uansett)"
+    HOPP_GUI=1
+  fi
 fi
 
 if [ "$HOPP_GUI" -eq 0 ]; then
