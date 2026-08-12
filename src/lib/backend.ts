@@ -19,6 +19,8 @@ import {
   type ErrorCode,
   type KnowledgeDoc,
   type KnowledgeHit,
+  type ClusterHealth,
+  type DistributeResult,
   type LogSource,
   type LogTail,
   type RagConfig,
@@ -43,6 +45,8 @@ export type {
   AiConfig,
   KnowledgeDoc,
   KnowledgeHit,
+  ClusterHealth,
+  DistributeResult,
   LogSource,
   LogTail,
   RagConfig,
@@ -434,6 +438,18 @@ export const backend = {
     call(ROUTES.threads!, { method: "POST", body: JSON.stringify(t) }),
   hentSamtale: (id: string) => call<{ samtale: { id: string; meldinger: unknown[] } }>(`${ROUTES.threads}/${id}`),
   slettSamtale: (id: string) => call(`${ROUTES.threads}/${id}`, { method: "DELETE" }),
+
+  /** Klyngehelse: GPU, modeller og tjenester per node. */
+  klyngeHelse: (frisk = false) =>
+    call<ClusterHealth>(`${ROUTES.clusterHealth}${frisk ? "?frisk=1" : ""}`, {}, { timeoutMs: 25_000 }),
+
+  /** Sender konfig-pakken til alle noder og verifiserer resultatet på hver. */
+  distribuerKonfig: (opts: { modus?: "flett" | "erstatt"; bare?: string[]; pakke?: unknown } = {}) =>
+    call<DistributeResult>(
+      ROUTES.configDistribute!,
+      { method: "POST", body: JSON.stringify(opts) },
+      { retries: 0, timeoutMs: 60_000 },
+    ),
 
   /** Loggkilder (systemd-tjenester + oppsett.sh/helsesjekk-logger). */
   loggKilder: () => call<{ kilder: LogSource[] }>(ROUTES.logSources!).then((r) => r.kilder),
