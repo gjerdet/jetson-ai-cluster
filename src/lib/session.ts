@@ -7,39 +7,12 @@ import { backend, backendToken, safe, type BackendStatus, type BackendUser } fro
 
 export type SessionState = "sjekker" | "inne" | "ute";
 
-const LOKAL_KEY = "jarvis.lokal-modus";
-
-/** Lokal modus: bruk HUD-en uten at agenten kjører (alt lagres i nettleseren). */
-export function lokalModus() {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(LOKAL_KEY) === "1";
-}
-
-export function settLokalModus(på: boolean) {
-  if (typeof window === "undefined") return;
-  if (på) window.localStorage.setItem(LOKAL_KEY, "1");
-  else window.localStorage.removeItem(LOKAL_KEY);
-}
-
-const LOKAL_BRUKER: BackendUser = {
-  id: "lokal",
-  email: "lokal@jarvis",
-  role: "admin",
-};
-
 export function useSession() {
   const [state, setState] = useState<SessionState>("sjekker");
   const [user, setUser] = useState<BackendUser | null>(null);
   const [status, setStatus] = useState<BackendStatus | null>(null);
 
   const refresh = useCallback(async () => {
-    if (lokalModus()) {
-      setUser(LOKAL_BRUKER);
-      setState("inne");
-      const sl = await safe(() => backend.status());
-      setStatus(sl.data);
-      return;
-    }
     const s = await safe(() => backend.status());
     setStatus(s.data);
     if (!backendToken()) {
@@ -57,7 +30,6 @@ export function useSession() {
   }, [refresh]);
 
   const loggUt = useCallback(async () => {
-    settLokalModus(false);
     await safe(() => backend.logout());
     setUser(null);
     setState("ute");
