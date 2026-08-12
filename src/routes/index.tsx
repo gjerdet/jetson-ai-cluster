@@ -64,6 +64,7 @@ const TITLES: Record<WinId, { title: string; subtitle: string }> = {
   dash: { title: "GRAFER", subtitle: "moduler for alt som er tilkoblet" },
   health: { title: "HELSE", subtitle: "selvovervåking av noder og tjenester" },
   pool: { title: "POOL", subtitle: "lastbalansering og valgt node per forespørsel" },
+  agi: { title: "AGI", subtitle: "minne, planlegging, initiativ og læring" },
   logs: { title: "LOGGER", subtitle: "sanntidslogg fra oppsett og tjenester" },
   cluster: { title: "KLYNGE", subtitle: "GPU, modeller og tjenester per node" },
   settings: { title: "SYSTEM", subtitle: "innstillinger, evner og plugins" },
