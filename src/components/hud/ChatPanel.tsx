@@ -51,7 +51,7 @@ import {
 import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
 import { retrieveContext, type Citation } from "@/lib/knowledge";
-import { answerNetworkQuestion, classifyNetworkQuestion } from "@/lib/network-intent";
+import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion } from "@/lib/network-intent";
 
 import { MeldingInnhold } from "./MeldingInnhold";
 
