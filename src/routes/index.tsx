@@ -50,6 +50,7 @@ const LAYOUT: Record<WinId, { x: number; y: number; w: number; h: number }> = {
   dash: { x: 120, y: 120, w: 640, h: 560 },
   health: { x: 160, y: 130, w: 460, h: 560 },
   pool: { x: 200, y: 150, w: 480, h: 540 },
+  agi: { x: 260, y: 100, w: 520, h: 580 },
   logs: { x: 140, y: 110, w: 720, h: 560 },
   cluster: { x: 170, y: 120, w: 700, h: 580 },
   settings: { x: 0, y: 0, w: 0, h: 0 },
