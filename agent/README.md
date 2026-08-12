@@ -26,7 +26,7 @@ Skriv ned tokenet – det limes inn i HUD-en under **SYSTEM → KOBLINGER → LO
 | `AGENT_MAX_OUTPUT` | `200000` | Maks tegn output |
 | `AGENT_ALLOW` | innebygd liste | Komma-separert hviteliste av kommandoer |
 | `AGENT_ALLOW_WRITE` | `0` | `1` tillater `systemctl start/stop`, `docker run` osv. |
-| `AGENT_ALLOW_NETWORK` | `1` | `0` setter blindvei-proxy for skript |
+| `AGENT_ALLOW_NETWORK` | `0` | `1` gir skript nettilgang (standard er av for sikkerhet) |
 
 ## Endepunkter
 

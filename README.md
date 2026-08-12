@@ -1,6 +1,6 @@
 # JARVIS HUD — Lokal AI-operatør for Jetson
 
-Et minimalistisk, Jarvis-inspirert HUD som kjører i nettleseren og snakker direkte med dine egne lokale AI-noder (Jetson, Ollama, llama.cpp, mm.). Alt lagres lokalt i nettleseren; ingen sky kreves for kjernefunksjonene.
+Et minimalistisk, Jarvis-inspirert HUD som kjører i nettleseren og snakker med dine egne lokale AI-noder (Jetson, Ollama, llama.cpp, mm.). HUD-en krever en kjørende backend-agent på Jetson for innlogging og lagring; ingen sky kreves for kjernefunksjonene når agenten er på plass.
 
 ## Hva den gjør
 
