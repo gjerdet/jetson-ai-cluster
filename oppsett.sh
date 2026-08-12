@@ -218,7 +218,8 @@ WorkingDirectory=$GUI_DIR
 Environment=PORT=$GUI_PORT
 Environment=HOST=0.0.0.0
 Environment=NODE_ENV=production
-ExecStart=/usr/bin/npm run start
+Environment=GUI_DIR=$GUI_DIR
+ExecStart=/usr/bin/env bash $GUI_DIR/agent/scripts/start-gui.sh
 Restart=on-failure
 RestartSec=5
 
