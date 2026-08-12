@@ -303,17 +303,30 @@ systemctl restart jarvis-agent || adv "systemctl restart jarvis-agent feilet"
 
 # Oppdateringer fra GUI kjøres i en separat root-tjeneste. Agentbrukeren får
 # kun lov til å starte akkurat denne enheten, uten argumenter eller shell.
+mkdir -p /etc/jarvis /var/lib/jarvis /var/log/jarvis
 printf '%s\n' "$REPO_DIR" >/etc/jarvis/source-dir
 chmod 600 /etc/jarvis/source-dir
-if [ -f "$APP_DIR/jarvis-update.service" ]; then
-  cp "$APP_DIR/jarvis-update.service" /etc/systemd/system/jarvis-update.service
-  cat >/etc/sudoers.d/jarvis-update <<'EOF'
+UPDATE_UNIT_SRC="$APP_DIR/jarvis-update.service"
+[ -f "$UPDATE_UNIT_SRC" ] || UPDATE_UNIT_SRC="$REPO_DIR/agent/jarvis-update.service"
+if [ -f "$UPDATE_UNIT_SRC" ]; then
+  cp "$UPDATE_UNIT_SRC" /etc/systemd/system/jarvis-update.service
+  SYSTEMCTL_BIN="$(command -v systemctl || echo /usr/bin/systemctl)"
+  cat >/etc/sudoers.d/jarvis-update <<EOF
 jarvis ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block jarvis-update.service
+jarvis ALL=(root) NOPASSWD: /bin/systemctl start --no-block jarvis-update.service
+jarvis ALL=(root) NOPASSWD: $SYSTEMCTL_BIN start --no-block jarvis-update.service
 EOF
   chmod 440 /etc/sudoers.d/jarvis-update
-  visudo -cf /etc/sudoers.d/jarvis-update >/dev/null
+  if ! visudo -cf /etc/sudoers.d/jarvis-update >/dev/null; then
+    rm -f /etc/sudoers.d/jarvis-update
+    adv "Sudoers-regelen for oppdatering var ugyldig og ble fjernet"
+  fi
   systemctl daemon-reload
+  ok "Oppdatering fra GUI er aktivert (jarvis-update.service)"
+else
+  adv "Fant ikke jarvis-update.service – oppdatering fra GUI blir utilgjengelig"
 fi
+
 
 # Agenten kan kjøre HTTP eller HTTPS avhengig av AGENT_TLS_* – prøv begge.
 agent_svarer() {
