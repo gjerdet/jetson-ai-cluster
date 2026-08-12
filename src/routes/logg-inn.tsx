@@ -176,11 +176,12 @@ function LoggInn() {
           {tlsFeil ? (
             <TlsHjelp
               url={url}
-              onRetry={(ny) => {
+              onRetry={(ny: string) => {
                 setUrl(ny);
                 void sjekkBackend(ny);
               }}
             />
+
           ) : null}
 
 
