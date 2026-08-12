@@ -378,6 +378,18 @@ export interface PoolNode {
   ressursfaktor: number;
 }
 
+export interface ProvisionJob {
+  id: string;
+  vert: string;
+  navn: string;
+  status: "venter" | "kjorer" | "ok" | "feil";
+  steg: string;
+  startet: number;
+  ferdig: number | null;
+  feil: string | null;
+  logg: { tid: number; tekst: string }[];
+}
+
 export interface PoolStatus {
   oppgave: string;
   antall: number;
