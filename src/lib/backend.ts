@@ -464,7 +464,7 @@ export const backend = {
     call<{ treff: KnowledgeHit[]; metode: string }>(
       ROUTES.knowledgeSearch!,
       { method: "POST", body: JSON.stringify({ sporsmal, topK }) },
-      { timeoutMs: 60_000, retries: 0 },
+      { timeoutMs: 8_000, retries: 0 },
     ),
   hentRagConfig: () =>
     call<{ config: RagConfig; statistikk: { dokumenter: number; biter: number; vektorer: number } }>(

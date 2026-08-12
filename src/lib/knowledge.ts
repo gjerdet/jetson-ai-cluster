@@ -45,7 +45,14 @@ export async function retrieveContext(
   topK = 5,
 ): Promise<{ context: string; sources: Citation[] }> {
   if (!backendToken()) return { context: "", sources: [] };
-  const { data } = await safe(() => backend.sokKunnskap(sporsmal, topK));
+  // Kunnskapsbasen skal aldri henge chatten: gi opp etter 8 sekunder.
+  const tom = { context: "", sources: [] as Citation[] };
+  const resultat = await Promise.race([
+    safe(() => backend.sokKunnskap(sporsmal, topK)),
+    new Promise<null>((r) => setTimeout(() => r(null), 8_000)),
+  ]);
+  if (!resultat) return tom;
+  const { data } = resultat;
   const treff: KnowledgeHit[] = data?.treff ?? [];
   if (!treff.length) return { context: "", sources: [] };
   const sources: Citation[] = treff.map((t) => ({
