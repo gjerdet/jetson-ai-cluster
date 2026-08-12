@@ -193,6 +193,7 @@ export const ROUTES: {
   clusterLocal: string;
   clusterHealth: string;
   configDistribute: string;
+  provision: string;
 };
 
 /** En loggkilde HUD-en kan lese (systemd-enhet eller loggfil). */
