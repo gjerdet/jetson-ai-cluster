@@ -52,6 +52,7 @@ import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
 import { retrieveContext, type Citation } from "@/lib/knowledge";
 import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion } from "@/lib/network-intent";
+import { requiresFreshLocalEvidence } from "@/lib/agent-policy";
 
 import { MeldingInnhold } from "./MeldingInnhold";
 
@@ -338,6 +339,7 @@ export function ChatPanel({
 
       const runder = smaaprat ? 1 : 8;
       const oppdrag = !smaaprat && OPPDRAG.test(text);
+      const kreverLokalEvidens = !smaaprat && requiresFreshLocalEvidence(text);
       let dyttet = false;
       for (let round = 0; round < runder; round++) {
 
@@ -401,20 +403,26 @@ export function ChatPanel({
           // Ba brukeren om at noe skulle gjøres, men modellen svarte med en
           // bortforklaring uten å ha kjørt et eneste verktøy? Da dytter vi den
           // én gang til med en tydelig instruks om å handle.
-          if (oppdrag && !dyttet && !runs.length && UNNVIKELSE.test(raw)) {
+          if (
+            !dyttet &&
+            !runs.length &&
+            (kreverLokalEvidens || (oppdrag && UNNVIKELSE.test(raw)))
+          ) {
             dyttet = true;
             trace({
               turId,
               kind: "dult",
               title: "passivt svar på et oppdrag – dytter modellen til å handle",
-              why: "meldingen matcher OPPDRAG og svaret matcher UNNVIKELSE uten at et verktøy ble kjørt",
+              why: kreverLokalEvidens
+                ? "svaret beskriver denne installasjonen uten ferske, målte systemdata"
+                : "meldingen matcher OPPDRAG og svaret matcher UNNVIKELSE uten at et verktøy ble kjørt",
               detail: raw,
             });
             thread.push({ role: "assistant", content: raw });
             thread.push({
               role: "user",
               content:
-                "Du svarte uten å bruke verktøy. Utfør oppgaven nå: velg det verktøyet som faktisk kan svare (nett_skann for nettverk/enheter i subnettet, os_kjor eller agent_status for maskin og tjenester, mqtt_les for sensorer), eller skriv et eget skript med skript_test. Svar kun med verktøykallet på formen VERKTØY: navn {...}.",
+                "Svaret ditt mangler ferske bevis fra den lokale installasjonen. Undersøk selv nå. Velg det eksisterende verktøyet som best kan observere tilstanden; hvis ett resultat ikke er nok, kjør flere verktøy i nye runder. Finnes ikke riktig verktøy, lag og test et begrenset skript med skript_test. Ikke forklar, gjett eller be brukeren undersøke. Svar nå kun med ett verktøykall på formen VERKTØY: navn {...}.",
             });
             continue;
           }

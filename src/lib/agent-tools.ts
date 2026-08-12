@@ -124,7 +124,7 @@ export const TOOL_CATALOG: ToolSpec[] = [
   {
     name: "agent_status",
     category: "os",
-    summary: "Status for den lokale agenten på Jetson: OS, last, minne, sandkasse og hviteliste.",
+    summary: "Fersk maskinvare- og driftsstatus for den lokale noden: kortmodell, CPU, GPU, OS, last, minne og sandkasse.",
     args: "{}",
     builtin: true,
   },
@@ -230,7 +230,7 @@ Tilgjengelige verktøy:
 - verktoy_liste {} – dine egendefinerte verktøy.
 - verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
 - verktoy_slett {"navn": "hent_vaer"} – slett et verktøy du har laget.
-- agent_status {} – status for lokal agent på Jetson (OS, last, minne, sandkasse, hviteliste).
+- agent_status {} – fersk maskinvare- og driftsstatus for lokal node (kortmodell, CPU, GPU, OS, last, minne, sandkasse).
 - os_kjor {"kommando": "df", "args": ["-h"]} – kjør hvitelistet OS-kommando via lokal agent.
 - skript_lag {"navn": "test.py", "innhold": "..."} – lagre skript i sandkassen.
 - skript_kjor {"navn": "test.py", "sprak": "python", "args": []} – kjør skript i sandkassen.
@@ -253,6 +253,8 @@ R3. Ett verktøykall om gangen når resultatet påvirker neste steg. Les resulta
 R4. Er et verktøy utilgjengelig (lokal agent av, feilmelding), si det konkret og foreslå
     nøyaktig hva som må slås på – ikke svar som om du hadde data.
 R5. Oppgi alltid i svaret hvilke verktøy du kjørte, med hvilke argumenter, og hva de ga.
+R6. Påstander om denne noden, installasjonen eller nettet krever fersk verktøy-output i samme
+    samtalerunde. Personligheten din er aldri en kilde til maskinvare- eller systemfakta.
 
 SJEKKPLAN FOR NETTVERKSOPPGAVER (følg trinnene i rekkefølge):
 Trinn 1 – nett_sjekk {}: bekreft grensesnitt, subnett (CIDR), gateway, DNS og at ARP-tabellen
@@ -561,6 +563,9 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
 
       return [
         `Agent: ${h.host ?? "?"} · ${h.platform ?? "?"}`,
+        `Kort/enhet: ${h.boardModel ?? "ukjent"}`,
+        `CPU: ${h.cpuModel ?? "ukjent"} · ${h.cpuCores ?? "?"} kjerner`,
+        `GPU: ${h.gpuModel ?? "ukjent"}`,
         `Oppetid ${Math.round((h.uptimeSec ?? 0) / 3600)} t · last ${(h.loadavg ?? []).join(" / ")}`,
         `Minne ${h.memFreeMb ?? "?"} / ${h.memTotalMb ?? "?"} MB fritt`,
         `Sandkasse: ${h.sandbox ?? "?"} · nettverk ${h.network ? "på" : "av"}`,
