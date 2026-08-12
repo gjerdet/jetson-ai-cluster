@@ -40,6 +40,17 @@ export function UpdateSection({ agent }: { agent: string | null }) {
         {agent ? `Noden kjører agent ${agent}.` : "Ikke koblet til en agent akkurat nå."} Oppdateringen tar
         backup, henter valgt versjon, bygger GUI-et og restarter tjenestene automatisk.
       </p>
+      {status && status.klar === false ? (
+        <div className="rounded border border-destructive/40 bg-destructive/10 p-2 text-[9px] text-foreground/90">
+          <p className="hud-title text-[9px] text-destructive">Oppdatering fra GUI er ikke klar</p>
+          <ul className="mt-1 list-disc pl-4">
+            {(status.mangler ?? []).map((m) => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
+          {status.rettelse ? <p className="mt-1 font-mono text-[8px] text-primary/80">{status.rettelse}</p> : null}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-end gap-2">
         <label className="min-w-40 flex-1 text-[9px] uppercase text-muted-foreground">
           Versjon eller gren
