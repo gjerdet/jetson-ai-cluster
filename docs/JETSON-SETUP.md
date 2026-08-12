@@ -1,5 +1,7 @@
 # Jarvis på Jetson
 
+> **Viktig:** HUD-en krever en kjørende backend-agent for å logge inn. Det finnes ingen «lokal modus» uten passord.
+
 ## 0. Ett-kommandos oppsett (anbefalt)
 
 Kjør dette på Jetson-en – det installerer Ollama, henter modellene, setter opp
@@ -9,9 +11,15 @@ agenten som systemd-tjeneste og skriver ut innloggingen:
 sudo bash agent/scripts/install-jetson.sh
 ```
 
-Deretter: åpne web-GUI-et, åpne **NODER** og bruk **HURTIGOPPSETT**. Skriv inn
-Jetson-IP-en, så registreres chat-noden (llama3.2:3b), Hermes-noden (hermes3:8b)
-og backend-adressen automatisk, med tilkoblingstest på hvert steg.
+Når skriptet er ferdig:
+
+1. Les innloggingen: `sudo cat /root/jarvis-innlogging.txt`.
+2. Åpne HUD-en i nettleseren og gå til `/logg-inn`.
+3. Skriv inn backend-adressen, f.eks. `http://192.168.1.50:8787`, og trykk **KOBLE**.
+4. Logg inn med e-post og passord fra filen.
+5. Deretter: åpne **NODER** og bruk **HURTIGOPPSETT**. Skriv inn Jetson-IP-en,
+   så registreres chat-noden (`llama3.2:3b`), Hermes-noden (`hermes3:8b`) og
+   backend-adressen automatisk, med tilkoblingstest på hvert steg.
 
 Trinnene under er den manuelle varianten av det samme.
 
