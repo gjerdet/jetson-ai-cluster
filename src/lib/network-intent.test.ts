@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerNetworkQuestion, classifyNetworkQuestion } from "./network-intent";
+import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion } from "./network-intent";
 
 const STATUS = `== 1. GRENSESNITT OG ADRESSER ==
 eth0 192.168.12.5/26
