@@ -2,6 +2,7 @@ import { TestKobling } from "./TestKobling";
 import { useState } from "react";
 import { Plus, Trash2, Activity } from "lucide-react";
 import { pingNode } from "@/lib/hud-client";
+import { backend } from "@/lib/backend";
 import { newNode, type HudConfig, type ModelNode } from "@/lib/hud-store";
 import { QuickSetup } from "./QuickSetup";
 import { ProvisionSection } from "./ProvisionSection";
