@@ -159,6 +159,8 @@ export const ROUTES: {
   ai: string;
   aiChat: string;
   aiPool: string;
+  aiTest: string;
+
   samples: string;
   samplesLatest: string;
   samplesPrune: string;
