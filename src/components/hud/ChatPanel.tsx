@@ -443,7 +443,7 @@ export function ChatPanel({
         ))}
         {busy ? (
           <p className="flex items-center gap-2 text-xs text-primary">
-            <Loader2 className="size-3 animate-spin" /> {stage || "prosesserer"}…
+            <Loader2 className="size-3 animate-spin" /> {stage || "prosesserer"}… {elapsed}s
           </p>
         ) : null}
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
