@@ -457,3 +457,34 @@
   color: var(--foreground);
   letter-spacing: normal;
 }
+
+/* ---- HUD-scrollbars: tynne, gjennomsiktige og cyan ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.78 0.13 200 / 0.35) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: oklch(0.78 0.13 200 / 0.25);
+  border: 1px solid oklch(0.78 0.13 200 / 0.25);
+  box-shadow: 0 0 8px -3px oklch(0.78 0.13 200 / 0.8) inset;
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.78 0.13 200 / 0.5);
+}
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
