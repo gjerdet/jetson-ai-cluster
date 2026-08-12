@@ -104,7 +104,18 @@ export function NodesPanel({
             <button
               onClick={async () => {
                 setTesting(n.id);
-                const ms = await pingNode(n);
+                // Går via backend først (unngår CORS), med direkte ping som reserve.
+                let ms: number | null = null;
+                try {
+                  const r = await backend.testAi({
+                    baseUrl: n.baseUrl,
+                    ...(n.model ? { model: n.model } : {}),
+                    ...(n.apiKey ? { apiKey: n.apiKey } : {}),
+                  });
+                  ms = r.ok ? (r.ms ?? 0) : null;
+                } catch {
+                  ms = await pingNode(n);
+                }
                 setLatency((l) => ({ ...l, [n.id]: ms }));
                 setTesting(null);
               }}
