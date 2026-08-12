@@ -282,8 +282,8 @@ skriv_hvis_endret /tmp/jarvis-agent.service /etc/systemd/system/jarvis-agent.ser
 if [ "$ENDRET_AGENT" -eq 1 ]; then systemctl daemon-reload; fi
 systemctl enable jarvis-agent >/dev/null 2>&1 || adv "Fikk ikke aktivert jarvis-agent"
 systemctl restart jarvis-agent || adv "systemctl restart jarvis-agent feilet"
-for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$AGENT_PORT/health" >/dev/null 2>&1 && break; sleep 1; done
-if curl -fsS "http://127.0.0.1:$AGENT_PORT/health" >/dev/null 2>&1; then
+for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$AGENT_PORT/api/status" >/dev/null 2>&1 && break; sleep 1; done
+if curl -fsS "http://127.0.0.1:$AGENT_PORT/api/status" >/dev/null 2>&1; then
   ok "Agenten svarer på port $AGENT_PORT"
 else
   feil "Agenten svarer ikke på port $AGENT_PORT – status og siste logglinjer:"
@@ -303,7 +303,9 @@ if [ "$HOPP_GUI" -eq 0 ] && [ -f "$REPO_DIR/package.json" ]; then
       npm config delete production >/dev/null 2>&1 || true
       npm config delete omit >/dev/null 2>&1 || true
       npm install --include=dev --no-audit --no-fund
-      npm run build
+      # Standardbygget i Lovable målrettes mot publiseringsplattformen. På
+      # Jetson trenger vi en vanlig Node-server som kan kjøres av systemd.
+      NITRO_PRESET=node-server npm run build
     )
   }
   if bygg_gui; then
@@ -349,9 +351,13 @@ EOF
   systemctl enable jarvis-gui >/dev/null 2>&1 || true
   systemctl restart jarvis-gui >/dev/null 2>&1 || adv "Fikk ikke startet jarvis-gui"
   for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$GUI_PORT/" >/dev/null 2>&1 && break; sleep 1; done
-  curl -fsS "http://127.0.0.1:$GUI_PORT/" >/dev/null 2>&1 \
-    && ok "GUI svarer på port $GUI_PORT" \
-    || adv "GUI svarer ikke ennå – se: journalctl -u jarvis-gui -f"
+  if curl -fsS "http://127.0.0.1:$GUI_PORT/" >/dev/null 2>&1; then
+    ok "GUI svarer på port $GUI_PORT"
+  else
+    adv "GUI svarer ikke ennå – status og siste logglinjer:"
+    SYSTEMD_PAGER=cat systemctl status jarvis-gui --no-pager -l -n 20 2>/dev/null || true
+    SYSTEMD_PAGER=cat journalctl -u jarvis-gui -n 40 --no-pager -o cat 2>/dev/null || true
+  fi
 fi
 
 # ── 7. Automatisk helsesjekk ─────────────────────────────────────────────────

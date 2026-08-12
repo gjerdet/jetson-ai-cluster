@@ -13,5 +13,5 @@ for kandidat in .output/server/index.mjs dist/server/index.mjs .vinxi/build/serv
   fi
 done
 
-# Reservevei: statisk/preview-server fra Vite
-exec npx --yes vite preview --host "$HOST" --port "$PORT"
+echo "Fant ingen kjørbar GUI-server. Kjør oppsett.sh på nytt for å bygge Node-serveren." >&2
+exit 1

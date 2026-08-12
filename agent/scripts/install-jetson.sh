@@ -116,7 +116,7 @@ systemctl enable --now jarvis-agent
 sleep 2
 
 IP="$(hostname -I | awk '{print $1}')"
-if curl -fsS "http://127.0.0.1:8787/health" >/dev/null 2>&1; then
+if curl -fsS "http://127.0.0.1:8787/api/status" >/dev/null 2>&1; then
   ok "Agenten kjører"
 else
   adv "Agenten svarer ikke ennå – se: journalctl -u jarvis-agent -f"

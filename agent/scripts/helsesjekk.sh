@@ -21,6 +21,14 @@ KREVDE_MODELLER="${JARVIS_MODELS:-${JARVIS_CHAT_MODEL:-llama3.2:3b} ${JARVIS_HER
 SJEKK_GUI="${SJEKK_GUI:-1}"
 LOGG="${JARVIS_LOG_DIR:-/var/log/jarvis}/helsesjekk.log"
 
+# /health beskytter OS- og sandkasseinformasjon med AGENT_TOKEN. Les tokenet
+# lokalt når helsesjekken kjøres med sudo, men logg eller skriv det aldri ut.
+AGENT_ENV_FILE="${AGENT_ENV_FILE:-/etc/jarvis/agent.env}"
+AGENT_TOKEN_LOCAL="${AGENT_TOKEN:-}"
+if [ -z "$AGENT_TOKEN_LOCAL" ] && [ -r "$AGENT_ENV_FILE" ]; then
+  AGENT_TOKEN_LOCAL="$(grep -E '^AGENT_TOKEN=' "$AGENT_ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)"
+fi
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --json) JSON=1 ;;
@@ -139,10 +147,19 @@ sjekk_tjeneste jarvis-agent feil
 [ "$SJEKK_GUI" -eq 1 ] && sjekk_tjeneste jarvis-gui advarsel
 
 # ── 4. Porter / endepunkter ──────────────────────────────────────────────────
-if HELSE="$(curl -fsS --max-time 8 "http://127.0.0.1:$AGENT_PORT/health" 2>/dev/null)"; then
+HELSE_HEADER=()
+if [ -n "$AGENT_TOKEN_LOCAL" ]; then HELSE_HEADER=(-H "Authorization: Bearer $AGENT_TOKEN_LOCAL"); fi
+if HELSE="$(curl -fsS --max-time 8 "${HELSE_HEADER[@]}" "http://127.0.0.1:$AGENT_PORT/health" 2>/dev/null)"; then
   resultat ok "Backend" "http://127.0.0.1:$AGENT_PORT svarer"
 else
-  resultat feil "Backend" "svarer ikke på port $AGENT_PORT"
+  # /api/status er offentlig og skiller «prosessen lytter» fra feil/manglende
+  # agent-token. Tidligere ble en frisk backend feilaktig rapportert som nede.
+  STATUSKODE="$(curl -sS --max-time 8 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$AGENT_PORT/api/status" 2>/dev/null || true)"
+  if [ "$STATUSKODE" = "200" ]; then
+    resultat advarsel "Backend" "svarer på port $AGENT_PORT, men /health avviste agent-tokenet"
+  else
+    resultat feil "Backend" "svarer ikke på port $AGENT_PORT"
+  fi
 fi
 
 if STATUS="$(curl -fsS --max-time 8 "http://127.0.0.1:$AGENT_PORT/api/status" 2>/dev/null)"; then
