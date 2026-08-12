@@ -104,15 +104,18 @@ export async function callChatEndpoint(input) {
         headers: {
           "content-type": "application/json",
           ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+          ...providerHeaders(endpoint),
         },
         body: JSON.stringify(chatPayload(endpoint, { model, messages, temperature })),
         signal: ctrl.signal,
       });
       if (!response.ok) {
         const detail = (await response.text().catch(() => "")).slice(0, 180);
-        feil.push(`${endpoint}: HTTP ${response.status}${detail ? ` – ${detail}` : ""}`);
+        const raad = statusRaad(response.status, endpoint);
+        feil.push(`${endpoint}: HTTP ${response.status}${raad ? ` – ${raad}` : ""}${detail ? ` (${detail})` : ""}`);
         continue;
       }
+
       const data = await response.json();
       const svar = chatText(data);
       if (!svar) {
