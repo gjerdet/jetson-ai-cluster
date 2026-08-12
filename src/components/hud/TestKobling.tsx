@@ -32,7 +32,12 @@ export function TestKobling({
     setKjorer(true);
     setRes(null);
     try {
-      const r = await backend.testAi({ baseUrl, model, apiKey });
+      const r = await backend.testAi({
+        baseUrl,
+        ...(model ? { model } : {}),
+        ...(apiKey ? { apiKey } : {}),
+      });
+
       setRes(r);
     } catch (e) {
       setRes({ ok: false, error: e instanceof Error ? e.message : String(e) });
