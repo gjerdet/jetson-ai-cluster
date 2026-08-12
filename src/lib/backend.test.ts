@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BackendError, backend, backendToken, setBackendToken, setBackendUrl, safe, standardBackendUrl } from "@/lib/backend";
+import { BackendError, DEFAULT_BACKEND_URL, backend, backendToken, setBackendToken, setBackendUrl, safe, standardBackendUrl } from "@/lib/backend";
 import { DEFAULTS, ERROR_CODES } from "@/lib/contract";
 
 /** Enkel fetch-mock som svarer med gitt status/kropp. */
@@ -109,21 +109,10 @@ describe("backend-klient", () => {
 });
 
 describe("standard backend-adresse", () => {
-  it("bruker vertsnavnet i nettverket i stedet for loopback", () => {
-    expect(standardBackendUrl({ hostname: "192.168.1.42", protocol: "http:" })).toBe(
-      `http://192.168.1.42:${DEFAULTS.port}`,
-    );
-    expect(standardBackendUrl({ hostname: "jarvis.local", protocol: "https:" })).toBe(
-      `https://jarvis.local:${DEFAULTS.port}`,
-    );
-  });
-
-  it("faller tilbake til loopback lokalt og i Lovable-forhåndsvisning", () => {
-    expect(standardBackendUrl({ hostname: "localhost", protocol: "http:" })).toBe(
-      `http://127.0.0.1:${DEFAULTS.port}`,
-    );
-    expect(standardBackendUrl({ hostname: "id-preview--abc.lovable.app", protocol: "https:" })).toBe(
-      `http://127.0.0.1:${DEFAULTS.port}`,
-    );
+  it("bruker alltid den konfigurerte Jetson-noden når ingen adresse er lagret", () => {
+    expect(DEFAULT_BACKEND_URL).toBe("https://192.168.12.5:8443");
+    expect(standardBackendUrl()).toBe("https://192.168.12.5:8443");
+    expect(standardBackendUrl({ hostname: "localhost", protocol: "http:" })).toBe(DEFAULT_BACKEND_URL);
+    expect(standardBackendUrl({ hostname: "id-preview--abc.lovable.app", protocol: "https:" })).toBe(DEFAULT_BACKEND_URL);
   });
 });
