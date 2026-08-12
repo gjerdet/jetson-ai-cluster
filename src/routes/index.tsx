@@ -14,6 +14,7 @@ import { PoolPanel } from "@/components/hud/PoolPanel";
 import { BackendStatusBadge } from "@/components/hud/BackendStatusBadge";
 import { useHudConfig } from "@/lib/hud-store";
 import { useSession } from "@/lib/session";
+import { usePreviewSession } from "@/lib/preview-session";
 import { setRules, setTelegramChat } from "@/lib/mqtt-bridge";
 
 export const Route = createFileRoute("/")({
@@ -64,14 +65,18 @@ function Index() {
   const { config, update, loaded } = useHudConfig();
   const navigate = useNavigate();
   const { state, user, loggUt } = useSession();
+  const { isPreview, unlocked } = usePreviewSession();
   const [open, setOpen] = useState<WinId[]>([]);
   const [order, setOrder] = useState<WinId[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
 
   // ingen økt mot den lokale agenten → send brukeren til innloggingen
+  // unntatt i Lovable-preview, der preview-passordet er tilstrekkelig for å se UI-et
   useEffect(() => {
-    if (state === "ute") void navigate({ to: "/logg-inn", replace: true });
-  }, [state, navigate]);
+    if (state === "ute" && !(isPreview && unlocked)) {
+      void navigate({ to: "/logg-inn", replace: true });
+    }
+  }, [state, isPreview, unlocked, navigate]);
 
 
 

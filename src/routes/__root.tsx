@@ -11,6 +11,8 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { PreviewGate } from "@/components/hud/PreviewGate";
+import { usePreviewSession } from "@/lib/preview-session";
 
 function NotFoundComponent() {
   return (
@@ -123,6 +125,25 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { isPreview, unlocked, checking, refresh } = usePreviewSession();
+
+  if (checking) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <div className="hud-root flex min-h-screen items-center justify-center">
+          <div className="text-[10px] uppercase tracking-[0.25em] text-foreground/40">starter forhåndsvisning …</div>
+        </div>
+      </QueryClientProvider>
+    );
+  }
+
+  if (isPreview && !unlocked) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <PreviewGate onUnlock={() => void refresh()} />
+      </QueryClientProvider>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
