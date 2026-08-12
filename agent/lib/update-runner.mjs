@@ -50,7 +50,7 @@ export async function startUpdate(value) {
   await writeFile(REQUEST_FILE, `${ref}\n`, { mode: 0o600 });
 
   const started = await new Promise((resolve) => {
-    const child = spawn("sudo", ["-n", "/bin/systemctl", "start", SERVICE], {
+    const child = spawn("/usr/bin/sudo", ["-n", "/usr/bin/systemctl", "start", "--no-block", SERVICE], {
       stdio: ["ignore", "pipe", "pipe"],
     });
     let text = "";
