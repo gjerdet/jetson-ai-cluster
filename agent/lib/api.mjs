@@ -442,7 +442,9 @@ export async function handleApi(req, res, route, url, deps = {}) {
         const baseUrl = String(node.baseUrl).replace(/\/+$/, "");
         const model = str(b.model || node.modell || cfg.model, "Modell", { maks: 120 });
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 120_000);
+        // Første svar fra en kald modell på Jetson kan ta flere minutter.
+        const grenseMs = Math.max(30_000, Number(cfg.timeoutMs) || 300_000);
+        const timer = setTimeout(() => ctrl.abort(), grenseMs + 15_000);
         try {
           const resultat = await callChatEndpoint({
             baseUrl,
@@ -450,6 +452,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
             messages,
             temperature: Number(b.temperatur) || 0.7,
             apiKey: key,
+            timeoutMs: grenseMs,
             signal: ctrl.signal,
           });
           return { svar: resultat.svar, model, baseUrl, endpoint: resultat.endpoint };
@@ -471,7 +474,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
         });
       } catch (e) {
         return json(req, res, 502, {
-          error: `Nådde ingen AI-node: ${e?.message || "ukjent"}`,
+          error: `Nådde ingen AI-node: ${/abort/i.test(e?.message || "") ? "modellen svarte ikke i tide – den laster trolig fortsatt. Prøv igjen om et minutt, eller bruk en mindre modell." : e?.message || "ukjent"}`,
           kode: "unavailable",
           forsok: e?.forsok ?? [],
         });

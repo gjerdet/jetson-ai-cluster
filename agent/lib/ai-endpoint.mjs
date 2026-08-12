@@ -105,7 +105,7 @@ export async function callChatEndpoint(input) {
     const alternativ = modeller.find((m) => m !== model);
     if (alternativ) {
       const res = await callChatEndpoint({
-        baseUrl, model: alternativ, messages, temperature, apiKey, signal, _retry: true,
+        baseUrl, model: alternativ, messages, temperature, apiKey, signal, timeoutMs, _retry: true,
       });
       return { ...res, model: alternativ, byttetModell: true };
     }

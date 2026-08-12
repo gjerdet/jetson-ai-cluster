@@ -340,7 +340,7 @@ export const backend = {
     call<AiChatReply>(
       ROUTES.aiChat!,
       { method: "POST", body: JSON.stringify({ meldinger, ...o }) },
-      { timeoutMs: 180_000, retries: 0 },
+      { timeoutMs: 330_000, retries: 0 },
     ),
   lagreAi: (v: Partial<AiConfig>) => call(ROUTES.ai!, { method: "PUT", body: JSON.stringify(v) }),
 
