@@ -9,7 +9,14 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const PREVIEW_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7; // 7 dager
 
 function isPreviewHost(host: string) {
-  return host === "localhost" || host.endsWith(".lovable.app") || host.startsWith("localhost:");
+  return (
+    host === "localhost" ||
+    host.startsWith("localhost:") ||
+    host === "127.0.0.1" ||
+    host.endsWith(".lovable.app") ||
+    host.endsWith(".lovableproject.com") ||
+    host.endsWith(".lovable.dev")
+  );
 }
 
 function sign(data: string, secret: string) {

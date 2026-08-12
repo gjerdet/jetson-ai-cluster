@@ -11,7 +11,14 @@ const STORAGE_KEY = "jarvis-preview-token";
 export function isPreviewHost() {
   if (typeof window === "undefined") return false;
   const host = window.location.hostname;
-  return host === "localhost" || host.endsWith(".lovable.app") || host.startsWith("localhost:");
+  return (
+    host === "localhost" ||
+    host.startsWith("localhost:") ||
+    host === "127.0.0.1" ||
+    host.endsWith(".lovable.app") ||
+    host.endsWith(".lovableproject.com") ||
+    host.endsWith(".lovable.dev")
+  );
 }
 
 export function getPreviewToken() {
