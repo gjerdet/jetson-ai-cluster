@@ -540,8 +540,8 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       const subnet = str(call.args["subnett"] ?? call.args["subnet"] ?? call.args["cidr"]).trim();
       if (subnet && !CIDR_RE.test(subnet))
         return `Ugyldig subnett «${subnet}». Bruk formen 192.168.1.0/24.`;
-      if (!approve(cfg, `nettverkssjekk (gateway, DNS, ARP, porter)`))
-        return "Brukeren avslo sjekken.";
+      // Kun lesing av lokal nettverksstatus; dette er trygt å kjøre uten
+      // bekreftelsesdialog. Aktiv skanning (nett_skann) krever fortsatt samtykke.
       const sjekkCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, 60000) };
       let r;
       if (backendToken()) {
