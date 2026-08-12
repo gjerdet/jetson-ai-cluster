@@ -66,6 +66,7 @@ export function ChatPanel({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
+  const [elapsed, setElapsed] = useState(0);
   const [pending, setPending] = useState<PendingCommand[]>([]);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
