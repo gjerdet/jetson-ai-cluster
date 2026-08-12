@@ -82,6 +82,9 @@ export const ROUTES = {
   ttsManifest: "/tts/treningssett",
   logs: "/logger",
   logSources: "/logger/kilder",
+  clusterLocal: "/klynge/lokal",
+  clusterHealth: "/klynge/helse",
+  configDistribute: "/config/distribuer",
 
 };
 
@@ -200,6 +203,10 @@ export function validateNode(node) {
     aktiv: node.aktiv !== false,
     vekt: Number.isFinite(Number(node.vekt)) ? Math.max(1, Math.min(10, Number(node.vekt))) : 1,
     sistSett: Number(node.sistSett) || Date.now(),
+    agentUrl: /^https?:\/\//i.test(String(node.agentUrl ?? "").trim())
+      ? String(node.agentUrl).trim().replace(/\/+$/, "")
+      : "",
+    agentToken: String(node.agentToken ?? "").slice(0, 300),
     kilde: node.kilde === "auto" ? "auto" : "manuell",
     notat: String(node.notat ?? "").slice(0, 500),
   };

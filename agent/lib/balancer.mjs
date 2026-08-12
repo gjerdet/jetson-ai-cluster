@@ -15,7 +15,10 @@ const stats = new Map();
 function entry(id) {
   let s = stats.get(id);
   if (!s) {
-    s = { inflight: 0, snittMs: null, sisteMs: null, feil: 0, karanteneTil: 0, sisteFeil: null, ok: 0, kall: 0 };
+    s = {
+      inflight: 0, snittMs: null, sisteMs: null, feil: 0, karanteneTil: 0, sisteFeil: null, ok: 0, kall: 0,
+      ressurser: null,
+    };
     stats.set(id, s);
   }
   return s;
@@ -23,6 +26,30 @@ function entry(id) {
 
 export function nodeStats(id) {
   return { ...entry(id) };
+}
+
+/**
+ * Oppdaterer det klyngehelse-sjekken fant ut om noden (ledig GPU, last, nivå).
+ * Dette gjør rutingen adaptiv: mye ledig GPU = billigere node.
+ */
+export function settRessurser(id, r) {
+  const s = entry(id);
+  s.ressurser = r ? { ...r } : null;
+  return { ...s.ressurser };
+}
+
+/** 0.4 (nesten full GPU / syk node) … 1.6 (mye ledig GPU og frisk node). */
+export function ressursfaktor(id) {
+  const r = entry(id).ressurser;
+  if (!r) return 1;
+  if (r.niva === "feil") return 0.3;
+  const fritt = Number.isFinite(Number(r.frittProsent)) ? Number(r.frittProsent) : null;
+  const utnytt = Number.isFinite(Number(r.utnyttelse)) ? Number(r.utnyttelse) : null;
+  let f = 1;
+  if (fritt != null) f *= 0.5 + Math.min(100, Math.max(0, fritt)) / 100; // 0.5 … 1.5
+  if (utnytt != null) f *= 1 - Math.min(100, Math.max(0, utnytt)) / 200; // 0.5 … 1
+  if (r.niva === "advarsel") f *= 0.7;
+  return Math.max(0.2, Math.min(1.6, f));
 }
 
 export function resetBalancer() {
@@ -37,7 +64,9 @@ function kostnad(node) {
   const latens = s.snittMs ?? s.sisteMs ?? 800;
   const vekt = Math.max(1, Number(node.vekt) || 1);
   const straff = iKarantene(s) ? 1_000_000 : 0;
-  return (s.inflight * 10_000 + latens) / vekt + straff;
+  // Vekten fra brukeren kombineres med hvor mye ledig GPU noden faktisk har.
+  const effektivVekt = Math.max(0.2, vekt * ressursfaktor(node.id));
+  return (s.inflight * 10_000 + latens) / effektivVekt + straff;
 }
 
 /** Aktive noder som har fått ansvar for oppgaven (standard «chat»). */
@@ -113,6 +142,8 @@ export function poolStatus(noder, oppgave = "chat") {
         karantene: s.karanteneTil > naa,
         karanteneSek: s.karanteneTil > naa ? Math.ceil((s.karanteneTil - naa) / 1000) : 0,
         kostnad: Math.round(kostnad(n)),
+        ressurser: s.ressurser,
+        ressursfaktor: Math.round(ressursfaktor(n.id) * 100) / 100,
       };
     }),
   };
