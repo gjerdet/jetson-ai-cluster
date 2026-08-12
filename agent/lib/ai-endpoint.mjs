@@ -126,11 +126,17 @@ export async function callChatEndpoint(input) {
     } catch (error) {
       if (signal?.aborted) throw error;
       const tidsavbrudd = ctrl.signal.aborted || /abort/i.test(error?.message || "");
+      const tekst = `${error?.message || String(error)}${error?.cause?.code ? ` (${error.cause.code})` : ""}`;
+      let raad = "";
+      if (/self.signed|certificate|CERT_/i.test(tekst)) raad = " – selvsignert sertifikat; bruk http:// eller legg inn et gyldig sertifikat";
+      else if (/ECONNREFUSED/i.test(tekst)) raad = " – ingen tjeneste svarer på porten";
+      else if (/ENOTFOUND|EAI_AGAIN/i.test(tekst)) raad = " – vertsnavnet kan ikke slås opp";
       feil.push(
         tidsavbrudd
           ? `${endpoint}: modellen svarte ikke innen ${Math.round(timeoutMs / 1000)} s (den er trolig fortsatt i gang med å laste eller generere)`
-          : `${endpoint}: ${error?.message || String(error)}`,
+          : `${endpoint}: ${tekst}${raad}`,
       );
+
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener?.("abort", avbrytt);
