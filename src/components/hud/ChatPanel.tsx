@@ -24,6 +24,8 @@ import {
 import { type ChatMsg, type ToolRun } from "@/lib/hud-client";
 import { callBalanced, callTracked } from "@/lib/balancer";
 import { logRouting } from "@/lib/routing-log";
+import { nyTur, trace, debugOn } from "@/lib/debug-log";
+import { velgRute } from "@/lib/model-router";
 import { backend, backendToken } from "@/lib/backend";
 import { clearChat, loadChat, loadChatRemote, saveChat, saveChatRemote } from "@/lib/chat-store";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
@@ -187,10 +189,22 @@ export function ChatPanel({
     setInput("");
     setBusy(true);
     setStage("tenker");
+    const turId = nyTur();
+    trace({ turId, kind: "melding", title: text.slice(0, 120), detail: text });
     try {
       // Rask vei for småprat: hopp over kunnskapssøk og verktøyprompt,
       // slik at «hei» svares på med én enkelt modellrunde.
       const smaaprat = text.length <= 40 && SMAAPRAT.test(text);
+      // automatisk modell-ruting: tunge oppgaver til OpenRouter/Hermes,
+      // småprat og rutine til den lokale Jetson-modellen
+      const rute = velgRute(config, text);
+      const rutet = rute.node ?? primary;
+      trace({
+        turId,
+        kind: "ruting",
+        title: `${rute.vekt.toUpperCase()} → ${rutet?.name ?? "ingen node"} (${rutet?.model ?? "?"})`,
+        why: rute.grunn,
+      });
       const live = mqttBrief();
       const sys = [
         systemPrompt(config),
@@ -216,6 +230,15 @@ export function ChatPanel({
         context = `\n\n[WORLD MONITOR-DATA]\n${briefingText(10)}`;
       }
 
+      trace({
+        turId,
+        kind: "prompt",
+        title: `systemprompt ${sys.length} tegn${smaaprat ? " (småpratmodus)" : ""}`,
+        why: smaaprat
+          ? "kort hilsen – hopper over kunnskapssøk og verktøyprompt"
+          : "full verktøyprompt og sjekkplan sendt med",
+        detail: sys,
+      });
       const thread: ChatMsg[] = [
         ...(sys ? ([{ role: "system", content: sys }] as ChatMsg[]) : []),
         ...next.slice(0, -1),
@@ -230,9 +253,10 @@ export function ChatPanel({
       // verktøykall-loop: modellen kan hente ekte data før den svarer
       const direkte = (round: number) => {
         if (!primary) throw new Error("Ingen aktiv AI-node er tilgjengelig.");
+        const valgt = round === 0 ? (rutet ?? primary) : (velgRute(config, text, { verktoyrunde: true }).node ?? rutet ?? primary);
         return config.loadBalance !== false
-          ? callBalanced(active, thread, { prefer: primary, duty: round === 0 ? "chat" : "verktoy" })
-          : callTracked(primary, thread).then((result) => ({ text: result, node: primary }));
+          ? callBalanced(active, thread, { prefer: valgt, duty: round === 0 ? "chat" : "verktoy" })
+          : callTracked(valgt, thread).then((result) => ({ text: result, node: valgt }));
       };
 
       const runder = smaaprat ? 1 : 8;
@@ -251,13 +275,13 @@ export function ChatPanel({
                 // modell også, siden HUD-konfigen kan være nyere enn backend-poolen.
                 // Uten et låst valg brukes den aktive primærnoden fra HUD-en,
                 // slik at f.eks. OpenRouter/Hermes virker selv om backend-poolen er tom.
-                ...((chosen ?? primary)
+                ...((chosen ?? rutet ?? primary)
                   ? {
-                      nodeId: (chosen ?? primary)!.id,
-                      baseUrl: (chosen ?? primary)!.baseUrl,
-                      model: (chosen ?? primary)!.model,
-                      ...((chosen ?? primary)!.apiKey
-                        ? { apiKey: (chosen ?? primary)!.apiKey }
+                      nodeId: (chosen ?? rutet ?? primary)!.id,
+                      baseUrl: (chosen ?? rutet ?? primary)!.baseUrl,
+                      model: (chosen ?? rutet ?? primary)!.model,
+                      ...((chosen ?? rutet ?? primary)!.apiKey
+                        ? { apiKey: (chosen ?? rutet ?? primary)!.apiKey }
                         : {}),
                     }
                   : {}),
@@ -287,12 +311,28 @@ export function ChatPanel({
         const raw = call.text;
         answeredBy = call.node.name;
         const calls = parseToolCalls(raw, customToolNames(config));
+        trace({
+          turId,
+          kind: "runde",
+          title: `runde ${round + 1}/${runder} · ${call.node.name} · ${calls.length} verktøykall`,
+          why: calls.length
+            ? `modellen valgte: ${calls.map((c) => c.name).join(", ")}`
+            : "modellen svarte uten verktøy",
+          detail: raw,
+        });
         if (!calls.length) {
           // Ba brukeren om at noe skulle gjøres, men modellen svarte med en
           // bortforklaring uten å ha kjørt et eneste verktøy? Da dytter vi den
           // én gang til med en tydelig instruks om å handle.
           if (oppdrag && !dyttet && !runs.length && UNNVIKELSE.test(raw)) {
             dyttet = true;
+            trace({
+              turId,
+              kind: "dult",
+              title: "passivt svar på et oppdrag – dytter modellen til å handle",
+              why: "meldingen matcher OPPDRAG og svaret matcher UNNVIKELSE uten at et verktøy ble kjørt",
+              detail: raw,
+            });
             thread.push({ role: "assistant", content: raw });
             thread.push({
               role: "user",
@@ -329,6 +369,15 @@ export function ChatPanel({
             time: Date.now(),
             ok,
           });
+          trace({
+            turId,
+            kind: "verktoy",
+            title: `${c.name} ${JSON.stringify(c.args)}`,
+            why: `kalt i runde ${round + 1} for å hente ekte data`,
+            detail: res,
+            ms: Math.round(performance.now() - t0),
+            ok,
+          });
           results.push(`[${c.name}]\n${res}`);
         }
         thread.push({
@@ -339,6 +388,13 @@ export function ChatPanel({
         answer = "";
       }
       if (!answer) answer = "(fikk ikke ferdig svar innen verktøygrensen)";
+      trace({
+        turId,
+        kind: "svar",
+        title: `endelig svar fra ${answeredBy} · ${runs.length} verktøykjøringer`,
+        ...(runs.length ? { why: `brukte ${runs.map((r) => r.name).join(", ")}` } : {}),
+        detail: answer,
+      });
 
       out.push({
         role: "assistant",
@@ -399,6 +455,12 @@ export function ChatPanel({
       setMessages(out);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ukjent feil");
+      trace({
+        turId,
+        kind: "feil",
+        title: e instanceof Error ? e.message : "Ukjent feil",
+        ok: false,
+      });
       logSelfEvent("crit", e instanceof Error ? e.message : "Ukjent feil i kommandolinjen");
     } finally {
       setBusy(false);
