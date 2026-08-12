@@ -265,7 +265,7 @@ export function AgiPanel() {
                 <select
                   value={nyttMinne.type}
                   onChange={(e) => setNyttMinne({ ...nyttMinne, type: e.target.value as ContractMemoryItem["type"] })}
-                  className="hud-input"
+                  className="hud-select"
                 >
                   {Object.entries(TYPE_LABEL).map(([k, v]) => (
                     <option key={k} value={k}>
