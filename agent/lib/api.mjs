@@ -434,7 +434,10 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const meldinger = Array.isArray(b.meldinger) ? b.meldinger : [];
       if (!meldinger.length) return json(req, res, 400, { error: "Ingen meldinger" });
       const cfg = doc("ai", { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1", apiKey: "", system: "" });
-      const key = decryptSecret(cfg.apiKey);
+      // En nøkkel som følger med forespørselen (f.eks. OpenRouter fra HUD-en) vinner.
+      const key = (typeof b.apiKey === "string" && b.apiKey.trim())
+        ? b.apiKey.trim()
+        : decryptSecret(cfg.apiKey);
       const personalityPrompt = buildPersonalityPrompt(cfg.personality) || cfg.system || "";
       const harSystem = meldinger.some((m) => m && m.role === "system");
       const systemMelding = personalityPrompt && !harSystem
