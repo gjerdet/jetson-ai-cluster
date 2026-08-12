@@ -3,6 +3,7 @@ import { Plus, Trash2, Activity } from "lucide-react";
 import { pingNode } from "@/lib/hud-client";
 import { newNode, type HudConfig, type ModelNode } from "@/lib/hud-store";
 import { QuickSetup } from "./QuickSetup";
+import { ProvisionSection } from "./ProvisionSection";
 
 export function NodesPanel({
   config,
@@ -20,6 +21,8 @@ export function NodesPanel({
   return (
     <div className="space-y-3">
       <QuickSetup config={config} update={update} />
+
+      <ProvisionSection />
 
       <label className="flex items-center gap-2 text-xs text-foreground/80">
         <input
