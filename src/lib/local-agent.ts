@@ -1,4 +1,6 @@
 import type { HudConfig } from "./hud-store";
+import { backendToken, backendUrl } from "./backend";
+
 
 /** Konfigurasjon for den lokale agent-tjenesten som kjører på Jetson/Pi. */
 export type LocalAgentConfig = {
