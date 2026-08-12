@@ -9,6 +9,7 @@ import {
   BackendError,
   type BackendStatus,
 } from "@/lib/backend";
+import { ERROR_CODES } from "@/lib/contract";
 import { useSession } from "@/lib/session";
 import { getPreviewToken } from "@/lib/preview-session";
 import { detectPreviewEnvironment } from "@/lib/preview-hosts";
