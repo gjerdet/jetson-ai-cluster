@@ -12,8 +12,11 @@ import {
   lesPakkeFraFil,
   skrivHudDel,
   tomPakke,
+  lagreRollback,
+  lesRollback,
   type FullBundle,
 } from "@/lib/version";
+import { UpdateSection } from "./UpdateSection";
 import { API_VERSION } from "@/lib/contract";
 
 const btn =
@@ -35,6 +38,7 @@ export function VersionSection() {
   const [busy, setBusy] = useState(false);
   const [modus, setModus] = useState<"flett" | "erstatt">("flett");
   const [forhandsvis, setForhandsvis] = useState<(ConfigInspect & { fil: string }) | null>(null);
+  const [rollback, setRollback] = useState<{ tid: number; pakke: FullBundle } | null>(null);
   const valgtPakke = useRef<FullBundle | null>(null);
   const filInput = useRef<HTMLInputElement>(null);
 
@@ -46,7 +50,24 @@ export function VersionSection() {
 
   useEffect(() => {
     void hent();
+    setRollback(lesRollback());
   }, [hent]);
+
+  const rullTilbake = async () => {
+    const lagret = rollback?.pakke;
+    if (!lagret) return;
+    setBusy(true);
+    setMelding(null);
+    const { error } = await safe(() => backend.importerKonfig(lagret, { modus: "erstatt" }));
+    const hudAntall = skrivHudDel(lagret.hud);
+    setMelding(
+      error
+        ? `Backend feilet (${error.message}). ${hudAntall} HUD-nøkler ble rullet tilbake lokalt.`
+        : `Rullet tilbake til konfigurasjonen fra ${new Date(rollback!.tid).toLocaleString("nb-NO")}.`,
+    );
+    void hent();
+    setBusy(false);
+  };
 
   const eksporter = async () => {
     setBusy(true);
@@ -96,6 +117,12 @@ export function VersionSection() {
     if (!pakke) return;
     setBusy(true);
     setMelding(null);
+    const forrige = await safe(() => backend.eksporterKonfig());
+    lagreRollback({
+      ...(forrige.data ?? tomPakke()),
+      hud: lesHudDel() ?? { versjon: APP_VERSION, nokler: {} },
+    });
+    setRollback(lesRollback());
     const { data, error } = await safe(() => backend.importerKonfig(pakke, { modus }));
     const hudAntall = skrivHudDel(pakke.hud);
     if (data) {
@@ -140,6 +167,11 @@ export function VersionSection() {
         <button className={btn} onClick={() => filInput.current?.click()} disabled={busy}>
           Velg pakke å hente inn
         </button>
+        {rollback ? (
+          <button className={btn} onClick={() => void rullTilbake()} disabled={busy}>
+            Rull tilbake konfig ({new Date(rollback.tid).toLocaleString("nb-NO")})
+          </button>
+        ) : null}
         <input
           ref={filInput}
           type="file"
@@ -200,10 +232,12 @@ export function VersionSection() {
 
       {melding ? <p className="text-[9px] leading-relaxed text-foreground/70">{melding}</p> : null}
 
+      <UpdateSection agent={info?.agent ?? null} />
+
       <p className="text-[9px] leading-relaxed text-muted-foreground">
         Pakken inneholder noder, regler, enheter, MQTT, TTS, RAG og HUD-oppsett – aldri passord, API-nøkler
-        eller Telegram-token. Oppdater selve programvaren på Jetson med{" "}
-        <span className="text-primary/80">agent/scripts/update-jetson.sh</span>, som beholder data og konfig.
+        eller Telegram-token. Før hver import tar HUD-en vare på forrige konfig, slik at du kan rulle
+        tilbake med ett klikk.
       </p>
     </section>
   );
