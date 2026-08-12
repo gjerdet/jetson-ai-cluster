@@ -141,7 +141,7 @@ export const DEFAULTS = {
   port: 8787,
   mqttUrl: "mqtt://127.0.0.1:1883",
   aiBaseUrl: "http://127.0.0.1:11434/v1",
-  aiModel: "llama3.1",
+  aiModel: "llama3.2:3b",
   retentionDays: 90,
   rulePauseSek: 300,
 };
