@@ -42,6 +42,10 @@ export type AgentHealth = {
   ok: boolean;
   host?: string;
   platform?: string;
+  boardModel?: string;
+  cpuModel?: string;
+  cpuCores?: number;
+  gpuModel?: string;
   uptimeSec?: number;
   loadavg?: number[];
   memFreeMb?: number;

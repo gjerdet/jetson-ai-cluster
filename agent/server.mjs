@@ -108,6 +108,34 @@ const json = (req, res, status, body) => {
 
 const clip = (s) => (s.length > MAX_OUTPUT ? `${s.slice(0, MAX_OUTPUT)}\n…[avkortet]` : s);
 
+async function readFirst(paths) {
+  for (const file of paths) {
+    try {
+      const value = (await fs.readFile(file, "utf8")).replace(/\0/g, "").trim();
+      if (value) return value;
+    } catch {
+      // Maskinvarefiler varierer mellom Linux-distribusjoner.
+    }
+  }
+  return "";
+}
+
+async function localHardware() {
+  const [boardModel, cpuInfo, tegraRelease] = await Promise.all([
+    readFirst(["/proc/device-tree/model", "/sys/firmware/devicetree/base/model", "/sys/devices/virtual/dmi/id/product_name"]),
+    readFirst(["/proc/cpuinfo"]),
+    readFirst(["/etc/nv_tegra_release"]),
+  ]);
+  const cpuModel = cpuInfo.match(/^(?:model name|Hardware|Processor)\s*:\s*(.+)$/im)?.[1]?.trim() || os.arch();
+  const gpuProbe = await execute("nvidia-smi", ["--query-gpu=name", "--format=csv,noheader"], { timeoutMs: 5000 });
+  const gpuModel = gpuProbe.ok && gpuProbe.stdout.trim()
+    ? gpuProbe.stdout.trim().split("\n")[0]
+    : tegraRelease
+      ? `NVIDIA Tegra integrert GPU (${tegraRelease.split(",")[0]})`
+      : "ikke oppdaget";
+  return { boardModel: boardModel || "ukjent", cpuModel, cpuCores: os.cpus().length, gpuModel };
+}
+
 async function ensureSandbox() {
   await fs.mkdir(SANDBOX, { recursive: true });
 }
@@ -246,12 +274,14 @@ const requestHandler = async (req, res) => {
 
   try {
     if (req.method === "GET" && (route === "/" || route === "/health")) {
+      const hardware = await localHardware();
       return json(req, res, 200, {
         ok: true,
         agent: "jarvis-local-agent",
         version: "1.0.0",
         host: os.hostname(),
         platform: `${os.type()} ${os.release()} ${os.arch()}`,
+        ...hardware,
         uptimeSec: Math.round(os.uptime()),
         loadavg: os.loadavg().map((n) => Number(n.toFixed(2))),
         memFreeMb: Math.round(os.freemem() / 1e6),
