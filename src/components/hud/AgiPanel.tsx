@@ -264,7 +264,7 @@ export function AgiPanel() {
               <div className="flex gap-2">
                 <select
                   value={nyttMinne.type}
-                  onChange={(e) => setNyttMinne({ ...nyttMinne, type: e.target.value })}
+                  onChange={(e) => setNyttMinne({ ...nyttMinne, type: e.target.value as ContractMemoryItem["type"] })}
                   className="hud-input"
                 >
                   {Object.entries(TYPE_LABEL).map(([k, v]) => (
