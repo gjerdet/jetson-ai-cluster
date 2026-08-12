@@ -70,7 +70,7 @@ export function BackendPanel() {
     void refresh();
     const t = setInterval(() => void refresh(), 15_000);
     const unsubscribe = onBackendState(({ error }) => {
-      if (error?.code === "UNAUTHORIZED" || !backendToken()) setUser(null);
+      if (error?.status === 401 || !backendToken()) setUser(null);
     });
     return () => {
       clearInterval(t);
