@@ -464,6 +464,7 @@ startMqtt();
 startTelegram({ rulesStatus });
 startBackups();
 startInitiative();
+setInitiativeDeps({ publish, notify: notifyAll });
 // Autonomi er av som standard; brukeren må skru den på i GUI-et.
 setInitiativeActive(false);
 setInterval(() => pruneSamples().catch(() => {}), 6 * 60 * 60 * 1000);
