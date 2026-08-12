@@ -9,6 +9,7 @@ import {
   BackendError,
   type BackendStatus,
 } from "@/lib/backend";
+import { ERROR_CODES } from "@/lib/contract";
 import { useSession } from "@/lib/session";
 import { getPreviewToken } from "@/lib/preview-session";
 import { detectPreviewEnvironment } from "@/lib/preview-hosts";
@@ -55,7 +56,14 @@ function LoggInn() {
   const [epost, setEpost] = useState("");
   const [passord, setPassord] = useState("");
   const [feil, setFeil] = useState<string | null>(null);
+  const [tlsFeil, setTlsFeil] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const erTls = (e: unknown) => e instanceof BackendError && e.code === ERROR_CODES.TLS;
+  const statusLenke = () => `${url.replace(/\/+$/, "")}/api/status`;
+  const httpAlternativ = url.startsWith("https://")
+    ? url.replace(/^https:/, "http:").replace(/:8443\b/, ":8787")
+    : null;
 
   // I Lovable-preview med åpen forhåndsvisningsgate skal man ikke møte
   // backend-innloggingen — send brukeren rett inn i HUD-en.
@@ -76,9 +84,13 @@ function LoggInn() {
   const sjekkBackend = async (nyUrl?: string) => {
     if (nyUrl !== undefined) setBackendUrl(nyUrl);
     setFeil(null);
+    setTlsFeil(false);
     const r = await safe(() => backend.status());
     setStatus(r.data);
-    if (r.error) setFeil(feilTekst(r.error));
+    if (r.error) {
+      setFeil(feilTekst(r.error));
+      setTlsFeil(erTls(r.error));
+    }
   };
 
   const forstegang = status?.trengerOppsett === true || status?.brukere === 0;
@@ -87,6 +99,7 @@ function LoggInn() {
     e.preventDefault();
     setBusy(true);
     setFeil(null);
+    setTlsFeil(false);
     try {
       if (forstegang) await backend.register(epost, passord);
       else await backend.login(epost, passord);
@@ -94,6 +107,7 @@ function LoggInn() {
       await navigate({ to: "/", replace: true });
     } catch (err) {
       setFeil(feilTekst(err));
+      setTlsFeil(erTls(err));
     } finally {
       setBusy(false);
     }
@@ -157,6 +171,35 @@ function LoggInn() {
           </div>
 
           {feil ? <div className="text-[10px] text-destructive/80">{feil}</div> : null}
+
+          {tlsFeil ? (
+            <div className="flex flex-wrap gap-2">
+              <a
+                className={btn}
+                href={statusLenke()}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setTimeout(() => void sjekkBackend(url), 4000)}
+              >
+                ÅPNE OG GODTA SERTIFIKAT
+              </a>
+              <button type="button" className={btn} onClick={() => void sjekkBackend(url)}>
+                PRØV IGJEN
+              </button>
+              {httpAlternativ ? (
+                <button
+                  type="button"
+                  className={btn}
+                  onClick={() => {
+                    setUrl(httpAlternativ);
+                    void sjekkBackend(httpAlternativ);
+                  }}
+                >
+                  BRUK HTTP I STEDET
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
           <button className={`${btn} w-full`} type="submit" disabled={busy}>
             {busy ? "…" : forstegang ? "OPPRETT OG LOGG INN" : "LOGG INN"}
