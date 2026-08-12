@@ -400,7 +400,7 @@ export function ChatPanel({
                   : "text-sm leading-relaxed whitespace-pre-wrap text-foreground/90"
               }
             >
-              {m.content}
+              <MeldingInnhold tekst={m.content} />
             </div>
             {m.sources?.length ? (
               <details className="mt-1 rounded border border-primary/20 bg-primary/[0.03] px-2 py-1 text-left">
