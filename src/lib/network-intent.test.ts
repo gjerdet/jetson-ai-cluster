@@ -55,6 +55,18 @@ describe("enhetsskanning", () => {
     expect(svar).toContain("**2**");
     expect(svar).toContain("192.168.12.1");
   });
+
+  it("presenterer ikke null treff som bevis på et tomt subnett", () => {
+    const svar = answerDeviceScan("hvor mange enheter?", "Subnett: 192.168.9.0/24\nSkannestatus: FULLFØRT\nAntall enheter funnet: 0");
+    expect(svar).toContain("ikke bekrefte noen enheter");
+    expect(svar).toContain("betyr ikke at subnettet er tomt");
+  });
+
+  it("skiller skannefeil fra et nullresultat", () => {
+    const svar = answerDeviceScan("skann nettet", "exit 2\nstdout:\nSKANNEFEIL: Ingen rute til 192.168.9.0/24");
+    expect(svar).toContain("Dette er en skannefeil");
+    expect(svar).not.toContain("fant **0**");
+  });
 });
 
 describe("eksplisitt subnett", () => {
