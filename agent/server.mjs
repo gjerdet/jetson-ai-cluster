@@ -33,7 +33,7 @@ const PORT = Number(process.env.AGENT_PORT || 8787);
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
 const TOKEN = process.env.AGENT_TOKEN || "";
 const SANDBOX = path.resolve(process.env.AGENT_SANDBOX || "./sandbox");
-const MAX_TIMEOUT = Number(process.env.AGENT_MAX_TIMEOUT || 60_000);
+const MAX_TIMEOUT = Number(process.env.AGENT_MAX_TIMEOUT || 180_000);
 const MAX_OUTPUT = Number(process.env.AGENT_MAX_OUTPUT || 200_000);
 // Nettverk i sandkassen er AV som standard – slå på bevisst med AGENT_ALLOW_NETWORK=1.
 const ALLOW_NETWORK = process.env.AGENT_ALLOW_NETWORK === "1";

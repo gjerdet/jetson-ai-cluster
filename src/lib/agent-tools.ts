@@ -4,6 +4,8 @@ import { historyFor, numericValue, mqttOnline, publishMqtt } from "./mqtt-bridge
 import { fetchIntegration } from "./integrations.functions";
 import { briefingText, refreshFeed, snapshot } from "./world-feed";
 import { pingNode } from "./hud-client";
+import { CIDR_RE, scanScript } from "./net-scan";
+
 import {
   agentCfg,
   agentDeleteScript,
@@ -187,7 +189,16 @@ export const TOOL_CATALOG: ToolSpec[] = [
     args: '{"mal": "service-start", "parametre": {"tjeneste": "ollama"}}',
     builtin: true,
   },
+  {
+    name: "nett_skann",
+    category: "os",
+    summary:
+      "Skanner nodens eget subnett (ping-sveip + ARP) og lister IP, MAC og vertsnavn for alle enheter som svarer.",
+    args: '{"subnett": "192.168.1.0/24", "porter": false}',
+    builtin: true,
+  },
 ];
+
 
 
 
@@ -218,8 +229,14 @@ Tilgjengelige verktøy:
 - mal_liste {} – innebygde skriptmaler (service-start, docker-health, logg-innhenting, disk-varsel, gpu-telemetri, http-helsesjekk).
 - mal_test {"mal": "docker-health", "parametre": {"container": "ollama"}} – kjører malens selvtest i sandkassen og verifiserer forventninger.
 - mal_installer {"mal": "service-start", "parametre": {"tjeneste": "ollama"}} – tester og lagrer malen i sandkassen kun hvis testen består.
+- nett_skann {} eller {"subnett": "192.168.1.0/24", "porter": true} – skanner ditt eget subnett og lister IP, MAC og vertsnavn.
+
+Nettverksspørsmål: hvis brukeren spør hvilke enheter som finnes i nettet/subnettet ditt, bruk
+nett_skann – ikke svar ut fra MQTT-enhetslisten. MQTT-verktøyene gjelder kun registrerte
+smarthusenheter, ikke nettverksskanning.
 
 Regler: kall bare verktøy når du faktisk trenger dataene. Spørsmål om allmennkunnskap, IT,
+
 nettverk eller kode besvarer du direkte fra egen kunnskap uten verktøy. Du får resultatet tilbake og skal
 deretter svare brukeren på norsk bokmål. Ikke finn på verdier du ikke har hentet.
 OS-tilgang går kun gjennom den lokale agenten: kun hvitelistede kommandoer, og skript kjøres
@@ -405,8 +422,10 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     call.name.startsWith("os_") ||
     call.name.startsWith("skript_") ||
     call.name.startsWith("mal_") ||
+    call.name === "nett_skann" ||
     call.name === "agent_status"
   ) {
+
     return runAgentTool(call, config);
   }
 
@@ -444,8 +463,21 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
     return "Lokal agent er ikke aktivert. Slå den på under SYSTEM → KOBLINGER → LOKAL AGENT (agent/server.mjs må kjøre på Jetson).";
 
   try {
+    if (call.name === "nett_skann") {
+      const subnet = str(call.args["subnett"] ?? call.args["subnet"] ?? call.args["cidr"]).trim();
+      const ports = call.args["porter"] === true || call.args["ports"] === true;
+      if (subnet && !CIDR_RE.test(subnet))
+        return `Ugyldig subnett «${subnet}». Bruk formen 192.168.1.0/24.`;
+      if (!approve(cfg, `nettverksskanning av ${subnet || "eget subnett"}`))
+        return "Brukeren avslo skanningen.";
+      const scanCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, ports ? 180000 : 90000) };
+      const r = await agentRun(scanCfg, { lang: "bash", content: scanScript(subnet, ports) });
+      return formatResult(r);
+    }
+
     if (call.name === "agent_status") {
       const h = await agentHealth(cfg);
+
       return [
         `Agent: ${h.host ?? "?"} · ${h.platform ?? "?"}`,
         `Oppetid ${Math.round((h.uptimeSec ?? 0) / 3600)} t · last ${(h.loadavg ?? []).join(" / ")}`,
