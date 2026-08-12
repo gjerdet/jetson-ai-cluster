@@ -2,6 +2,16 @@ export type NetworkQuestion = "devices" | "own-ip" | "neighboring-ips" | "subnet
 
 const IPV4_CIDR = /(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})/;
 
+export type NetworkContext = { interfaceName: string; ownCidr: string; subnet: string };
+
+/** Leser den autoritative LAN-konteksten som nett_sjekk målte på backend-noden. */
+export function networkContextFromCheck(result: string): NetworkContext | null {
+  const active = result.match(/^Aktivt LAN:\s+(\S+)\s+(\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2})$/m);
+  const subnet = result.match(/^Subnett:\s+(\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2})$/m)?.[1];
+  if (!active?.[1] || !active[2] || !subnet) return null;
+  return { interfaceName: active[1], ownCidr: active[2], subnet };
+}
+
 function ipToNumber(ip: string): number | null {
   const parts = ip.split(".").map(Number);
   if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;

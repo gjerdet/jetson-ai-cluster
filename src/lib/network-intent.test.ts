@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion } from "./network-intent";
+import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion, networkContextFromCheck } from "./network-intent";
 
 const STATUS = `== 1. GRENSESNITT OG ADRESSER ==
 eth0 192.168.12.5/26
+docker0 172.17.0.1/16
+Aktivt LAN: eth0 192.168.12.5/26
 Subnett: 192.168.12.0/26
 Standard gateway: 192.168.12.1`;
 
@@ -23,6 +25,14 @@ describe("nettverksintensjon", () => {
     expect(answer).toContain("`192.168.12.1`");
     expect(answer).toContain("`192.168.12.62`");
     expect(answer).not.toContain("`192.168.12.63`");
+  });
+
+  it("bruker eksplisitt aktivt LAN og ignorerer Docker-adressen", () => {
+    expect(networkContextFromCheck(STATUS)).toEqual({
+      interfaceName: "eth0",
+      ownCidr: "192.168.12.5/26",
+      subnet: "192.168.12.0/26",
+    });
   });
 });
 describe("enhetsskanning", () => {
