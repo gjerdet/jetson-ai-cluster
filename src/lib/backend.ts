@@ -96,6 +96,9 @@ export interface UpdateStatus {
   aktiv: boolean;
   status: string;
   logg: string;
+  klar?: boolean;
+  mangler?: string[];
+  rettelse?: string | null;
   oppdatert: number;
 }
 
