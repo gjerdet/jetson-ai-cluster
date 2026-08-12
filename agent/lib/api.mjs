@@ -106,7 +106,7 @@ import { hentLogg, loggKilder } from "./logger.mjs";
 import { corsBlocked, corsHeaders, rateLimit } from "./security.mjs";
 
 import { decryptSecret, encryptSecret, maskSecret } from "./secrets.mjs";
-import { callChatEndpoint } from "./ai-endpoint.mjs";
+import { callChatEndpoint, listModels } from "./ai-endpoint.mjs";
 import { listBackups, runBackup } from "./backup.mjs";
 import { startUpdate, updateStatus } from "./update-runner.mjs";
 import {
@@ -388,6 +388,44 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const db = doc("nodes", { list: [] });
       const oppgave = url.searchParams.get("oppgave") || "chat";
       return json(req, res, 200, poolStatus(chatNoder(db.list), oppgave));
+    }
+
+    // ---- Testkobling mot en AI-node (Hermes, ChatGPT, Ollama …) ---------
+    if (path === "/ai/test" && method === "POST") {
+      const b = await readBody(req);
+      const cfg = doc("ai", { baseUrl: "", model: "", apiKey: "" });
+      const baseUrl = String(b.baseUrl || cfg.baseUrl || "").trim().replace(/\/+$/, "");
+      const model = String(b.model || cfg.model || "").trim();
+      const key = b.apiKey ? String(b.apiKey) : decryptSecret(cfg.apiKey);
+      if (!baseUrl) return json(req, res, 400, { ok: false, error: "Adressen mangler." });
+      const start = Date.now();
+      const modeller = await listModels(baseUrl, { apiKey: key }).catch(() => []);
+      try {
+        const r = await callChatEndpoint({
+          baseUrl,
+          model: model || modeller[0] || "llama3.2:3b",
+          messages: [{ role: "user", content: "Svar med kun ordet OK." }],
+          temperature: 0,
+          apiKey: key,
+          timeoutMs: 45_000,
+        });
+        return json(req, res, 200, {
+          ok: true,
+          endpoint: r.endpoint,
+          model: r.model || model,
+          byttetModell: !!r.byttetModell,
+          svar: String(r.svar || "").slice(0, 200),
+          modeller,
+          ms: Date.now() - start,
+        });
+      } catch (e) {
+        return json(req, res, 200, {
+          ok: false,
+          error: String(e?.message || e).slice(0, 500),
+          modeller,
+          ms: Date.now() - start,
+        });
+      }
     }
 
     // ---- AI-proxy: backend-en fordeler chatten mellom nodene -------------

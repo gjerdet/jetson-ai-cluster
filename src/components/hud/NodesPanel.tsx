@@ -1,3 +1,4 @@
+import { TestKobling } from "./TestKobling";
 import { useState } from "react";
 import { Plus, Trash2, Activity } from "lucide-react";
 import { pingNode } from "@/lib/hud-client";
@@ -89,6 +90,9 @@ export function NodesPanel({
               placeholder="agent-adresse for klyngehelse/konfig (http://ip:8787)"
               className="hud-input col-span-2"
             />
+            <div className="col-span-2">
+              <TestKobling baseUrl={n.baseUrl} model={n.model} apiKey={n.apiKey ?? ""} />
+            </div>
             <input
               value={n.apiKey ?? ""}
               onChange={(e) => patch(n.id, { apiKey: e.target.value })}
