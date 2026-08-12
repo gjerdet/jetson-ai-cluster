@@ -57,7 +57,6 @@ import {
 import {
   forget as forgetMemory,
   getMemory,
-  listSuggestions as listInitiativeSuggestions,
   memoryContext,
   memoryStats,
   recall,
@@ -82,6 +81,7 @@ import {
   initiativeStatus,
   isActive as isInitiativeActive,
   listAudit as listInitiativeAudit,
+  listSuggestions as listInitiativeSuggestions,
   rejectSuggestion,
   runNow as runInitiativeNow,
   setActive as setInitiativeActive,
