@@ -183,7 +183,7 @@ export function WorldMap({
       ref={boxRef}
       className={
         expanded
-          ? "hud-panel hud-solid fixed inset-3 z-[200] touch-none overflow-hidden rounded-lg border border-primary/25 md:inset-8"
+          ? "hud-panel hud-opaque fixed inset-3 z-[200] touch-none overflow-hidden rounded-lg border border-primary/25 md:inset-8"
           : `relative w-full touch-none overflow-hidden rounded border border-primary/20 bg-primary/[0.02] ${fill ? "min-h-0 flex-1" : ""}`
       }
     >
@@ -196,7 +196,7 @@ export function WorldMap({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <rect x={-W} y={-H} width={W * 3} height={H * 3} fill="oklch(0.2 0.04 235 / 0.25)" />
+        <rect x={-W} y={-H} width={W * 3} height={H * 3} fill={expanded ? "oklch(0.16 0.03 235)" : "oklch(0.2 0.04 235 / 0.25)"} />
         <g transform={`scale(${zoom}) translate(${offset.x}, ${offset.y})`}>
           {land?.features.map((f, i) => (
             <path

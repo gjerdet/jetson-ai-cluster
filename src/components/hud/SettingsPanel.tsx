@@ -148,7 +148,7 @@ export function SettingsPanel({
 
   return (
     <div className="flex h-full flex-col gap-3 text-xs">
-      <div className="hud-title flex gap-1 text-[9px]">
+      <div className="hud-title flex flex-wrap gap-1 text-[9px]">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -165,7 +165,7 @@ export function SettingsPanel({
         ))}
       </div>
 
-      <div className="min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden pr-1">
+      <div className="hud-wrap min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden pr-1">
         {tab === "backend" ? <BackendPanel /> : null}
         {tab === "kunnskap" ? <KnowledgePanel /> : null}
         {tab === "stemme" ? <VoiceSection /> : null}
