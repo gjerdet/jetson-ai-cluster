@@ -19,6 +19,8 @@ import {
   type ErrorCode,
   type KnowledgeDoc,
   type KnowledgeHit,
+  type LogSource,
+  type LogTail,
   type RagConfig,
   type BackendSettings,
   type ClusterNode,
@@ -41,6 +43,8 @@ export type {
   AiConfig,
   KnowledgeDoc,
   KnowledgeHit,
+  LogSource,
+  LogTail,
   RagConfig,
   BackendSettings,
   ClusterNode,
@@ -430,6 +434,15 @@ export const backend = {
     call(ROUTES.threads!, { method: "POST", body: JSON.stringify(t) }),
   hentSamtale: (id: string) => call<{ samtale: { id: string; meldinger: unknown[] } }>(`${ROUTES.threads}/${id}`),
   slettSamtale: (id: string) => call(`${ROUTES.threads}/${id}`, { method: "DELETE" }),
+
+  /** Loggkilder (systemd-tjenester + oppsett.sh/helsesjekk-logger). */
+  loggKilder: () => call<{ kilder: LogSource[] }>(ROUTES.logSources!).then((r) => r.kilder),
+  hentLogg: (kilde: string, linjer = 300) =>
+    call<LogTail>(
+      `${ROUTES.logs}?kilde=${encodeURIComponent(kilde)}&linjer=${linjer}`,
+      {},
+      { timeoutMs: 20_000 },
+    ),
 };
 
 export type VersionInfo = {
