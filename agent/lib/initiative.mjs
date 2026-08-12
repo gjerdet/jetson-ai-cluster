@@ -2,15 +2,15 @@
  * Eget initiativ / bakgrunnsprosess for Jarvis.
  * Vurderer periodisk sensorer, minne og planer, og foreslår/utfører handlinger.
  */
-import { doc, saveDoc } from "./store.mjs";
-import { latest } from "./store.mjs";
+import { doc, saveDoc, latest } from "./store.mjs";
 import { askJson } from "./ai.mjs";
-import { remember, recall, timeline } from "./memory.mjs";
-import { listPlans, activePlanCount } from "./planner.mjs";
+import { remember, timeline } from "./memory.mjs";
+import { listPlans } from "./planner.mjs";
 
 let aktiv = false;
 let timer = null;
 let sisteKjøring = 0;
+let deps = { publish: null, notify: null };
 
 function db() {
   return doc("initiative", { forslag: [], audit: [] });
@@ -29,6 +29,10 @@ export function setActive(value) {
   if (aktiv) start(5 * 60 * 1000);
   else stop();
   return { aktiv };
+}
+
+export function setDeps(d) {
+  deps = { ...deps, ...d };
 }
 
 export function listSuggestions(limit = 20) {
@@ -52,10 +56,10 @@ function logAudit(hendelse, { risiko = "lav", godkjent = false, auto = false } =
   persist(d);
 }
 
-function addSuggestion({ tekst, risiko = "lav", kilde = "initiativ", handling = null }) {
+function addSuggestion({ tekst, risiko = "lav", kilde = "initiativ", handling = null, status = "venter" }) {
   const d = db();
   const id = `f-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
-  const item = { id, tid: Date.now(), tekst, risiko, kilde, handling, status: "venter" };
+  const item = { id, tid: Date.now(), tekst, risiko, kilde, handling, status };
   d.forslag.unshift(item);
   d.forslag = d.forslag.slice(0, 100);
   persist(d);
@@ -89,6 +93,29 @@ function sensorSnapshot() {
   return out;
 }
 
+async function execute(handling, tekst) {
+  try {
+    if (handling.type === "telegram" && deps.notify) {
+      await deps.notify(String(handling.payload || tekst).slice(0, 1000));
+      return "telegram-sendt";
+    }
+    if (handling.type === "mqtt" && deps.publish && handling.emne) {
+      await deps.publish(String(handling.emne), String(handling.payload ?? ""));
+      return "mqtt-publisert";
+    }
+    if (handling.type === "mqtt" && deps.publish && handling.payload?.includes(" ")) {
+      // fallback: payload = "topic message"
+      const [emne, ...rest] = String(handling.payload).split(" ");
+      await deps.publish(emne, rest.join(" "));
+      return "mqtt-publisert";
+    }
+    return "ikke-støttet";
+  } catch (e) {
+    console.error("[initiativ] utføringsfeil:", e?.message || e);
+    return `feil: ${e?.message || "ukjent"}`;
+  }
+}
+
 async function vurder() {
   sisteKjøring = Date.now();
   const sensorer = sensorSnapshot();
@@ -101,9 +128,9 @@ async function vurder() {
 - Siste hendelser: ${nylige.map((m) => m.tekst).join("; ").slice(0, 1000)}
 - Aktive planer: ${planer.length}
 
-Svar KUN med JSON: {"forslag": [{"tekst":"...","risiko":"lav|medium|høy","handling":{"type":"telegram|mqtt|plan|none","payload":"..."}}]}. Hvis ingen handling trengs, returner tom liste.
+Svar KUN med JSON: {"forslag": [{"tekst":"...","risiko":"lav|medium|høy","handling":{"type":"telegram|mqtt|none","emne":"topic","payload":"..."}}]}. Hvis ingen handling trengs, returner tom liste.
 
-Husk: lavrisiko = statusmeldinger, medium = justere smarthus, høy = krever godkjenning.`;
+Husk: lavrisiko = statusmeldinger, medium = justere smarthus, høy = krever godkjenning. For MQTT bruk emne-feltet og payload-feltet.`;
 
   let forslag = [];
   try {
@@ -120,10 +147,11 @@ Husk: lavrisiko = statusmeldinger, medium = justere smarthus, høy = krever godk
 
     // Full autonomi: lavrisiko-handlinger utføres automatisk.
     if (aktiv && risiko === "lav" && handling.type !== "none") {
-      addSuggestion({ tekst: f.tekst, risiko, kilde: "autonom", handling });
-      logAudit(`Autonom handling forberedt: ${f.tekst}`, { risiko, godkjent: true, auto: true });
+      const resultat = await execute(handling, f.tekst);
+      const item = addSuggestion({ tekst: f.tekst, risiko, kilde: "autonom", handling, status: "utført" });
+      logAudit(`Autonom handling utført: ${f.tekst} (${resultat})`, { risiko, godkjent: true, auto: true });
       remember({
-        tekst: `Autonomt initiativ: ${f.tekst}`,
+        tekst: `Autonomt initiativ utført: ${f.tekst}`,
         type: "hendelse",
         kontekst: handling.type,
         viktighet: 4,
