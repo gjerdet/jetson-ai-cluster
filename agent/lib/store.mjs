@@ -13,6 +13,7 @@ const SAMPLE_DIR = path.join(DATA_DIR, "samples");
 const RETENTION_DAYS = Number(process.env.AGENT_RETENTION_DAYS || 90);
 
 const docs = new Map();
+const mtimes = new Map();
 const dirty = new Set();
 let flushTimer = null;
 
@@ -70,6 +71,11 @@ function writeAtomic(name, value) {
   const tmp = `${target}.tmp`;
   fsSync.writeFileSync(tmp, JSON.stringify(value, null, 2), { encoding: "utf8", mode: 0o600 });
   fsSync.renameSync(tmp, target);
+  try {
+    mtimes.set(name, fsSync.statSync(target).mtimeMs);
+  } catch {
+    /* ignorer */
+  }
 }
 
 /** Skriver et dokument (samlet skriving etter 200 ms). */
