@@ -80,6 +80,9 @@ export const ROUTES = {
   ttsVoices: "/tts/stemmer",
   ttsClips: "/tts/klipp",
   ttsManifest: "/tts/treningssett",
+  logs: "/logger",
+  logSources: "/logger/kilder",
+
 };
 
 
