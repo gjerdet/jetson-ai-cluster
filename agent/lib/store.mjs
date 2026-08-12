@@ -29,9 +29,20 @@ export async function initStore() {
   }
 }
 
-/** Leser et dokument (cachet i minnet). */
+/**
+ * Leser et dokument (cachet i minnet).
+ * Cachen forkastes hvis fila på disk er endret utenfra (f.eks. av bruker-CLI-et),
+ * slik at en kjørende tjeneste plukker opp nye brukere uten omstart.
+ */
 export function doc(name, fallback) {
-  if (docs.has(name)) return docs.get(name);
+  let mtime = 0;
+  try {
+    mtime = fsSync.statSync(file(name)).mtimeMs;
+  } catch {
+    mtime = 0;
+  }
+  if (docs.has(name) && !dirty.has(name) && mtimes.get(name) === mtime) return docs.get(name);
+  if (docs.has(name) && dirty.has(name)) return docs.get(name);
   let value = fallback;
   try {
     value = JSON.parse(fsSync.readFileSync(file(name), "utf8"));
@@ -48,8 +59,10 @@ export function doc(name, fallback) {
     value = fallback;
   }
   docs.set(name, value);
+  mtimes.set(name, mtime);
   return value;
 }
+
 
 /** Atomisk skriving: skriv til .tmp og bytt navn – aldri halve filer. */
 function writeAtomic(name, value) {
