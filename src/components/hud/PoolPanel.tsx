@@ -106,6 +106,15 @@ export function PoolPanel({ config }: { config: HudConfig }) {
                 {n.snittMs ?? "–"} ms
               </p>
               <p className="text-[10px] text-muted-foreground">
+                GPU{" "}
+                {n.ressurser?.frittProsent != null
+                  ? `${n.ressurser.frittProsent} % ledig${
+                      n.ressurser.utnyttelse != null ? ` · ${n.ressurser.utnyttelse} % last` : ""
+                    }`
+                  : "ukjent"}{" "}
+                · adaptiv faktor ×{n.ressursfaktor ?? 1}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
                 {n.ok}/{n.kall} ok ({Math.round(rate * 100)} %) · {n.feil} feil
                 {n.sisteFeil ? ` · ${n.sisteFeil}` : ""}
               </p>
