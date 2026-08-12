@@ -11,6 +11,27 @@ export function chatEndpoints(input) {
   return [`${base}/v1/chat/completions`, `${base}/api/chat`, `${base}/chat`];
 }
 
+/** Henter installerte modeller fra en Ollama-node. */
+export async function listModels(baseUrl, { apiKey, signal } = {}) {
+  const root = String(baseUrl || "").trim().replace(/\/+$/, "").replace(/\/(v1|api\/chat|chat\/completions|chat)$/i, "");
+  if (!root) return [];
+  for (const url of [`${root}/api/tags`, `${root}/v1/models`]) {
+    try {
+      const r = await fetch(url, { headers: apiKey ? { authorization: `Bearer ${apiKey}` } : {}, signal });
+      if (!r.ok) continue;
+      const d = await r.json();
+      const navn = (d?.models || d?.data || []).map((m) => m?.name || m?.id).filter(Boolean);
+      if (navn.length) return navn;
+    } catch { /* prøv neste */ }
+  }
+  return [];
+}
+
+/** Sant når feilteksten tyder på at modellen ikke finnes på noden. */
+export function erModellMangler(tekst) {
+  return /model .*not found|no such model|pull the model/i.test(String(tekst || ""));
+}
+
 export function chatPayload(endpoint, { model, messages, temperature }) {
   if (/\/api\/chat$/i.test(endpoint)) {
     return { model, messages, stream: false, options: { temperature } };
@@ -30,7 +51,8 @@ export function chatText(data) {
 }
 
 /** Prøver kjente lokale API-formater i rekkefølge og gir en konkret feil. */
-export async function callChatEndpoint({ baseUrl, model, messages, temperature, apiKey, signal }) {
+export async function callChatEndpoint(input) {
+  const { baseUrl, model, messages, temperature, apiKey, signal } = input || {};
   const endpoints = chatEndpoints(baseUrl);
   if (!endpoints.length) throw new Error("AI-adressen mangler.");
   const feil = [];
@@ -62,5 +84,19 @@ export async function callChatEndpoint({ baseUrl, model, messages, temperature, 
       feil.push(`${endpoint}: ${error?.message || String(error)}`);
     }
   }
-  throw new Error(feil.join(" | ").slice(0, 900));
+  const samlet = feil.join(" | ");
+  if (erModellMangler(samlet) && !input?._retry) {
+    const modeller = await listModels(baseUrl, { apiKey, signal });
+    const alternativ = modeller.find((m) => m !== model);
+    if (alternativ) {
+      const res = await callChatEndpoint({
+        baseUrl, model: alternativ, messages, temperature, apiKey, signal, _retry: true,
+      });
+      return { ...res, model: alternativ, byttetModell: true };
+    }
+    throw new Error(
+      `Modellen «${model}» finnes ikke på AI-noden${modeller.length ? `. Tilgjengelige: ${modeller.join(", ")}` : ". Ingen modeller er installert – kjør «ollama pull llama3.2:3b» på noden"}.`
+    );
+  }
+  throw new Error(samlet.slice(0, 900));
 }

@@ -5,7 +5,7 @@
 import { decryptSecret } from "./secrets.mjs";
 import { doc } from "./store.mjs";
 
-const DEFAULT_CFG = { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1", apiKey: "" };
+const DEFAULT_CFG = { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.2:3b", apiKey: "" };
 
 function cfg() {
   const c = doc("ai", DEFAULT_CFG);
