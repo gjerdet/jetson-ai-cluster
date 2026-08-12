@@ -39,14 +39,9 @@ export function VersionSection() {
   const filInput = useRef<HTMLInputElement>(null);
 
   const hent = useCallback(async () => {
-    const r = await safe(() => backend.hentVersjon());
-    if (r.ok) {
-      setInfo(r.data);
-      setFeil(null);
-    } else {
-      setInfo(null);
-      setFeil(r.error.message);
-    }
+    const { data, error } = await safe(() => backend.hentVersjon());
+    setInfo(data);
+    setFeil(error ? error.message : null);
   }, []);
 
   useEffect(() => {
@@ -57,12 +52,11 @@ export function VersionSection() {
     setBusy(true);
     setMelding(null);
     try {
-      const r = await safe(() => backend.eksporterKonfig());
-      const pakke: FullBundle = r.ok ? { ...r.data } : tomPakke();
-      pakke.hud = lesHudDel();
+      const { data } = await safe(() => backend.eksporterKonfig());
+      const pakke: FullBundle = { ...(data ?? tomPakke()), hud: lesHudDel() ?? { versjon: APP_VERSION, nokler: {} } };
       const navn = lastNedPakke(pakke);
       setMelding(
-        r.ok
+        data
           ? `Lastet ned ${navn} (${Object.keys(pakke.dokumenter).length} backend-dokumenter + HUD-oppsett).`
           : `Backend var ikke tilgjengelig – lastet ned ${navn} med kun HUD-oppsettet.`,
       );
@@ -79,16 +73,16 @@ export function VersionSection() {
     try {
       const pakke = await lesPakkeFraFil(file);
       valgtPakke.current = pakke;
-      const r = await safe(() => backend.sjekkKonfig(pakke));
+      const { data } = await safe(() => backend.sjekkKonfig(pakke));
       setForhandsvis({
         fil: file.name,
-        dokumenter: r.ok ? r.data.dokumenter : Object.keys(pakke.dokumenter ?? {}),
-        ukjente: r.ok ? r.data.ukjente : [],
-        sjekksumOk: r.ok ? r.data.sjekksumOk : null,
+        dokumenter: data ? data.dokumenter : Object.keys(pakke.dokumenter ?? {}),
+        ukjente: data ? data.ukjente : [],
+        sjekksumOk: data ? data.sjekksumOk : null,
         laget: pakke.laget ?? null,
         agent: pakke.agent ?? null,
       });
-      if (!r.ok) setMelding("Backend svarte ikke – kan fortsatt gjenopprette HUD-oppsettet lokalt.");
+      if (!data) setMelding("Backend svarte ikke – kan fortsatt gjenopprette HUD-oppsettet lokalt.");
     } catch (e) {
       setForhandsvis(null);
       setMelding(e instanceof Error ? e.message : "Ugyldig fil.");
@@ -102,15 +96,15 @@ export function VersionSection() {
     if (!pakke) return;
     setBusy(true);
     setMelding(null);
-    const r = await safe(() => backend.importerKonfig(pakke, { modus }));
+    const { data, error } = await safe(() => backend.importerKonfig(pakke, { modus }));
     const hudAntall = skrivHudDel(pakke.hud);
-    if (r.ok) {
+    if (data) {
       setMelding(
-        `Importert: ${r.data.skrevet.length} backend-dokumenter og ${hudAntall} HUD-nøkler. Last siden på nytt for å se alt.`,
+        `Importert: ${data.skrevet.length} backend-dokumenter og ${hudAntall} HUD-nøkler. Last siden på nytt for å se alt.`,
       );
       void hent();
     } else {
-      setMelding(`Backend feilet (${r.error.message}). ${hudAntall} HUD-nøkler ble likevel gjenopprettet lokalt.`);
+      setMelding(`Backend feilet (${error?.message ?? "ukjent feil"}). ${hudAntall} HUD-nøkler ble likevel gjenopprettet lokalt.`);
     }
     setBusy(false);
   };
