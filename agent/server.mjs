@@ -26,7 +26,7 @@ import { evaluate, rulesStatus } from "./lib/rules.mjs";
 import { notifyAll, startTelegram } from "./lib/telegram.mjs";
 import { corsBlocked, corsHeaders, rateLimit, validateEnv, withRequestLog, allowedOrigins, logDir } from "./lib/security.mjs";
 import { startBackups } from "./lib/backup.mjs";
-import { start as startInitiative, setActive as setInitiativeActive } from "./lib/initiative.mjs";
+import { start as startInitiative, setActive as setInitiativeActive, setDeps as setInitiativeDeps } from "./lib/initiative.mjs";
 import { pruneExpired as pruneMemory } from "./lib/memory.mjs";
 
 const PORT = Number(process.env.AGENT_PORT || 8787);
