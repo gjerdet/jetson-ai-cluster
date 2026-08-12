@@ -10,6 +10,8 @@ import {
   type BackendStatus,
 } from "@/lib/backend";
 import { useSession } from "@/lib/session";
+import { getPreviewToken } from "@/lib/preview-session";
+import { detectPreviewEnvironment } from "@/lib/preview-hosts";
 
 export const Route = createFileRoute("/logg-inn")({
   head: () => ({
