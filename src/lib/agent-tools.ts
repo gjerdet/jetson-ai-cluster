@@ -5,6 +5,7 @@ import { fetchIntegration } from "./integrations.functions";
 import { briefingText, refreshFeed, snapshot } from "./world-feed";
 import { pingNode } from "./hud-client";
 import { CIDR_RE, checkScript, scanScript } from "./net-scan";
+import { backendToken } from "./backend";
 
 import {
   agentCfg,
