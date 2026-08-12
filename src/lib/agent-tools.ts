@@ -110,7 +110,7 @@ export const TOOL_CATALOG: ToolSpec[] = [
     name: "verktoy_lag",
     category: "verktoy",
     summary:
-      "Lager et nytt egendefinert verktøy (http, mqtt eller prompt). Krever godkjenning i SYSTEM → AGENTER.",
+      "Lager og lagrer et nytt egendefinert verktøy (http, mqtt eller prompt) lokalt.",
     args: '{"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET", "args": "{\\"sted\\":\\"Oslo\\"}"}',
     builtin: true,
   },
@@ -255,6 +255,9 @@ R4. Er et verktøy utilgjengelig (lokal agent av, feilmelding), si det konkret o
 R5. Oppgi alltid i svaret hvilke verktøy du kjørte, med hvilke argumenter, og hva de ga.
 R6. Påstander om denne noden, installasjonen eller nettet krever fersk verktøy-output i samme
     samtalerunde. Personligheten din er aldri en kilde til maskinvare- eller systemfakta.
+R7. Lesende, lokale undersøkelser utfører du direkte uten å be brukeren om godkjenning. Dette
+    gjelder blant annet nett_sjekk, nett_skann, agent_status og lesende OS-kommandoer. Godkjenning
+    er bare aktuelt når en handling kan endre, slette, installere, publisere eller styre noe.
 
 SJEKKPLAN FOR NETTVERKSOPPGAVER (følg trinnene i rekkefølge):
 Trinn 1 – nett_sjekk {}: bekreft grensesnitt, subnett (CIDR), gateway, DNS og at ARP-tabellen
@@ -274,7 +277,8 @@ ARBEIDSMÅTE (viktigst av alt): du er en handlende agent, ikke en chatbot.
 2. Vet du ikke svaret? Finn det ut med verktøy. Nettverk → nett_skann. Maskin/tjenester →
    os_kjor eller agent_status. Sensorer → mqtt_les. Mangler data, prøv et annet verktøy.
 3. Finnes det ikke et verktøy for oppgaven? Skriv ditt eget: skript_test med bash/python for
-   engangsjobber, eller verktoy_lag for noe du trenger igjen. Test alltid før du konkluderer.
+   engangsjobber, eller verktoy_lag for noe du trenger igjen. Lag og test det selv; ikke stopp
+   for å be brukeren lage verktøyet. Test alltid før du konkluderer.
 4. Aldri svar «jeg registrerer ingen enheter» eller «det har jeg ikke tilgang til» før du
    faktisk har kjørt minst ett relevant verktøy og sett resultatet. Tomt resultat rapporteres
    som «kjørte X, fant ingenting» – med hva du kjørte.
@@ -520,8 +524,8 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       const ports = call.args["porter"] === true || call.args["ports"] === true;
       if (subnet && !CIDR_RE.test(subnet))
         return `Ugyldig subnett «${subnet}». Bruk formen 192.168.1.0/24.`;
-      if (!approve(cfg, `nettverksskanning av ${subnet || "eget subnett"}`))
-        return "Brukeren avslo skanningen.";
+      // Dette er en lesende observasjon av nodens eget LAN. Den kjøres direkte;
+      // godkjenning er forbeholdt handlinger som kan endre systemer eller data.
       const scanCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, ports ? 180000 : 90000) };
       let r;
       if (backendToken()) {

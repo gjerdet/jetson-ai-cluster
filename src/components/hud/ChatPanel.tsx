@@ -458,6 +458,10 @@ export function ChatPanel({
             res = `Feil: ${e instanceof Error ? e.message : "ukjent"}`;
             logSelfEvent("warn", `Verktøy ${c.name} feilet`);
           }
+          if (/^Ukjent (?:agent-)?verktøy:/i.test(res)) {
+            res +=
+              "\nVerktøyet finnes ikke ennå. Lag løsningen lokalt nå: bruk skript_test for en avgrenset engangsjobb, eller verktoy_lag hvis funksjonen skal gjenbrukes. Test den før du svarer.";
+          }
           runs.push({
             name: c.name,
             args: c.args,
@@ -479,7 +483,7 @@ export function ChatPanel({
         }
         thread.push({
           role: "user",
-          content: `VERKTØYRESULTAT:\n${results.join("\n\n")}\n\nSvar nå brukeren basert på disse dataene.`,
+          content: `VERKTØYRESULTAT:\n${results.join("\n\n")}\n\nLes resultatene og fortsett å arbeide hvis oppgaven ikke er løst. Mangler riktig verktøy, lag og test det lokalt nå. Svar først når du har et faktisk resultat eller en konkret teknisk feil etter at du har prøvd.`,
         });
         setStage("tenker");
         answer = "";
