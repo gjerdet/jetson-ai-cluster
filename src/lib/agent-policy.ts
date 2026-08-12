@@ -41,7 +41,7 @@ export function requiresFreshLocalEvidence(text: string, nodeNames: string[] = [
 
   const questionWords = wordsFrom(text);
   const vocab = catalogVocabulary();
-  // Fyrst-stavelse-match (stem-ish) mot verktøykatalogens ordforråd, slik at bøyde
+  // Første-stavelse-match mot verktøykatalogens ordforråd, slik at bøyde
   // former («temperaturen», «lagringsplassen») også treffer uten en manuelt
   // vedlikeholdt regex.
   const observableState = questionWords.some((w) =>

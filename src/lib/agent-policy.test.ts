@@ -6,6 +6,9 @@ describe("agentens evidensport", () => {
     expect(requiresFreshLocalEvidence("hvilken hardware kjører du på?")).toBe(true);
     expect(requiresFreshLocalEvidence("hva er temperaturen på noden?")).toBe(true);
     expect(requiresFreshLocalEvidence("hvilke tjenester kjører lokalt?")).toBe(true);
+    expect(requiresFreshLocalEvidence("hvor mye minne har jetson?", ["JETSON"])).toBe(true);
+    expect(requiresFreshLocalEvidence("hva slags maskin er dette?")).toBe(true);
+    expect(requiresFreshLocalEvidence("vis spesifikasjonene til denne enheten")).toBe(true);
   });
 
   it("krever ikke lokale verktøy for generell kunnskap", () => {
