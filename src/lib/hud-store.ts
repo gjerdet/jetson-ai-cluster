@@ -472,6 +472,8 @@ export type HudConfig = {
   confirmCommands: boolean;
   /** automatisk lastbalansering mellom aktive noder */
   loadBalance: boolean;
+  /** ruter tunge oppgaver til OpenRouter/Hermes og småprat til lokal modell */
+  autoRoute?: boolean;
   /** husk samtalen mellom omstart av nettleseren (lokalt) */
   keepHistory: boolean;
   /** send chat-kallet gjennom den lokale backend-en i stedet for rett til noden */
@@ -566,6 +568,7 @@ export const defaultConfig: HudConfig = {
   smartHomeView: { tab: "enheter" },
   confirmCommands: true,
   loadBalance: true,
+  autoRoute: true,
   keepHistory: true,
   chatViaBackend: true,
   knowledge: true,
