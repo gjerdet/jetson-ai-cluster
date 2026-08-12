@@ -17,6 +17,8 @@ import {
 } from "@/lib/backend";
 import { SettingsFormSection } from "./SettingsFormSection";
 import { MqttHealthSection } from "./MqttHealthSection";
+import { useHudConfig, buildPersonalityPrompt } from "@/lib/hud-store";
+
 
 const field =
   "w-full rounded-full border border-primary/20 bg-primary/[0.04] px-4 py-2 text-xs text-foreground/90 outline-none transition focus:border-primary/50";
@@ -187,10 +189,24 @@ function AiSection() {
   const [cfg, setCfg] = useState<AiConfig>({ baseUrl: "", model: "", system: "" });
   const [nokkel, setNokkel] = useState("");
   const [melding, setMelding] = useState<string | null>(null);
+  const { config: hudConfig } = useHudConfig();
 
   useEffect(() => {
     void safe(() => backend.hentAi()).then(({ data }) => data && setCfg(data));
   }, []);
+
+  const lagre = async () => {
+    const personality = hudConfig.personality;
+    const system = personality
+      ? buildPersonalityPrompt(personality)
+      : (cfg.system ?? "");
+    const { data, error } = await safe(() =>
+      backend.lagreAi({ ...cfg, system, ...(personality ? { personality } : {}), ...(nokkel ? { apiKey: nokkel } : {}) }),
+    );
+    setNokkel("");
+    if (data) setCfg(data as AiConfig);
+    setMelding(error ? feilTekst(error) : "Lagret. Nøkkelen krypteres på Jetson-en.");
+  };
 
   return (
     <section className="space-y-2">
@@ -211,14 +227,7 @@ function AiSection() {
       <div className="flex items-center gap-3">
         <button
           className={btn}
-          onClick={async () => {
-            const { data, error } = await safe(() =>
-              backend.lagreAi({ ...cfg, ...(nokkel ? { apiKey: nokkel } : {}) }),
-            );
-            setNokkel("");
-            if (data) setCfg(data as AiConfig);
-            setMelding(error ? feilTekst(error) : "Lagret. Nøkkelen krypteres på Jetson-en.");
-          }}
+          onClick={lagre}
         >
           LAGRE
         </button>
@@ -233,6 +242,7 @@ function AiSection() {
           >
             FJERN NØKKEL
           </button>
+
         ) : null}
         {melding ? <span className="text-[10px] text-foreground/50">{melding}</span> : null}
       </div>

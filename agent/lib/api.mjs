@@ -29,12 +29,14 @@ import { notifyAll, saveTelegram, sendMessage, telegramCfg } from "./telegram.mj
 import { eksporterKonfig, importerKonfig, inspiserKonfig, versjonsinfo } from "./versjon.mjs";
 import {
   API_VERSION,
+  buildPersonalityPrompt,
   SETTINGS_DEFAULTS,
   SETTINGS_SCHEMA,
   validateCredentials,
   validateNode,
   validateSettings,
 } from "./contract.mjs";
+
 import { kjorBalansert, poolFor, poolStatus } from "./balancer.mjs";
 import { lokalSnapshot } from "./gpu.mjs";
 import { distribuerKonfig, klyngeHelse, tomKlyngeCache } from "./klynge.mjs";
@@ -312,12 +314,30 @@ export async function handleApi(req, res, route, url, deps = {}) {
           system: b.system != null ? str(b.system, "Systemtekst", { maks: 4000 }) : cfg.system,
           apiKey: cfg.apiKey,
         };
+        if (b.personality != null && typeof b.personality === "object") {
+          next.personality = {
+            name: str(b.personality.name ?? cfg.personality?.name ?? "JARVIS", "Navn", { maks: 80 }),
+            role: str(b.personality.role ?? cfg.personality?.role ?? "", "Rolle", { maks: 200 }),
+            tone: ["formell", "vennlig", "sarkastisk", "tørr", "entusiastisk", "mørk"].includes(b.personality.tone)
+              ? b.personality.tone
+              : (cfg.personality?.tone ?? "formell"),
+            verbosity: ["kort", "balansert", "utfyllende"].includes(b.personality.verbosity)
+              ? b.personality.verbosity
+              : (cfg.personality?.verbosity ?? "balansert"),
+            language: str(b.personality.language ?? cfg.personality?.language ?? "norsk bokmål", "Språk", { maks: 60 }),
+            quirks: str(b.personality.quirks ?? cfg.personality?.quirks ?? "", "Særtrekk", { maks: 2000 }),
+            catchphrase: str(b.personality.catchphrase ?? cfg.personality?.catchphrase ?? "", "Uttrykk", { maks: 200 }),
+            background: str(b.personality.background ?? cfg.personality?.background ?? "", "Bakgrunn", { maks: 2000 }),
+            extra: str(b.personality.extra ?? cfg.personality?.extra ?? "", "Ekstra", { maks: 2000 }),
+          };
+        }
         if (typeof b.apiKey === "string" && b.apiKey && b.apiKey !== "***lagret***")
           next.apiKey = encryptSecret(str(b.apiKey, "API-nøkkel", { maks: 500 }));
         if (b.apiKey === "") next.apiKey = "";
         saveDoc("ai", next);
         return json(req, res, 200, { ...next, apiKey: undefined, harNokkel: !!decryptSecret(next.apiKey), nokkelMaske: maskSecret(next.apiKey) });
       }
+
     }
 
     // ---- AI-poolens helse og rutingsrekkefølge ---------------------------
@@ -334,13 +354,22 @@ export async function handleApi(req, res, route, url, deps = {}) {
       if (!meldinger.length) return json(req, res, 400, { error: "Ingen meldinger" });
       const cfg = doc("ai", { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1", apiKey: "", system: "" });
       const key = decryptSecret(cfg.apiKey);
-      const messages = meldinger
-        .filter((m) => m && typeof m.content === "string")
-        .slice(-40)
-        .map((m) => ({
-          role: ["system", "user", "assistant"].includes(m.role) ? m.role : "user",
-          content: String(m.content).slice(0, 24000),
-        }));
+      const personalityPrompt = buildPersonalityPrompt(cfg.personality) || cfg.system || "";
+      const harSystem = meldinger.some((m) => m && m.role === "system");
+      const systemMelding = personalityPrompt && !harSystem
+        ? [{ role: "system", content: personalityPrompt }]
+        : [];
+      const messages = [
+        ...systemMelding,
+        ...meldinger
+          .filter((m) => m && typeof m.content === "string")
+          .slice(-40)
+          .map((m) => ({
+            role: ["system", "user", "assistant"].includes(m.role) ? m.role : "user",
+            content: String(m.content).slice(0, 24000),
+          })),
+      ];
+
 
       // Klyngenodene utgjør poolen. Er klyngen tom, brukes den faste AI-noden.
       const registrerte = chatNoder(doc("nodes", { list: [] }).list);

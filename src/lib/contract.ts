@@ -22,11 +22,17 @@ export {
   validateRule,
   validateCredentials,
   codeFromStatus,
+  buildPersonalityPrompt,
 } from "../../agent/lib/contract.mjs";
+
 
 export type {
   AiChatReply,
   AiConfig,
+  AiTone,
+  AiVerbosity,
+  PersonalityConfig,
+
   BackendSettings,
   ClusterNode,
   MqttHealth,

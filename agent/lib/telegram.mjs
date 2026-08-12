@@ -5,6 +5,8 @@
  */
 import { doc, saveDoc, latest } from "./store.mjs";
 import { decryptSecret, encryptSecret } from "./secrets.mjs";
+import { buildPersonalityPrompt } from "./contract.mjs";
+
 
 const API = (token, method) => `https://api.telegram.org/bot${token}/${method}`;
 
@@ -62,9 +64,11 @@ async function askJarvis(question) {
     .slice(0, 40)
     .map(([t, v]) => `${t}=${v.value}`)
     .join(", ");
+  const personality = buildPersonalityPrompt(ai.personality);
   const system =
-    (ai.system || "Du er Jarvis, en lokal assistent. Svar kort og presist på norsk bokmål.") +
+    (personality || ai.system || "Du er Jarvis, en lokal assistent. Svar kort og presist på norsk bokmål.") +
     (topics ? `\nSiste sensorverdier: ${topics}` : "");
+
   const res = await fetch(`${ai.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
     method: "POST",
     headers: {

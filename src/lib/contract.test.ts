@@ -3,10 +3,12 @@ import {
   ERROR_CODES,
   ERROR_TEXTS,
   ROUTES,
+  buildPersonalityPrompt,
   codeFromStatus,
   validateCredentials,
   validateRule,
 } from "@/lib/contract";
+
 
 describe("kontrakt", () => {
   it("mapper HTTP-status til feilkoder", () => {
@@ -51,4 +53,25 @@ describe("kontrakt", () => {
     expect(() => validateRule({ navn: "", emne: "a" })).toThrow();
     expect(() => validateRule({ navn: "X", emne: "a", operator: "over", verdi: "abc" })).toThrow();
   });
+
+  it("bygger personlighetsprompt", () => {
+    const p = {
+      name: "JARVIS",
+      role: "AI-butler",
+      tone: "formell" as const,
+      verbosity: "balansert" as const,
+      language: "norsk bokmål",
+      quirks: "presis\ntørr",
+      catchphrase: "Værsågod, sir.",
+      background: "Lokal assistent.",
+      extra: "Start med det viktigste.",
+    };
+    const prompt = buildPersonalityPrompt(p);
+    expect(prompt).toContain("Du er JARVIS, AI-butler.");
+    expect(prompt).toContain("Tone: formell.");
+    expect(prompt).toContain("Særtrekk:");
+    expect(prompt).toContain("Værsågod, sir.");
+    expect(buildPersonalityPrompt(undefined)).toBe("");
+  });
 });
+

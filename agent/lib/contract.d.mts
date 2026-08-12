@@ -398,17 +398,35 @@ export interface PoolStatus {
 }
 
 
+export type AiTone = "formell" | "vennlig" | "sarkastisk" | "tørr" | "entusiastisk" | "mørk";
+export type AiVerbosity = "kort" | "balansert" | "utfyllende";
+
+export interface PersonalityConfig {
+  name: string;
+  role: string;
+  tone: AiTone;
+  verbosity: AiVerbosity;
+  language: string;
+  quirks: string;
+  catchphrase: string;
+  background: string;
+  extra: string;
+}
+
 export interface AiConfig {
   baseUrl: string;
   model: string;
   /** Kun ved skriving. Serveren returnerer den aldri. */
   apiKey?: string;
   system: string;
+  /** Strukturert personlighet. Serveren bygger systemprompten fra denne hvis satt. */
+  personality?: PersonalityConfig;
   /** Om en nøkkel er lagret (kryptert) på serveren. */
   harNokkel?: boolean;
   /** Maskert form, f.eks. «sk-…4f2a». */
   nokkelMaske?: string;
 }
+
 
 
 export interface RulesStatus {
@@ -448,6 +466,8 @@ export interface ThreadSummary {
 export function validateRule(rule: unknown): BackendRule;
 export function validateCredentials(epost: unknown, passord: unknown): { email: string; password: string };
 export function codeFromStatus(status: number): ErrorCode;
+export function buildPersonalityPrompt(personality: PersonalityConfig | undefined | null): string;
+
 
 export interface RagConfig {
   aktiv: boolean;

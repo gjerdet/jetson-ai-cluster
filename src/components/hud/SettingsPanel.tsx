@@ -17,10 +17,14 @@ import {
   Database,
   BookOpen,
   Mic,
+  User,
 } from "lucide-react";
+
 import { BackendPanel } from "@/components/hud/BackendPanel";
 import { KnowledgePanel } from "@/components/hud/KnowledgePanel";
 import { VoiceSection } from "@/components/hud/VoiceSection";
+import { PersonalitySection } from "@/components/hud/settings/PersonalitySection";
+
 
 import {
   agentCfg,
@@ -90,11 +94,14 @@ type Tab =
   | "minne"
   | "evner"
   | "koblinger"
-  | "plugins";
+  | "plugins"
+  | "personlighet";
+
 
 const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "system", label: "SYSTEM", icon: Sliders },
   { id: "backend", label: "BACKEND", icon: Database },
+  { id: "personlighet", label: "PERSONLIGHET", icon: User },
   { id: "modeller", label: "MODELLER", icon: Cpu },
   { id: "agenter", label: "AGENTER", icon: Bot },
   { id: "kunnskap", label: "KUNNSKAP", icon: BookOpen },
@@ -106,6 +113,7 @@ const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "koblinger", label: "KOBLINGER", icon: Network },
   { id: "plugins", label: "PLUGINS", icon: Puzzle },
 ];
+
 
 
 export function SettingsPanel({
@@ -169,6 +177,8 @@ export function SettingsPanel({
         {tab === "backend" ? <BackendPanel /> : null}
         {tab === "kunnskap" ? <KnowledgePanel /> : null}
         {tab === "stemme" ? <VoiceSection /> : null}
+        {tab === "personlighet" ? <PersonalitySection /> : null}
+
 
         {tab === "system" ? (
           <>
@@ -1490,7 +1500,7 @@ function TemplateLibrary({
 
 
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <p className="hud-title mb-1 text-[10px] text-primary/80">{label}</p>
@@ -1498,3 +1508,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+

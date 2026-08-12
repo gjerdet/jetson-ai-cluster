@@ -36,6 +36,10 @@ function verifyToken(token: string, secret: string) {
   return !Number.isNaN(expires) && Date.now() < expires;
 }
 
+function isLocalhost(host: string) {
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
 export const unlockPreview = createServerFn({ method: "POST" })
   .inputValidator((data: { password: string; host: string }) => data)
   .handler(async ({ data }) => {
@@ -47,7 +51,12 @@ export const unlockPreview = createServerFn({ method: "POST" })
     }
     const password = process.env["PREVIEW_PASSWORD"];
     const secret = process.env["PREVIEW_SECRET"];
+    // På localhost slipper vi deg inn automatisk hvis passord ikke er satt,
+    // slik at lokal utvikling ikke blir hemmet.
     if (!password || !secret) {
+      if (isLocalhost(data.host)) {
+        return { ok: true, token: makeToken(secret || "localhost-dev-secret") };
+      }
       return {
         ok: false,
         error:
@@ -61,6 +70,7 @@ export const unlockPreview = createServerFn({ method: "POST" })
     }
     return { ok: true, token: makeToken(secret) };
   });
+
 
 export const verifyPreviewToken = createServerFn({ method: "POST" })
   .inputValidator((data: { token: string }) => data)
