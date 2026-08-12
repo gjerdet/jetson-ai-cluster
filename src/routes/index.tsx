@@ -144,6 +144,7 @@ function Index() {
               initial={LAYOUT[id]}
               z={60 + order.indexOf(id)}
               fullscreen={id === "settings"}
+              solid={id === "world" || id === "settings"}
               onFocus={() => focus(id)}
               onClose={() => toggle(id)}
             >

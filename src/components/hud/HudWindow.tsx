@@ -10,6 +10,8 @@ type Props = {
   onFocus: () => void;
   z: number;
   fullscreen?: boolean;
+  /** Mindre gjennomsiktig bakgrunn – for innhold som må være lettlest. */
+  solid?: boolean;
   children: ReactNode;
   className?: string;
 };
@@ -25,6 +27,7 @@ export function HudWindow({
   onFocus,
   z,
   fullscreen,
+  solid,
   children,
   className,
 }: Props) {
@@ -99,6 +102,7 @@ export function HudWindow({
       }
       className={cn(
         "hud-panel flex flex-col overflow-hidden rounded-lg animate-hud-in",
+        solid ? "hud-solid" : null,
         narrow
           ? min
             ? "fixed inset-x-2 top-16"
@@ -141,7 +145,7 @@ export function HudWindow({
           </button>
         </div>
       </div>
-      {min ? null : <div className="min-h-0 flex-1 overflow-auto p-3">{children}</div>}
+      {min ? null : <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3">{children}</div>}
       {!locked && !min ? (
         <div
           role="separator"
