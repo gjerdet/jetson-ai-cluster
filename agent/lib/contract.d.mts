@@ -92,6 +92,9 @@ export const ROUTES: {
   telegram: string;
   telegramTest: string;
   backup: string;
+  version: string;
+  configExport: string;
+  configImport: string;
   knowledge: string;
   knowledgeSearch: string;
   knowledgeConfig: string;
