@@ -217,8 +217,17 @@ export function ChatPanel({
                 oppgave: round === 0 ? "chat" : "verktoy",
                 // Et eksplisitt modellvalg skal alltid vinne. Send adresse og
                 // modell også, siden HUD-konfigen kan være nyere enn backend-poolen.
-                ...(chosen
-                  ? { nodeId: chosen.id, baseUrl: chosen.baseUrl, model: chosen.model }
+                // Uten et låst valg brukes den aktive primærnoden fra HUD-en,
+                // slik at f.eks. OpenRouter/Hermes virker selv om backend-poolen er tom.
+                ...((chosen ?? primary)
+                  ? {
+                      nodeId: (chosen ?? primary)!.id,
+                      baseUrl: (chosen ?? primary)!.baseUrl,
+                      model: (chosen ?? primary)!.model,
+                      ...((chosen ?? primary)!.apiKey
+                        ? { apiKey: (chosen ?? primary)!.apiKey }
+                        : {}),
+                    }
                   : {}),
               })
               .then((r) => {
