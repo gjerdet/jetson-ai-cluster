@@ -63,10 +63,29 @@ const REMEMBER = /^\s*(husk|remember)[:\s]+(.+)$/is;
 
 /** Meldinger som ber om at noe faktisk blir gjort. */
 const OPPDRAG =
-  /(skann|scan|sjekk|finn|let|søk|list|vis|hent|mål|test|kjør|start|restart|feilsøk|diagnos|overvåk|lag|sett opp|installer|fiks|rett|analyser|hvor mange|hvilke)/i;
+  /(skann|scan|sjekk|finn|let|søk|list|vis|hent|mål|test|kjør|start|restart|feilsøk|diagnos|overvåk|lag|sett opp|installer|fiks|rett|analyser|hvor mange|hvilke|hva er (din|maskinens|nodens))/i;
 /** Typiske bortforklaringer der modellen svarer uten å ha prøvd. */
 const UNNVIKELSE =
   /(ingen enheter|har ikke tilgang|ikke mulighet|kan ikke se|jeg mangler|ingen registrerte|vi kan sammen|ønsker du at jeg|tar jeg gjerne imot|si ifra hvis)/i;
+
+/** Spørsmål som kan besvares direkte og sikkert fra Jetsonens nettverksstatus. */
+const DIREKTE_NETTVERK = /\b(gateway|standardrute|default gateway|ip(?:-adresse)?|subnett|dns)\b/i;
+
+function direkteNettverkSvar(sporsmal: string, resultat: string): string | null {
+  if (/\b(gateway|standardrute|default gateway)\b/i.test(sporsmal)) {
+    const gateway = resultat.match(/Standard gateway:\s*([^\s\n]+)/i)?.[1];
+    if (gateway && gateway !== "ingen") return `Min standard gateway er **${gateway}**.`;
+  }
+  if (/\bip(?:-adresse)?\b/i.test(sporsmal)) {
+    const adresse = resultat.match(/^[^\s=]+\s+(\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2})$/m)?.[1];
+    if (adresse) return `Min IP-adresse er **${adresse}**.`;
+  }
+  if (/\bsubnett\b/i.test(sporsmal)) {
+    const subnett = resultat.match(/Subnett:\s*([^\s\n]+)/i)?.[1];
+    if (subnett && subnett !== "ukjent") return `Jeg er koblet til subnettet **${subnett}**.`;
+  }
+  return null;
+}
 
 
 export function ChatPanel({
@@ -192,6 +211,48 @@ export function ChatPanel({
     const turId = nyTur();
     trace({ turId, kind: "melding", title: text.slice(0, 120), detail: text });
     try {
+      // Maskinens grunnleggende nettverksdata skal ikke overlates til modellens
+      // skjønn. Kjør verktøyet først og svar direkte fra målt output.
+      if (DIREKTE_NETTVERK.test(text)) {
+        setStage("verktøy: nett_sjekk");
+        const t0 = performance.now();
+        const resultat = await runTool({ name: "nett_sjekk", args: {}, raw: "VERKTØY: nett_sjekk {}" }, {
+          config,
+          ...(update ? { update } : {}),
+          topics: mqtt.topics,
+        });
+        const svar = direkteNettverkSvar(text, resultat);
+        trace({
+          turId,
+          kind: "verktoy",
+          title: "nett_sjekk {}",
+          why: "spørsmålet gjelder Jetsonens faktiske nettverkskonfigurasjon",
+          detail: resultat,
+          ms: Math.round(performance.now() - t0),
+          ok: !/^(Feil:|Backend-sesjonen|Ingen agent)/i.test(resultat),
+        });
+        if (svar) {
+          setMessages([
+            ...next,
+            {
+              role: "assistant",
+              content: svar,
+              node: "BACKEND · NETTVERK",
+              time: Date.now(),
+              runs: [{
+                name: "nett_sjekk",
+                args: {},
+                result: resultat,
+                ms: Math.round(performance.now() - t0),
+                time: Date.now(),
+                ok: true,
+              }],
+            },
+          ]);
+          return;
+        }
+      }
+
       // Rask vei for småprat: hopp over kunnskapssøk og verktøyprompt,
       // slik at «hei» svares på med én enkelt modellrunde.
       const smaaprat = text.length <= 40 && SMAAPRAT.test(text);
