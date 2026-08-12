@@ -12,6 +12,18 @@ Et minimalistisk, Jarvis-inspirert HUD som kjører i nettleseren og snakker med 
 - **Enhetsregister**: ESP32/ESP8266/Raspberry Pi med autogenerert kode, koblingsskjema og dokumentasjon.
 - **Graf-dashbord**: Bygg moduler for MQTT-data og systemintegrasjoner (TrueNAS, Proxmox, UniFi, Homey).
 
+## Utvikling i Lovable (uten Jetson)
+
+For å se og kvalitetssjekke HUD-en mens du utvikler i Lovable-editoren, finnes en **passord-beskyttet forhåndsvisningsmodus**:
+
+1. Gå til **Project settings → Secrets** i Lovable.
+2. Legg til:
+   - `PREVIEW_PASSWORD` — et sterkt passord du velger selv.
+   - `PREVIEW_SECRET` — en tilfeldig 32+ tegns streng (f.eks. `openssl rand -hex 32`).
+3. Åpne preview-lenken. Skriv preview-passordet for å se HUD-en.
+
+Forhåndsvisningsmodus er **kun aktiv på `localhost` og `*.lovable.app`**. Den fungerer ikke på Jetson, og den gir ikke tilgang til å styre smarthus/noder — den lar deg bare se UI-et. Passordet blir ikke med på GitHub.
+
 ## Hurtigstart på Jetson (ett skript)
 
 Alt-i-ett-installasjonen setter opp Ollama, henter modellene (`llama3.2`, `hermes3`, `nomic-embed-text`), installerer backend-agenten som systemd-tjeneste og lager innlogging:
