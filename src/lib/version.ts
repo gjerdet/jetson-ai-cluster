@@ -82,3 +82,26 @@ export async function lesPakkeFraFil(file: File): Promise<FullBundle> {
     throw new Error(`Pakken er laget av en nyere versjon (${pakke.pakkeversjon}). Oppdater HUD-en først.`);
   return pakke;
 }
+
+/** Nøkkel der HUD-en tar vare på siste konfig før en import (for rollback). */
+export const ROLLBACK_KEY = "hud.konfig.rollback";
+
+export function lagreRollback(pakke: FullBundle) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ROLLBACK_KEY, JSON.stringify({ tid: Date.now(), pakke }));
+  } catch {
+    /* full localStorage – rollback er best effort */
+  }
+}
+
+export function lesRollback(): { tid: number; pakke: FullBundle } | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(ROLLBACK_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as { tid: number; pakke: FullBundle };
+  } catch {
+    return null;
+  }
+}
