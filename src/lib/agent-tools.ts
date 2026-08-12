@@ -3,9 +3,10 @@ import { deviceBrief, newCustomTool, newMemory, sanitizeToolName } from "./hud-s
 import { historyFor, numericValue, mqttOnline, publishMqtt } from "./mqtt-bridge";
 import { fetchIntegration } from "./integrations.functions";
 import { briefingText, refreshFeed, snapshot } from "./world-feed";
-import { pingNode } from "./hud-client";
+import { callNode, pingNode } from "./hud-client";
+import type { ChatMsg } from "./hud-client";
 import { CIDR_RE, checkScript, scanScript } from "./net-scan";
-import { backendToken } from "./backend";
+import { backend, backendToken } from "./backend";
 
 import {
   agentCfg,
