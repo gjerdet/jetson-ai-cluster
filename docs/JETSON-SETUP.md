@@ -487,3 +487,49 @@ Krav på master: `sshpass` (`sudo apt install -y sshpass`), `AGENT_TOKEN` satt i
 `/etc/jarvis/agent.env`, og «Tillat at noder melder seg inn selv» påslått under
 SYSTEM › Innstillinger. Brukeren på den nye maskinen må ha passordløs `sudo`
 (`sudo -n`) — ellers stopper installasjonen.
+
+## AGI / autonomi
+
+Åpne **AGI**-vinduet fra sentermenyen for å styre JARVIS på vei mot større
+autonomi.
+
+### Hva som er på plass nå
+
+- **Episodisk minne**: chat, evalueringer, planer og initiativ lagres i
+  `memory.json`. Hver gang du spør, injiserer backend-en de mest relevante
+  minnene som kontekst.
+- **Planlegger**: skriv et mål (f.eks. «overvåk stua og varsle hvis døren står
+  åpen»), så bryter AI-en det ned i steg. Planer kjøres i bakgrunnen og
+  oppdateres automatisk.
+- **Evaluator**: hvert svar scores 0–100. Lave scorer trigger at JARVIS skriver
+  en læringsnotis til minnet og kan be en annen node om et nytt forsøk.
+- **Eget initiativ**: en bakgrunnsprosess vurderer sensorer, minne og mål hvert
+  minutt. I **forslag-modus** vises den proaktive ideen i AGI-panelet; i **full
+  autonomi** utfører den lavrisiko-handlinger (MQTT-publish, Telegram-varsel)
+  selv.
+- **Verktøygenerering**: JARVIS kan skrive nye Node.js-verktøy i sandkassen.
+  Du ser forslaget, kan redigere koden, kjøre den isolert og lagre den som en
+  ny fast evne.
+
+### Kom i gang
+
+1. Sørg for at AI-noden er konfigurert under **NODER** (standard Ollama på
+   `http://127.0.0.1:11434`).
+2. Åpne **AGI → AUTONOMI** og velg nivå:
+   - **Av**: initiativ-prosessen sover.
+   - **Forslag**: ideer vises, ingenting skjer uten godkjenning.
+   - **Full**: lavrisiko-handlinger utføres automatisk.
+3. I **AGI → MINNE** kan du søke i historikk, legge til permanente fakta og
+   markere minner som viktige.
+4. I **AGI → PLANER** oppretter du mål. Når en plan er aktiv, vises neste steg
+   i panelet og i chat-konteksten.
+5. I **AGI → VERKTØY** kan du be JARVIS om å generere et nytt verktøy, f.eks.
+   «les temperatur fra Homey og send varsel hvis over 25 °C».
+
+### Sikkerhet
+
+- Autonome handlinger går kun til godkjente integrasjoner (MQTT, Telegram) og
+  kjører aldri vilkårlige OS-kommandoer uten din godkjenning.
+- Verktøy fra verktøygenereringen kjøres i en `node:vm`-sandkasse uten
+  nettverk som standard (`AGENT_ALLOW_NETWORK=0`).
+- All AGI-aktivitet logges i `audit.json` og vises under **AGI → INITIATIV**.
