@@ -50,6 +50,8 @@ import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
 import { retrieveContext, type Citation } from "@/lib/knowledge";
 
+const SMAAPRAT =
+  /^(hei|hallo|halla|heisann|yo|hey|hi|god\s*(morgen|kveld|dag)|takk|ok(ei)?|hvordan går det|er du der|test)\b[\s!.?,]*$/i;
 const BRIEF_TRIGGERS =
   /(topp\s*10|top\s*10|nyhet|hendels|world ?monitor|situasjonsbilde|verden|defcon|pizza|hva skjer|brief)/i;
 
@@ -66,6 +68,7 @@ export function ChatPanel({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
+  const [elapsed, setElapsed] = useState(0);
   const [pending, setPending] = useState<PendingCommand[]>([]);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -122,6 +125,18 @@ export function ChatPanel({
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
 
+  // enkel tidtaker slik at det alltid synes at noe skjer
+  useEffect(() => {
+    if (!busy) {
+      setElapsed(0);
+      return;
+    }
+    const t0 = Date.now();
+    const id = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [busy]);
+
+
   const active = config.nodes.filter((n) => n.enabled);
   // valgt AI-node (f.eks. Hermes) vinner over rollen «primary»
   const chosen = config.aiNodeId ? active.find((n) => n.id === config.aiNodeId) : undefined;
@@ -163,27 +178,30 @@ export function ChatPanel({
     setBusy(true);
     setStage("tenker");
     try {
+      // Rask vei for småprat: hopp over kunnskapssøk og verktøyprompt,
+      // slik at «hei» svares på med én enkelt modellrunde.
+      const smaaprat = text.length <= 40 && SMAAPRAT.test(text);
       const live = mqttBrief();
       const sys = [
         systemPrompt(config),
         live,
-        mqttOnline() ? MQTT_TOOL_PROMPT : "",
-        TOOL_PROMPT,
-        customToolPrompt(config),
-        toolAvailability(config, Object.keys(mqtt.topics).length),
+        smaaprat ? "" : mqttOnline() ? MQTT_TOOL_PROMPT : "",
+        smaaprat ? "" : TOOL_PROMPT,
+        smaaprat ? "" : customToolPrompt(config),
+        smaaprat ? "" : toolAvailability(config, Object.keys(mqtt.topics).length),
       ]
         .filter(Boolean)
         .join("\n");
       let context = "";
       // kunnskapsinnhenting: hent relevante biter fra den lokale kunnskapsbasen
       let sources: Citation[] = [];
-      if (config.knowledge !== false) {
+      if (config.knowledge !== false && !smaaprat) {
         setStage("henter kunnskap");
         const rag = await retrieveContext(text);
         context += rag.context;
         sources = rag.sources;
       }
-      if (BRIEF_TRIGGERS.test(text)) {
+      if (!smaaprat && BRIEF_TRIGGERS.test(text)) {
         if (!snapshot().events.length) await refreshFeed();
         context = `\n\n[WORLD MONITOR-DATA]\n${briefingText(10)}`;
       }
@@ -207,7 +225,8 @@ export function ChatPanel({
           : callTracked(primary, thread).then((result) => ({ text: result, node: primary }));
       };
 
-      for (let round = 0; round < 4; round++) {
+      const runder = smaaprat ? 1 : 4;
+      for (let round = 0; round < runder; round++) {
         // Når backend-chat er valgt går hver runde kun via POST /ai/chat.
         // Backend-en lastbalanserer selv mellom Jetson-nodene; er en node låst
         // i innstillingene, sendes den med som ønsket node.
@@ -443,7 +462,7 @@ export function ChatPanel({
         ))}
         {busy ? (
           <p className="flex items-center gap-2 text-xs text-primary">
-            <Loader2 className="size-3 animate-spin" /> {stage || "prosesserer"}…
+            <Loader2 className="size-3 animate-spin" /> {stage || "prosesserer"}… {elapsed}s
           </p>
         ) : null}
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
