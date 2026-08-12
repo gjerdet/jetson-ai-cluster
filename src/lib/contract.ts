@@ -55,6 +55,7 @@ export type {
   MqttStatus,
   PoolNode,
   PoolStatus,
+  ProvisionJob,
   RuleAction,
   RuleActionType,
   RuleEvent,

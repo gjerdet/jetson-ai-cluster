@@ -38,6 +38,7 @@ import {
 import { kjorBalansert, poolFor, poolStatus } from "./balancer.mjs";
 import { lokalSnapshot } from "./gpu.mjs";
 import { distribuerKonfig, klyngeHelse, tomKlyngeCache } from "./klynge.mjs";
+import { hentJobb, hentJobber, startProvisjonering } from "./provisjonering.mjs";
 import {
   addClip,
   clipDir,
@@ -593,7 +594,48 @@ export async function handleApi(req, res, route, url, deps = {}) {
       }
     }
 
-    if (path.startsWith("/noder/") && path !== "/noder/registrer" && method === "DELETE") {
+    // ---- automatisk innrullering over SSH ---------------------------------
+    if (path === "/noder/provisjoner") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      if (method === "GET") return json(req, res, 200, { jobber: hentJobber() });
+      if (method === "POST") {
+        const b = await readBody(req);
+        const verter = Array.isArray(b.verter)
+          ? b.verter
+          : String(b.verter || b.ip || "").split(/[\s,;]+/);
+        const master =
+          String(b.master || "").trim() ||
+          `http://${String(req.headers.host || "").split(":")[0] || os.hostname()}:${process.env.PORT || 8787}`;
+        try {
+          const r = startProvisjonering({
+            verter,
+            bruker: String(b.bruker || "").trim(),
+            passord: String(b.passord || ""),
+            master,
+            token: String(process.env.AGENT_TOKEN || ""),
+            modeller: Array.isArray(b.modeller)
+              ? b.modeller
+              : String(b.modeller || "llama3.2:3b").split(/[\s,]+/).filter(Boolean),
+            rolle: b.rolle === "primary" || b.rolle === "observer" ? b.rolle : "worker",
+            oppgaver: Array.isArray(b.oppgaver) && b.oppgaver.length ? b.oppgaver : ["chat", "verktoy"],
+            navnPrefiks: String(b.navnPrefiks || "NODE").replace(/[^\w-]/g, "").slice(0, 16) || "NODE",
+            parallelt: Number(b.parallelt) || 3,
+          });
+          return json(req, res, 200, r);
+        } catch (e) {
+          return json(req, res, 400, { error: String(e?.message || e) });
+        }
+      }
+    }
+
+    if (path.startsWith("/noder/provisjoner/") && method === "GET") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      const jobb = hentJobb(decodeURIComponent(path.slice("/noder/provisjoner/".length)));
+      if (!jobb) return json(req, res, 404, { error: "Fant ikke jobben" });
+      return json(req, res, 200, { jobb });
+    }
+
+    if (path.startsWith("/noder/") && path !== "/noder/registrer" && !path.startsWith("/noder/provisjoner") && method === "DELETE") {
       if (!admin) return json(req, res, 403, { error: "Kun admin" });
       const id = decodeURIComponent(path.slice("/noder/".length));
       const db = doc("nodes", { list: [] });

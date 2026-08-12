@@ -193,6 +193,7 @@ export const ROUTES: {
   clusterLocal: string;
   clusterHealth: string;
   configDistribute: string;
+  provision: string;
 };
 
 /** En loggkilde HUD-en kan lese (systemd-enhet eller loggfil). */
@@ -376,6 +377,18 @@ export interface PoolNode {
   } | null;
   /** Under 1 = noden nedprioriteres, over 1 = noden får flere oppgaver. */
   ressursfaktor: number;
+}
+
+export interface ProvisionJob {
+  id: string;
+  vert: string;
+  navn: string;
+  status: "venter" | "kjorer" | "ok" | "feil";
+  steg: string;
+  startet: number;
+  ferdig: number | null;
+  feil: string | null;
+  logg: { tid: number; tekst: string }[];
 }
 
 export interface PoolStatus {

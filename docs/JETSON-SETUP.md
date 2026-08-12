@@ -470,3 +470,20 @@ nodens egen eksport har nøyaktig samme sjekksum. Er «rull ut automatisk ved
 endring» huket av (standard), skjer utrullingen automatisk hver gang du henter
 inn en ny konfig-pakke. Hemmeligheter – passord, API-nøkler, Telegram-token og
 agent-token – følger aldri med i pakken.
+
+## Automatisk innrullering av nye noder (fra GUI-et)
+
+Åpne **NODER → AUTOMATISK INNRULLERING**, lim inn IP-ene (én per linje),
+brukernavn og passord, og trykk *rull ut*. Master kobler seg til hver maskin
+over SSH og gjør resten selv:
+
+1. installerer Ollama og henter modellene du oppgir
+2. åpner Ollama for LAN-et (`0.0.0.0:11434`)
+3. registrerer noden via `POST /api/noder/registrer`
+
+Tre maskiner rulles ut samtidig; loggen vises live per node i GUI-et.
+
+Krav på master: `sshpass` (`sudo apt install -y sshpass`), `AGENT_TOKEN` satt i
+`/etc/jarvis/agent.env`, og «Tillat at noder melder seg inn selv» påslått under
+SYSTEM › Innstillinger. Brukeren på den nye maskinen må ha passordløs `sudo`
+(`sudo -n`) — ellers stopper installasjonen.

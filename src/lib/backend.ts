@@ -39,6 +39,7 @@ import {
   type ThreadSummary,
   type AiChatReply,
   type PoolStatus,
+  type ProvisionJob,
   type TtsConfig,
   type VoiceClip,
 } from "@/lib/contract";
@@ -72,6 +73,7 @@ export type {
   ThreadSummary,
   AiChatReply,
   PoolStatus,
+  ProvisionJob,
   TtsConfig,
   VoiceClip,
 };
@@ -356,6 +358,25 @@ export const backend = {
     call<{ noder: ClusterNode[] }>(ROUTES.nodes!, { method: "PUT", body: JSON.stringify({ noder }) }, { retries: 0 }),
   lagreNode: (node: ClusterNode) =>
     call<{ node: ClusterNode; noder: ClusterNode[] }>(ROUTES.nodes!, { method: "POST", body: JSON.stringify({ node }) }, { retries: 0 }),
+  /** Ruller ut nye maskiner over SSH: IP + brukernavn + passord er nok. */
+  provisjoner: (v: {
+    verter: string[];
+    bruker: string;
+    passord: string;
+    modeller?: string[];
+    rolle?: string;
+    oppgaver?: string[];
+    navnPrefiks?: string;
+    master?: string;
+    parallelt?: number;
+  }) =>
+    call<{ jobber: ProvisionJob[] }>(
+      ROUTES.provision!,
+      { method: "POST", body: JSON.stringify(v) },
+      { retries: 0, timeoutMs: 30_000 },
+    ),
+  provisjonJobber: () => call<{ jobber: ProvisionJob[] }>(ROUTES.provision!).then((r) => r.jobber),
+
   slettNode: (id: string) =>
     call<{ noder: ClusterNode[] }>(`${ROUTES.nodes}/${encodeURIComponent(id)}`, { method: "DELETE" }, { retries: 0 }),
 

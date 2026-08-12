@@ -85,6 +85,7 @@ export const ROUTES = {
   clusterLocal: "/klynge/lokal",
   clusterHealth: "/klynge/helse",
   configDistribute: "/config/distribuer",
+  provision: "/noder/provisjoner",
 
 };
 

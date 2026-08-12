@@ -128,7 +128,7 @@ si "Sjekker systempakker …"
 if command -v apt-get >/dev/null 2>&1; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq || adv "apt-get update feilet – fortsetter"
-  apt-get install -y -qq curl ca-certificates openssl python3 git >/dev/null 2>&1 || adv "Noen pakker manglet"
+  apt-get install -y -qq curl ca-certificates openssl python3 git sshpass openssh-client >/dev/null 2>&1 || adv "Noen pakker manglet"
 else
   adv "Fant ikke apt-get – hopper over systempakker"
 fi
