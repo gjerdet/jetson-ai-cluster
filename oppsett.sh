@@ -237,6 +237,7 @@ if ! (cd "$APP_DIR" && NODE_ENV=production npm install --omit=dev --no-audit --n
   exit 1
 fi
 chown -R jarvis:jarvis "$APP_DIR"
+chmod +x "$APP_DIR/scripts/update-jetson.sh" "$APP_DIR/scripts/run-update-service.sh" 2>/dev/null || true
 
 NODE_BIN="$(command -v node)"
 # Kataloger agenten må kunne skrive til – de MÅ finnes før systemd setter opp
@@ -299,6 +300,20 @@ frigjor_port() {
 systemctl stop jarvis-agent 2>/dev/null || true
 frigjor_port "$AGENT_PORT"
 systemctl restart jarvis-agent || adv "systemctl restart jarvis-agent feilet"
+
+# Oppdateringer fra GUI kjøres i en separat root-tjeneste. Agentbrukeren får
+# kun lov til å starte akkurat denne enheten, uten argumenter eller shell.
+printf '%s\n' "$REPO_DIR" >/etc/jarvis/source-dir
+chmod 600 /etc/jarvis/source-dir
+if [ -f "$APP_DIR/jarvis-update.service" ]; then
+  cp "$APP_DIR/jarvis-update.service" /etc/systemd/system/jarvis-update.service
+  cat >/etc/sudoers.d/jarvis-update <<'EOF'
+jarvis ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block jarvis-update.service
+EOF
+  chmod 440 /etc/sudoers.d/jarvis-update
+  visudo -cf /etc/sudoers.d/jarvis-update >/dev/null
+  systemctl daemon-reload
+fi
 
 # Agenten kan kjøre HTTP eller HTTPS avhengig av AGENT_TLS_* – prøv begge.
 agent_svarer() {

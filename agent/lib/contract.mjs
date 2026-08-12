@@ -74,6 +74,8 @@ export const ROUTES = {
   telegramTest: "/telegram/test",
   backup: "/backup",
   version: "/versjon",
+  update: "/versjon/oppdater",
+  updateStatus: "/versjon/oppdater/status",
   configExport: "/config/eksport",
   configImport: "/config/import",
   knowledge: "/kunnskap",

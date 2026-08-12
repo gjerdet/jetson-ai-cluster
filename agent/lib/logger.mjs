@@ -17,6 +17,7 @@ export const LOGG_KILDER = [
   { id: "ollama", navn: "Ollama", unit: "ollama" },
   { id: "oppsett", navn: "Oppsett (oppsett.sh)", fil: `${LOGG_DIR}/oppsett.log` },
   { id: "helsesjekk", navn: "Helsesjekk", fil: `${LOGG_DIR}/helsesjekk.log` },
+  { id: "oppdatering", navn: "Oppdatering", fil: `${LOGG_DIR}/oppdatering.log` },
 ];
 
 const kildeFor = (id) => LOGG_KILDER.find((k) => k.id === String(id || "").trim());

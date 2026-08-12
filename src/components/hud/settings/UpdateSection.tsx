@@ -1,93 +1,58 @@
 /**
- * OPPDATERING & ROLLBACK – kommandoene du trenger på Jetson-noden,
- * med kopiknapp så du slipper å skrive dem av.
+ * OPPDATERING – starter en kontrollert, lokal systemd-jobb fra HUD-en.
  */
-import { useState } from "react";
-import { Check, Copy } from "lucide-react";
-
-const btn =
-  "rounded-full border border-primary/30 bg-primary/[0.08] px-3 py-1.5 text-[9px] uppercase tracking-[0.2em] text-primary/90 transition hover:bg-primary/20 disabled:opacity-40";
-
-const KOMMANDOER: { id: string; tittel: string; forklaring: string; kommando: string }[] = [
-  {
-    id: "oppdater",
-    tittel: "Oppdater til siste versjon",
-    forklaring: "Tar sikkerhetskopi av data og agent.env, henter ny kode, bygger og restarter tjenesten.",
-    kommando: "sudo /opt/jarvis/agent/scripts/update-jetson.sh main",
-  },
-  {
-    id: "versjon",
-    tittel: "Oppdater til en bestemt versjon",
-    forklaring: "Bytt ut taggen med den versjonen du vil kjøre, f.eks. v2.1.0.",
-    kommando: "sudo /opt/jarvis/agent/scripts/update-jetson.sh v2.1.0",
-  },
-  {
-    id: "rollback",
-    tittel: "Rull tilbake programvaren",
-    forklaring: "Går tilbake til forrige commit og gjenoppretter dataene fra siste sikkerhetskopi.",
-    kommando:
-      "cd /opt/jarvis && git checkout HEAD@{1} && cp -a .oppdatering/$(ls -1 .oppdatering | tail -1)/data/. agent/data/ && sudo systemctl restart jarvis-agent",
-  },
-  {
-    id: "kopier",
-    tittel: "Se sikkerhetskopiene",
-    forklaring: "Hver oppdatering legger en tidsstemplet kopi av data og agent.env her.",
-    kommando: "ls -1 /opt/jarvis/.oppdatering",
-  },
-  {
-    id: "logg",
-    tittel: "Følg loggen etter oppdatering",
-    forklaring: "Sjekk at agenten starter rent igjen.",
-    kommando: "journalctl -u jarvis-agent -f -n 100",
-  },
-];
+import { useEffect, useState } from "react";
+import { LoaderCircle, RefreshCw } from "lucide-react";
+import { backend, safe, type UpdateStatus } from "@/lib/backend";
+import { Button } from "@/components/ui/button";
 
 export function UpdateSection({ agent }: { agent: string | null }) {
-  const [kopiert, setKopiert] = useState<string | null>(null);
+  const [status, setStatus] = useState<UpdateStatus | null>(null);
+  const [ref, setRef] = useState("main");
+  const [melding, setMelding] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const kopier = async (id: string, tekst: string) => {
-    try {
-      await navigator.clipboard.writeText(tekst);
-      setKopiert(id);
-      setTimeout(() => setKopiert((v) => (v === id ? null : v)), 1800);
-    } catch {
-      setKopiert(null);
-    }
+  const hentStatus = async () => {
+    const { data, error } = await safe(() => backend.hentOppdateringsstatus());
+    if (data) setStatus(data);
+    if (error) setMelding(error.message);
+  };
+
+  useEffect(() => {
+    void hentStatus();
+    const timer = window.setInterval(() => void hentStatus(), status?.aktiv ? 2500 : 10_000);
+    return () => window.clearInterval(timer);
+  }, [status?.aktiv]);
+
+  const start = async () => {
+    setBusy(true);
+    setMelding(null);
+    const { data, error } = await safe(() => backend.startOppdatering(ref));
+    setMelding(error?.message ?? data?.melding ?? null);
+    setBusy(false);
+    if (!error) void hentStatus();
   };
 
   return (
     <div className="space-y-2 rounded-xl border border-primary/15 bg-background/20 p-3">
       <header className="hud-title text-[9px] text-primary/80">Oppdatering &amp; rollback</header>
       <p className="text-[9px] leading-relaxed text-muted-foreground">
-        {agent
-          ? `Noden kjører agent ${agent}. Kjør kommandoene i et terminalvindu på Jetson-noden.`
-          : "Ikke koblet til en agent akkurat nå. Kommandoene kjøres i et terminalvindu på Jetson-noden."}{" "}
-        Konfigurasjonen din rulles tilbake herfra i GUI-et; selve programvaren rulles tilbake med git,
-        slik at HUD-en aldri kan sette noden ut av drift.
+        {agent ? `Noden kjører agent ${agent}.` : "Ikke koblet til en agent akkurat nå."} Oppdateringen tar
+        backup, henter valgt versjon, bygger GUI-et og restarter tjenestene automatisk.
       </p>
-
-      <ul className="space-y-2">
-        {KOMMANDOER.map((k) => (
-          <li key={k.id} className="rounded-lg border border-primary/15 bg-primary/[0.03] p-2">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[10px] text-foreground/85">{k.tittel}</p>
-                <p className="text-[9px] leading-relaxed text-muted-foreground">{k.forklaring}</p>
-              </div>
-              <button
-                className={`${btn} shrink-0`}
-                onClick={() => void kopier(k.id, k.kommando)}
-                aria-label={`Kopier kommando: ${k.tittel}`}
-              >
-                {kopiert === k.id ? <Check className="size-3" /> : <Copy className="size-3" />}
-              </button>
-            </div>
-            <code className="mt-1 block break-all rounded bg-background/40 px-2 py-1 font-mono text-[9px] text-primary/80">
-              {k.kommando}
-            </code>
-          </li>
-        ))}
-      </ul>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="min-w-40 flex-1 text-[9px] uppercase text-muted-foreground">
+          Versjon eller gren
+          <input className="mt-1 w-full rounded border border-primary/20 bg-background/40 px-2 py-2 text-[10px] text-foreground" value={ref} onChange={(event) => setRef(event.target.value)} disabled={busy || status?.aktiv} />
+        </label>
+        <Button size="sm" variant="outline" onClick={() => void start()} disabled={busy || status?.aktiv || !agent}>
+          {busy || status?.aktiv ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
+          {status?.aktiv ? "Oppdaterer" : "Start oppdatering"}
+        </Button>
+      </div>
+      <p className="text-[9px] text-muted-foreground">Status: {status?.status ?? "ukjent"}</p>
+      {melding ? <p className="text-[9px] text-foreground/80">{melding}</p> : null}
+      {status?.logg ? <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded border border-primary/10 bg-background/40 p-2 font-mono text-[8px] text-primary/80">{status.logg}</pre> : null}
     </div>
   );
 }

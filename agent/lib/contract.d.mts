@@ -177,6 +177,8 @@ export const ROUTES: {
   telegramTest: string;
   backup: string;
   version: string;
+  update: string;
+  updateStatus: string;
   configExport: string;
   configImport: string;
   knowledge: string;
