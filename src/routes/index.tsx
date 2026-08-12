@@ -13,6 +13,7 @@ import { HealthPanel } from "@/components/hud/HealthPanel";
 import { PoolPanel } from "@/components/hud/PoolPanel";
 import { LogsPanel } from "@/components/hud/LogsPanel";
 import { ClusterHealthPanel } from "@/components/hud/ClusterHealthPanel";
+import { AgiPanel } from "@/components/hud/AgiPanel";
 import { BackendStatusBadge } from "@/components/hud/BackendStatusBadge";
 import { useHudConfig } from "@/lib/hud-store";
 import { useSession } from "@/lib/session";
