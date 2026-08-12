@@ -56,6 +56,7 @@ export const ROUTES = {
   ai: "/ai",
   aiChat: "/ai/chat",
   aiPool: "/ai/pool",
+  aiTest: "/ai/test",
   samples: "/maalinger",
   samplesLatest: "/maalinger/siste",
   samplesPrune: "/maalinger/rydd",
