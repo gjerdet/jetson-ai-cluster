@@ -1,4 +1,4 @@
-export type NetworkQuestion = "own-ip" | "neighboring-ips" | "subnet-addresses" | "subnet" | "gateway" | "dns" | null;
+export type NetworkQuestion = "devices" | "own-ip" | "neighboring-ips" | "subnet-addresses" | "subnet" | "gateway" | "dns" | null;
 
 const IPV4_CIDR = /(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})/;
 
@@ -13,7 +13,20 @@ function numberToIp(value: number): string {
   return [24, 16, 8, 0].map((shift) => (unsigned >>> shift) & 255).join(".");
 }
 
+/**
+ * Spørsmål om hvilke/hvor mange enheter som finnes på nettet må besvares med en
+ * faktisk skanning – ikke med subnett-informasjon vi allerede kjenner.
+ */
+function asksAboutDevices(question: string): boolean {
+  const devices = /\b(enhet(?:er|ene|en)?|maskin(?:er|ene)?|klient(?:er|ene)?|host(?:s|er)?|noder|dingser|utstyr)\b/i.test(question);
+  const scan = /\b(skann(?:e|er|ing)?|scan|kartlegg|oppdag|finn ut hvem|hvem er (?:p\u00e5|koblet)|hva er koblet|list(?:e)? opp)\b/i.test(question);
+  const netContext = /\b(subnett(?:et)?|nettet|nettverk(?:et)?|lan|ip-?omr\u00e5det)\b/i.test(question);
+  if (scan && (devices || netContext)) return true;
+  return devices && netContext;
+}
+
 export function classifyNetworkQuestion(question: string): NetworkQuestion {
+  if (asksAboutDevices(question)) return "devices";
   if (/\b(gateway|standardrute|default gateway)\b/i.test(question)) return "gateway";
   if (/\bdns\b/i.test(question)) return "dns";
   if (/\b(nærmeste|nabo(?:adresse|ip)?|ved siden av|før og etter)\b.*\bip\b|\bip\b.*\b(nærmeste|nabo(?:adresse|ip)?|ved siden av|før og etter)\b/i.test(question)) {
@@ -84,4 +97,21 @@ export function answerNetworkQuestion(question: string, result: string): string 
 
   if (intent === "subnet") return `Jeg er koblet til subnettet **${numberToIp(network)}/${prefix}**.`;
   return null;
+}
+/** Oppsummerer output fra nett_skann til et kort, konkret svar. */
+export function answerDeviceScan(question: string, result: string): string | null {
+  const subnet = result.match(/Subnett:\s*([^\s\n]+)/i)?.[1];
+  const rows = [...result.matchAll(/^(\d{1,3}(?:\.\d{1,3}){3})\s+(\S+)\s+(\S.*)$/gm)]
+    .filter((m) => m[1] !== "0.0.0.0")
+    .map((m) => ({ ip: m[1] as string, mac: m[2] as string, name: (m[3] as string).trim() }));
+  const counted = Number(result.match(/Antall enheter funnet:\s*(\d+)/i)?.[1]);
+  if (!rows.length && !Number.isInteger(counted)) return null;
+  const antall = Number.isInteger(counted) ? counted : rows.length;
+  const head = `Jeg skannet ${subnet ? `**${subnet}**` : "subnettet mitt"} og fant **${antall}** aktive enhet${antall === 1 ? "" : "er"}.`;
+  if (!rows.length) return head;
+  const bareAntall = /\bhvor mange\b/i.test(question) && !/\b(list|vis|hvilke|hvem)\b/i.test(question);
+  const vis = bareAntall ? rows.slice(0, 10) : rows;
+  const lines = vis.map((r) => `- \`${r.ip}\`${r.mac !== "-" ? ` · ${r.mac}` : ""}${r.name && r.name !== "-" ? ` · ${r.name}` : ""}`);
+  const rest = rows.length - vis.length;
+  return [head, "", ...lines, rest > 0 ? `\n… og ${rest} til.` : ""].join("\n").trimEnd();
 }

@@ -51,7 +51,7 @@ import {
 import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
 import { retrieveContext, type Citation } from "@/lib/knowledge";
-import { answerNetworkQuestion, classifyNetworkQuestion } from "@/lib/network-intent";
+import { answerDeviceScan, answerNetworkQuestion, classifyNetworkQuestion } from "@/lib/network-intent";
 
 import { MeldingInnhold } from "./MeldingInnhold";
 
@@ -194,7 +194,41 @@ export function ChatPanel({
     try {
       // Maskinens grunnleggende nettverksdata skal ikke overlates til modellens
       // skjønn. Kjør verktøyet først og svar direkte fra målt output.
-      if (classifyNetworkQuestion(text)) {
+      const nettIntensjon = classifyNetworkQuestion(text);
+      if (nettIntensjon === "devices") {
+        setStage("verktøy: nett_skann");
+        const t0 = performance.now();
+        const resultat = await runTool({ name: "nett_skann", args: {}, raw: "VERKTØY: nett_skann {}" }, {
+          config,
+          ...(update ? { update } : {}),
+          topics: mqtt.topics,
+        });
+        const ms = Math.round(performance.now() - t0);
+        const svar = answerDeviceScan(text, resultat);
+        trace({
+          turId,
+          kind: "verktoy",
+          title: "nett_skann {}",
+          why: "brukeren spør hvilke/hvor mange enheter som finnes – krever faktisk skanning",
+          detail: resultat,
+          ms,
+          ok: Boolean(svar),
+        });
+        if (svar) {
+          setMessages([
+            ...next,
+            {
+              role: "assistant",
+              content: svar,
+              node: "BACKEND · NETTVERK",
+              time: Date.now(),
+              runs: [{ name: "nett_skann", args: {}, result: resultat, ms, time: Date.now(), ok: true }],
+            },
+          ]);
+          return;
+        }
+      }
+      if (nettIntensjon && nettIntensjon !== "devices") {
         setStage("verktøy: nett_sjekk");
         const t0 = performance.now();
         const resultat = await runTool({ name: "nett_sjekk", args: {}, raw: "VERKTØY: nett_sjekk {}" }, {
@@ -233,6 +267,7 @@ export function ChatPanel({
           return;
         }
       }
+
 
       // Rask vei for småprat: hopp over kunnskapssøk og verktøyprompt,
       // slik at «hei» svares på med én enkelt modellrunde.
