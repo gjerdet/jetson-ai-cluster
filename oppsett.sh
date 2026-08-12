@@ -281,7 +281,25 @@ ENDRET_AGENT=0
 skriv_hvis_endret /tmp/jarvis-agent.service /etc/systemd/system/jarvis-agent.service && ENDRET_AGENT=1
 if [ "$ENDRET_AGENT" -eq 1 ]; then systemctl daemon-reload; fi
 systemctl enable jarvis-agent >/dev/null 2>&1 || adv "Fikk ikke aktivert jarvis-agent"
+# En gammel prosess (manuell start eller tidligere installasjon) kan holde
+# porten og gi EADDRINUSE selv om systemd melder «active».
+frigjor_port() {
+  local port="$1" pider p egen
+  pider="$(ss -tlnpH "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u || true)"
+  [ -n "$pider" ] || return 0
+  egen="$(systemctl show -p MainPID --value jarvis-agent 2>/dev/null || echo 0)"
+  for p in $pider; do
+    [ "$p" = "$egen" ] && continue
+    adv "Stopper gammel prosess (pid $p) som holder port $port"
+    kill "$p" 2>/dev/null || true
+  done
+  sleep 2
+  for p in $pider; do [ "$p" = "$egen" ] || kill -9 "$p" 2>/dev/null || true; done
+}
+systemctl stop jarvis-agent 2>/dev/null || true
+frigjor_port "$AGENT_PORT"
 systemctl restart jarvis-agent || adv "systemctl restart jarvis-agent feilet"
+
 for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$AGENT_PORT/api/status" >/dev/null 2>&1 && break; sleep 1; done
 if curl -fsS "http://127.0.0.1:$AGENT_PORT/api/status" >/dev/null 2>&1; then
   ok "Agenten svarer på port $AGENT_PORT"
