@@ -366,6 +366,16 @@ export interface PoolNode {
   karantene: boolean;
   karanteneSek: number;
   kostnad: number;
+  /** Siste måling fra klyngehelsen – grunnlaget for adaptiv ruting. */
+  ressurser: {
+    frittGpuMb: number | null;
+    frittProsent: number | null;
+    utnyttelse: number | null;
+    niva: HealthLevel;
+    sjekket: number;
+  } | null;
+  /** Under 1 = noden nedprioriteres, over 1 = noden får flere oppgaver. */
+  ressursfaktor: number;
 }
 
 export interface PoolStatus {

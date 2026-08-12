@@ -15,6 +15,8 @@ export type ModelNode = {
   duties?: NodeDuty[];
   /** Relativ kapasitet – høyere vekt gir flere oppgaver. */
   weight?: number;
+  /** Adressen til nodens egen Jarvis-agent (klyngehelse + konfigdistribusjon). */
+  agentUrl?: string;
   enabled: boolean;
 };
 
