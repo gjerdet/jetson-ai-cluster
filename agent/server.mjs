@@ -209,8 +209,11 @@ const requestHandler = async (req, res) => {
   if (corsBlocked(req))
     return json(req, res, 403, { error: "Origin er ikke tillatt. Sett AGENT_ORIGINS på agenten." });
 
-  // Backend-API (egen innlogging – ikke agent-tokenet)
-  if (erApiRute(route)) {
+  // Backend-API (egen innlogging – ikke agent-tokenet).
+  // /auth må stå eksplisitt her: innloggingen skal aldri falle videre til
+  // agent-token-rutene, heller ikke når klienten bruker ruten uten /api.
+  const erAuthRute = route === "/auth" || route.startsWith("/auth/");
+  if (erAuthRute || erApiRute(route)) {
     await handleApi(req, res, route, url, apiDeps);
     return;
   }

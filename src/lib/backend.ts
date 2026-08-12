@@ -78,6 +78,7 @@ export type {
 
 const LS_URL = "jarvis.backend.url";
 const LS_TOKEN = "jarvis.backend.token";
+export const DEFAULT_BACKEND_URL = "https://192.168.12.5:8443";
 
 /**
  * Innloggingstokenet ligger i minnet + sessionStorage – aldri i localStorage.
@@ -91,20 +92,10 @@ const ss = () => (typeof sessionStorage !== "undefined" ? sessionStorage : null)
 /**
  * Standardadressen til agenten når ingenting er lagret.
  *
- * GUI-et kjører som regel på samme Jetson som agenten, men åpnes fra en annen
- * maskin på nettverket. Da er 127.0.0.1 nettleserens egen maskin – ikke noden.
- * Derfor bruker vi vertsnavnet siden ble lastet fra, og faller bare tilbake til
- * loopback når vi faktisk kjører lokalt (eller i Lovable-forhåndsvisningen).
+ * Den første Jetson-noden er standard backend. Brukeren kan fortsatt overstyre
+ * adressen i GUI-et; den lagrede adressen har alltid prioritet i backendUrl().
  */
-export const standardBackendUrl = (loc?: { hostname?: string; protocol?: string }) => {
-  const h = loc?.hostname ?? (typeof location !== "undefined" ? location.hostname : "");
-  const proto = loc?.protocol ?? (typeof location !== "undefined" ? location.protocol : "http:");
-  const lokal = !h || h === "localhost" || h === "127.0.0.1" || h === "::1";
-  const sky = /(^|\.)lovable(project)?\.(app|dev)$/i.test(h) || /(^|\.)lovable\.app$/i.test(h);
-  if (lokal || sky) return `http://127.0.0.1:${DEFAULTS.port}`;
-  const skjema = proto === "https:" ? "https:" : "http:";
-  return `${skjema}//${h}:${DEFAULTS.port}`;
-};
+export const standardBackendUrl = (_loc?: { hostname?: string; protocol?: string }) => DEFAULT_BACKEND_URL;
 
 export const backendUrl = () =>
   (typeof localStorage !== "undefined" && localStorage.getItem(LS_URL)) || standardBackendUrl();
