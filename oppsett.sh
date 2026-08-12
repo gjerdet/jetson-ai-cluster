@@ -284,7 +284,17 @@ EOF
     || adv "GUI svarer ikke ennå – se: journalctl -u jarvis-gui -f"
 fi
 
-# ── 7. Oppsummering ──────────────────────────────────────────────────────────
+# ── 7. Automatisk helsesjekk ─────────────────────────────────────────────────
+si "Kjører helsesjekk (GPU, modeller, tjenester) …"
+HELSE_ARG=()
+[ "$HOPP_GUI" -eq 1 ] && HELSE_ARG+=(--uten-gui)
+HELSE_KODE=0
+AGENT_PORT="$AGENT_PORT" JARVIS_GUI_PORT="$GUI_PORT" \
+JARVIS_CHAT_MODEL="$CHAT_MODELL" JARVIS_HERMES_MODEL="$HERMES_MODELL" JARVIS_EMBED_MODEL="$EMBED_MODELL" \
+JARVIS_LOG_DIR="$LOG_DIR" \
+  bash "$AGENT_DIR/scripts/helsesjekk.sh" "${HELSE_ARG[@]+"${HELSE_ARG[@]}"}" || HELSE_KODE=$?
+
+# ── 8. Oppsummering ──────────────────────────────────────────────────────────
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 [ -n "$IP" ] || IP="127.0.0.1"
 
@@ -308,8 +318,16 @@ fi
 echo
 echo " Neste steg i GUI-et: NODER › HURTIGOPPSETT → skriv inn $IP"
 echo
+if [ "${HELSE_KODE:-0}" -ne 0 ]; then
+  echo -e " ${GUL}Helsesjekken fant feil${RST} – se listen over, eller åpne LOGGER i web-GUI-et."
+  echo "   Kjør på nytt: sudo bash agent/scripts/helsesjekk.sh"
+  echo
+fi
 echo " Nyttige kommandoer:"
 echo "   systemctl status jarvis-agent jarvis-gui"
 echo "   journalctl -u jarvis-agent -f"
+echo "   sudo bash agent/scripts/helsesjekk.sh        # sjekk GPU, modeller og tjenester"
+echo "   sudo bash agent/scripts/legg-til-node.sh --master $IP   # kjøres på en NY Jetson"
 echo "   sudo bash agent/scripts/update-jetson.sh     # oppdater senere"
+echo "   Full logg: $LOGG"
 echo -e "${GRN}────────────────────────────────────────────────${RST}"
