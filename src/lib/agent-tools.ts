@@ -251,6 +251,9 @@ Tilgjengelige verktøy:
 - mal_installer {"mal": "service-start", "parametre": {"tjeneste": "ollama"}} – tester og lagrer malen i sandkassen kun hvis testen består.
 - nett_sjekk {} eller {"subnett": "192.168.1.0/24"} – standard sjekkplan: grensesnitt/subnett, gateway, DNS, internett, ARP-naboer, lyttende porter.
 - nett_skann {} eller {"subnett": "192.168.1.0/24", "porter": true} – skanner ditt eget subnett og lister IP, MAC og vertsnavn.
+- spor_kollega {"node": "Hermes", "oppgave": "...", "kontekst": "..."} – deleger en deloppgave til en annen
+  AI-node (Hermes, OpenRouter eller annen aktiv node) og få svaret tilbake. Bruk `noder {}` for å se hvem som er ledige.
+
 
 VERKTØYREGLER (ufravikelige):
 R1. Alt som handler om DETTE nettet, DENNE maskinen eller DISSE sensorene skal hentes med
