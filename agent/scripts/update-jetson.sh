@@ -104,17 +104,13 @@ frigjor_port "$AGENT_TLS_PORT"
 frigjor_port "${JARVIS_GUI_PORT:-8080}"
 
 # ── 6. Oppdater systemd-unit hvis malen er endret ─────────────────────────────
-for unit in "$SERVICE" "$GUI_SERVICE"; do
-  mal="$APP_DIR/agent/scripts/${unit}.service"
-  [ "$unit" = "$GUI_SERVICE" ] && mal="$APP_DIR/agent/jarvis-gui.service"
-  [ -f "$mal" ] || continue
-  if [ -f "/etc/systemd/system/${unit}.service" ]; then
-    if ! cmp -s "$mal" "/etc/systemd/system/${unit}.service"; then
-      si "Oppdaterer systemd-unit for $unit"
-      cp "$mal" "/etc/systemd/system/${unit}.service"
-    fi
+AGENT_SERVICE_MAL="$APP_DIR/agent/jarvis-agent.service"
+if [ -f "$AGENT_SERVICE_MAL" ] && [ -f "/etc/systemd/system/$SERVICE.service" ]; then
+  if ! cmp -s "$AGENT_SERVICE_MAL" "/etc/systemd/system/$SERVICE.service"; then
+    si "Oppdaterer systemd-unit for $SERVICE"
+    cp "$AGENT_SERVICE_MAL" "/etc/systemd/system/$SERVICE.service"
   fi
-done
+fi
 systemctl daemon-reload
 
 # ── 7. Start tjenester ─────────────────────────────────────────────────────────
@@ -130,18 +126,8 @@ if [ -f "$ENV_FILE" ]; then
   TOKEN="$(grep -E '^AGENT_TOKEN=' "$ENV_FILE" | tail -1 | cut -d= -f2- || true)"
 fi
 
-verifiser() {
-  local url="$1"
-  local flag=""
-  [ "$url" = "https" ] && flag="-k"
-  if curl -fsS $flag -H "Authorization: Bearer $TOKEN" "${url}/api/status" >/dev/null 2>&1; then
-    return 0
-  fi
-  return 1
-}
-
 URL=""
-if [ "$AGENT_PORT" = "8443" ] || [ -f "$APP_DIR/agent/certs/agent.crt" ] || grep -q '^AGENT_TLS_CERT=' "$ENV_FILE" 2>/dev/null; then
+if [ "$AGENT_PORT" = "8443" ] || grep -q '^AGENT_TLS_CERT=' "$ENV_FILE" 2>/dev/null; then
   # Prøv HTTPS først
   LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
   LAN_IP="${LAN_IP:-127.0.0.1}"
@@ -171,6 +157,7 @@ else
   echo "Rull tilbake ved behov:"
   echo "  sudo cp -a $BACKUP/data/. $DATA_DIR/"
   echo "  sudo cp -a $BACKUP/agent.env $ENV_FILE"
+  [ -f "$BACKUP/$SERVICE.service" ] && echo "  sudo cp -a $BACKUP/$SERVICE.service /etc/systemd/system/"
   echo "  sudo systemctl restart $SERVICE"
   exit 1
 fi
@@ -189,4 +176,5 @@ echo ""
 echo "Rull tilbake ved behov:"
 echo "  sudo cp -a $BACKUP/data/. $DATA_DIR/"
 echo "  sudo cp -a $BACKUP/agent.env $ENV_FILE"
+[ -f "$BACKUP/$SERVICE.service" ] && echo "  sudo cp -a $BACKUP/$SERVICE.service /etc/systemd/system/"
 echo "  sudo systemctl restart $SERVICE"
