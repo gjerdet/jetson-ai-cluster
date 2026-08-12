@@ -84,9 +84,13 @@ function LoggInn() {
   const sjekkBackend = async (nyUrl?: string) => {
     if (nyUrl !== undefined) setBackendUrl(nyUrl);
     setFeil(null);
+    setTlsFeil(false);
     const r = await safe(() => backend.status());
     setStatus(r.data);
-    if (r.error) setFeil(feilTekst(r.error));
+    if (r.error) {
+      setFeil(feilTekst(r.error));
+      setTlsFeil(erTls(r.error));
+    }
   };
 
   const forstegang = status?.trengerOppsett === true || status?.brukere === 0;
@@ -95,6 +99,7 @@ function LoggInn() {
     e.preventDefault();
     setBusy(true);
     setFeil(null);
+    setTlsFeil(false);
     try {
       if (forstegang) await backend.register(epost, passord);
       else await backend.login(epost, passord);
@@ -102,6 +107,7 @@ function LoggInn() {
       await navigate({ to: "/", replace: true });
     } catch (err) {
       setFeil(feilTekst(err));
+      setTlsFeil(erTls(err));
     } finally {
       setBusy(false);
     }
