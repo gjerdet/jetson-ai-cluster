@@ -1128,6 +1128,24 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path === "/oppgave/liste" && method === "GET")
       return json(req, res, 200, { planer: listPlans({ limit: 50 }) });
 
+    if (path === "/oppgave/koe" && method === "POST") {
+      const b = await readBody(req);
+      const planId = str(b.planId, "Plan-ID", { maks: 200, min: 1 });
+      const prioritet = Number(b.prioritet ?? 0);
+      const r = await enqueuePlan(planId, { prioritet });
+      return json(req, res, 200, r);
+    }
+
+    if (path === "/oppgave/koe" && method === "GET") {
+      return json(req, res, 200, { ko: listQueue() });
+    }
+
+    if (path.startsWith("/oppgave/koe/") && method === "DELETE") {
+      const planId = decodeURIComponent(path.slice("/oppgave/koe/".length));
+      const r = removeFromQueue(planId);
+      return json(req, res, 200, r);
+    }
+
     // ---- AGI: initiativ ---------------------------------------------------
     if (path === "/initiativ" && method === "GET")
       return json(req, res, 200, initiativeStatus());

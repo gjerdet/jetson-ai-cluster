@@ -87,6 +87,28 @@ ${kontekst ? `Kontekst: ${kontekst}` : ""}`;
   return plan;
 }
 
+export async function enqueuePlan(planId, opts = {}) {
+  const concurrency = Number(opts.concurrency ?? 2);
+  const state = doc("planQueue", { items: [], active: [] });
+  if (state.items.find((q) => q.planId === planId)) return { queued: true, queue: state.items };
+  state.items.push({ planId, lagtTil: Date.now(), prioritet: Number(opts.prioritet || 0), status: "venter" });
+  persist(state);
+  return { queued: true, queue: state.items };
+}
+
+export function removeFromQueue(planId) {
+  const state = doc("planQueue", { items: [], active: [] });
+  const before = state.items.length;
+  state.items = state.items.filter((q) => q.planId !== planId);
+  state.active = state.active.filter((q) => q.planId !== planId);
+  persist(state);
+  return { fjernet: before - state.items.length };
+}
+
+export function listQueue() {
+  return doc("planQueue", { items: [], active: [] });
+}
+
 export function cancelPlan(id) {
   const d = db();
   const plan = d.list.find((p) => p.id === id);
