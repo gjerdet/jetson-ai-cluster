@@ -91,8 +91,24 @@ ${minneKontekst ? `Relevant minne:\n${minneKontekst}` : ""}`;
 export async function evaluateChatReply({ spørsmål, svar, verktøy = [] }) {
   const cfg = doc("settings", {});
   const threshold = Number(cfg.evaluatorThreshold) || 8;
-  return evaluate({ spørsmål, svar, verktøy, threshold });
+  let ev = await evaluate({ spørsmål, svar, verktøy, threshold });
+  if (ev && (ev.score === null || ev.score < 7)) {
+    try {
+      const raw1 = await askAi(`${prompt}
+
+Forsøk 2: forbedre svaret basert på kritikken. Svar KUN med JSON.`, {
+        timeoutMs: 30_000,
+        temperature: 0.7,
+      });
+      const ev2 = parseEvaluation(raw1);
+      if (ev2.score > ev.score) return ev2;
+    } catch (e) {
+      // Ignorer retry-feil
+    }
+  }
+  return ev;
 }
+
 
 export function clearEvaluations() {
   persist({ list: [] });

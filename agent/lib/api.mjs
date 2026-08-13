@@ -321,6 +321,14 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path === "/auth/me") return json(req, res, 200, { user });
 
     // ---- lokale verktøy på samme Jetson som backend-en -------------------
+    if (path === "/verktoy/ping" && method === "POST") {
+      const b = await readBody(req);
+      const host = str(b.host || "", "Host", { maks: 200, min: 1 });
+      const antall = Number(b.antall ?? 2);
+      const timeout = Number(b.timeout ?? 5);
+      const r = await deps.runPing({ host, antall, timeout });
+      return json(req, res, 200, r);
+    }
     // Kjøres gjennom det innloggede API-et, slik at HUD-en ikke trenger et
     // separat «lokal agent»-oppsett eller et ekstra agent-token.
     if ((path === "/verktoy/nett-sjekk" || path === "/verktoy/nett-skann") && method === "POST") {
