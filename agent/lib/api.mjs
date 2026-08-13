@@ -1098,7 +1098,9 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const b = await readBody(req);
       const mål = str(b.mål ?? b.oppgave ?? "", "Mål", { maks: 1000, min: 1 });
       const plan = await createPlan(mål, { kilde: "agent", kontekst: b.kontekst || "" });
-      return json(req, res, 200, { plan });
+      // Auto-kjør planen umiddelbart etter opprettelse
+      runPlanUntilDone(plan.id, Number(b.maks ?? 10)).catch(() => {});
+      return json(req, res, 200, { plan, autoKjort: true });
     }
     if (path === "/oppgave/kjor" && method === "POST") {
       const b = await readBody(req);

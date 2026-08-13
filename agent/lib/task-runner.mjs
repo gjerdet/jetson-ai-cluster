@@ -25,7 +25,15 @@ export async function runPlanOnce(planId) {
 
   try {
     if (step.type === "verktøy") {
-      resultat = await askAi(`Kjør verktøy for: ${step.beskrivelse}. Beskriv hva du gjorde og resultatet.`, { temperature: 0.2 });
+      const bilde = step.beskrivelse.toLowerCase();
+      if (bilde.includes("ping")) {
+        const host = bilde.match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/)?.[0] || "192.168.1.1";
+        const antall = Number(bilde.match(/antall\s*:?\s*(\d+)/)?.[1] || 2);
+        const timeout = Number(bilde.match(/timeout\s*:?\s*(\d+)/)?.[1] || 5);
+        resultat = await runPing({ host, antall, timeout });
+      } else {
+        resultat = await askAi(`Kjør verktøy for: ${step.beskrivelse}. Beskriv hva du gjorde og resultatet.`, { temperature: 0.2 });
+      }
     } else if (step.type === "sjekk") {
       resultat = await askAi(`Hent oppdatert data for: ${step.beskrivelse}. Svar konkret og faktabasert.`, { temperature: 0.2 });
     } else {
