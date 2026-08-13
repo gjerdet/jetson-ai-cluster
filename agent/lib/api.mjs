@@ -382,7 +382,8 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
     // ---- AI-node for Telegram-boten -------------------------------------
     if (path === "/ai") {
-      const base = { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1", apiKey: "", system: "" };
+      const openRouterKey = process.env.OPENROUTER_API_KEY ? decryptSecret(process.env.OPENROUTER_API_KEY) : "";
+      const base = { baseUrl: openRouterKey ? "https://openrouter.ai/api/v1" : "http://127.0.0.1:11434/v1", model: openRouterKey ? "Qwen/Qwen3-8B" : "llama3.1", apiKey: "", system: "" };
       if (method === "GET") {
         const cfg = doc("ai", base);
         // API-nøkkelen forlater aldri serveren – kun maskert form.
@@ -434,10 +435,11 @@ export async function handleApi(req, res, route, url, deps = {}) {
     // ---- Testkobling mot en AI-node (Hermes, ChatGPT, Ollama …) ---------
     if (path === "/ai/test" && method === "POST") {
       const b = await readBody(req);
+      const envKey = process.env.OPENROUTER_API_KEY ? decryptSecret(process.env.OPENROUTER_API_KEY) : "";
       const cfg = doc("ai", { baseUrl: "", model: "", apiKey: "" });
-      const baseUrl = String(b.baseUrl || cfg.baseUrl || "").trim().replace(/\/+$/, "");
+      const baseUrl = String(b.baseUrl || cfg.baseUrl || (envKey ? "https://openrouter.ai/api/v1" : "")).trim().replace(/\/+$/, "");
       const model = String(b.model || cfg.model || "").trim();
-      const key = b.apiKey ? String(b.apiKey) : decryptSecret(cfg.apiKey);
+      const key = b.apiKey ? String(b.apiKey) : (envKey || decryptSecret(cfg.apiKey));
       if (!baseUrl) return json(req, res, 400, { ok: false, error: "Adressen mangler." });
       const start = Date.now();
       const modeller = await listModels(baseUrl, { apiKey: key }).catch(() => []);
@@ -476,9 +478,10 @@ export async function handleApi(req, res, route, url, deps = {}) {
       if (!meldinger.length) return json(req, res, 400, { error: "Ingen meldinger" });
       const cfg = doc("ai", { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1", apiKey: "", system: "" });
       // En nøkkel som følger med forespørselen (f.eks. OpenRouter fra HUD-en) vinner.
+      const envKey = process.env.OPENROUTER_API_KEY ? decryptSecret(process.env.OPENROUTER_API_KEY) : "";
       const key = (typeof b.apiKey === "string" && b.apiKey.trim())
         ? b.apiKey.trim()
-        : decryptSecret(cfg.apiKey);
+        : (envKey || decryptSecret(cfg.apiKey));
       const personalityPrompt = buildPersonalityPrompt(cfg.personality) || cfg.system || "";
       const harSystem = meldinger.some((m) => m && m.role === "system");
       const systemMelding = personalityPrompt && !harSystem
@@ -511,7 +514,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const fallbackNode = {
         id: "ai-standard",
         navn: "AI-node",
-        baseUrl: str(b.baseUrl || cfg.baseUrl, "Adresse", { maks: 300 }).replace(/\/+$/, ""),
+        baseUrl: str(b.baseUrl || cfg.baseUrl || (envKey ? "https://openrouter.ai/api/v1" : ""), "Adresse", { maks: 300 }).replace(/\/+$/, ""),
         modell: str(b.model || cfg.model, "Modell", { maks: 120 }),
         vekt: 1,
       };
@@ -528,7 +531,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
         const model = str(b.model || node.modell || cfg.model, "Modell", { maks: 120 });
         const ctrl = new AbortController();
         // Første svar fra en kald modell på Jetson kan ta flere minutter.
-        const grenseMs = Math.max(30_000, Number(cfg.timeoutMs) || 300_000);
+        const grenseMs = Math.max(15_000, Number(cfg.timeoutMs) || 60_000);
         const timer = setTimeout(() => ctrl.abort(), grenseMs + 15_000);
         try {
           const resultat = await callChatEndpoint({

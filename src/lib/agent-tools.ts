@@ -101,6 +101,20 @@ export const TOOL_CATALOG: ToolSpec[] = [
     builtin: true,
   },
   {
+    name: "evaluering",
+    category: "system",
+    summary: "Vurder et AI-svar eller verktøyresultat 0-10 og få forbedringsforslag.",
+    args: '{"sporsmal": "...", "svar": "...", "verktoy": ["ping"]}',
+    builtin: true,
+  },
+  {
+    name: "ping",
+    category: "system",
+    summary: "Sjekk om en vert er oppe via ICMP eller TCP-fallback.",
+    args: '{"host": "192.168.1.1", "antall": 2, "timeout": 5}',
+    builtin: true,
+  },
+  {
     name: "verktoy_liste",
     category: "verktoy",
     summary: "Lister alle egendefinerte verktøy som er laget.",
@@ -240,6 +254,8 @@ Tilgjengelige verktøy:
 - verktoy_liste {} – dine egendefinerte verktøy.
 - verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
 - verktoy_slett {"navn": "hent_vaer"} – slett et verktøy du har laget.
+- ping {"host": "192.168.1.1", "antall": 2, "timeout": 5} – bekreft at en vert er oppe med ICMP eller TCP-fallback.
+- evaluering {"sporsmal": "...", "svar": "...", "verktoy": ["ping"]} – vurder kvalitet på eget eller andres svar.
 - agent_status {} – fersk maskinvare- og driftsstatus for lokal node (kortmodell, CPU, GPU, OS, last, minne, sandkasse).
 - os_kjor {"kommando": "df", "args": ["-h"]} – kjør hvitelistet OS-kommando via lokal agent.
 - skript_lag {"navn": "test.py", "innhold": "..."} – lagre skript i sandkassen.
@@ -291,6 +307,11 @@ Trinn 4 – identifiser: slå sammen IP, MAC, vertsnavn og eventuelle åpne port
          Trenger du mer (OUI-oppslag, banner, ruteroppslag), skriv et skript med skript_test.
 Trinn 5 – rapporter: antall enheter, tabellen, og hva som er ukjent/mistenkelig.
 Feiler et trinn: rett kallet (annet subnett, annen kommando) og prøv igjen før du gir opp.
+
+PLANLEGGING (før verktøy):
+- Hvis oppgaven kan deles i steg, tenk først: hva er målet, hvilke verktøy trenger du, og i hvilken rekkefølge?
+- Skriv et lite planleggingskall: VERKTØY: planlegg {"oppgave": "...", "steg": ["..."]} – agenten vil deretter følge stegene.
+- Hvis du allerede vet svaret uten verktøy, svar direkte uten planlegging.
 
 ARBEIDSMÅTE (viktigst av alt): du er en handlende agent, ikke en chatbot.
 1. Får du en oppgave – utfør den. Ikke spør om lov, ikke foreslå at «vi kan undersøke sammen»,
@@ -389,6 +410,24 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
 
   if (call.name === "enheter") {
     return deviceBrief(config) || "Ingen enheter registrert.";
+  }
+
+  if (call.name === "ping") {
+    const host = str(call.args["host"] ?? call.args["vert"] ?? "");
+    const antall = Number(call.args["antall"] ?? call.args["count"] ?? 2);
+    const timeout = Number(call.args["timeout"] ?? 5);
+    if (!host) return "Mangler host i ping-kall.";
+    const r = await backend.ping(host, isNaN(antall) ? 2 : antall, isNaN(timeout) ? 5 : timeout);
+    return `ping ${host}: ${r.ok ? "OK" : "FEILET"} (${r.stdout || r.stderr || "ukend"})`;
+  }
+
+  if (call.name === "noder") {
+    const host = str(call.args["host"] ?? call.args["vert"] ?? "");
+    const antall = Number(call.args["antall"] ?? call.args["count"] ?? 2);
+    const timeout = Number(call.args["timeout"] ?? 5);
+    if (!host) return "Mangler host i ping-kall.";
+    const r = await backend.ping(host, isNaN(antall) ? 2 : antall, isNaN(timeout) ? 5 : timeout);
+    return `ping ${host}: ${r.ok ? "OK" : "FEILET"} (${r.stdout || r.stderr || "ukend"})`;
   }
 
   if (call.name === "noder") {

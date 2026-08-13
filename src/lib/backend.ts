@@ -346,6 +346,12 @@ export const backend = {
       { method: "POST", body: JSON.stringify({ subnett, porter }) },
       { timeoutMs: porter ? 190_000 : 100_000, retries: 0 },
     ),
+  ping: (host: string, antall = 2, timeout = 5) =>
+    call<BackendToolResult>(
+      "/verktoy/ping",
+      { method: "POST", body: JSON.stringify({ host, antall, timeout }) },
+      { timeoutMs: 20_000, retries: 0 },
+    ),
   brukere: () => call<{ brukere: BackendUser[] }>(ROUTES.users!).then((r) => r.brukere),
   slettBruker: (id: string) => call(`${ROUTES.users}/${encodeURIComponent(id)}`, { method: "DELETE" }),
   byttPassord: (passord: string, brukerId?: string) =>
@@ -400,6 +406,11 @@ export const backend = {
   sisteMaalinger: () =>
     call<{ emner: Record<string, { value: unknown; time: number }> }>(ROUTES.samplesLatest!).then((r) => r.emner),
 
+  evaluering: (sporsmal: string, svar: string, verktoy: string[] = []) =>
+    call<{ evaluering: any }>("/evalueringer", {
+      method: "POST",
+      body: JSON.stringify({ sporsmal, svar, verktoy }),
+    }),
   hentRegler: () => call<{ regler: BackendRule[]; status: BackendStatus["regler"] }>(ROUTES.rules!),
   lagreRegler: (regler: BackendRule[]) =>
     call<{ regler: BackendRule[] }>(ROUTES.rules!, { method: "PUT", body: JSON.stringify({ regler }) }, { retries: 0 }),
