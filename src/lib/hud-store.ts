@@ -515,17 +515,17 @@ export const defaultConfig: HudConfig = {
   nodes: [
     {
       id: "node-1",
-      name: "JETSON-01",
-      baseUrl: "http://192.168.1.50:11434/v1",
-      model: "llama3.2",
+      name: "JARVIS-CORE",
+      baseUrl: "https://192.168.12.5:8443",
+      model: "llama3.1",
       role: "primary",
       enabled: true,
     },
     {
       id: "node-2",
-      name: "HERMES",
-      baseUrl: "http://192.168.1.51:11434/v1",
-      model: "hermes3",
+      name: "OPENROUTER",
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4o-mini",
       role: "worker",
       enabled: false,
     },

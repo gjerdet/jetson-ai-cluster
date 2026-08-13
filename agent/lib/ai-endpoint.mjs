@@ -68,10 +68,14 @@ export function erModellMangler(tekst) {
 }
 
 export function chatPayload(endpoint, { model, messages, temperature }) {
+  const payload = { model, messages, stream: false, temperature };
+  if (/openrouter\.ai/i.test(endpoint)) {
+    payload.tool_choice = 'none';
+  }
   if (/\/api\/chat$/i.test(endpoint)) {
     return { model, messages, stream: false, options: { temperature } };
   }
-  return { model, messages, stream: false, temperature };
+  return payload;
 }
 
 export function chatText(data) {
