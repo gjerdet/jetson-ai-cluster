@@ -648,6 +648,13 @@ export const backend = {
     call<{ plan: unknown }>(`/oppgave/status/${encodeURIComponent(planId)}`),
   hentOppgaveListe: () =>
     call<{ planer: unknown[] }>("/oppgave/liste"),
+  hentModeller: () =>
+    call<{ modeller: string[]; baseUrl: string }>("/modeller"),
+  velgModell: (model: string) =>
+    call<{ ok: boolean }>("/ai/test", {
+      method: "POST",
+      body: JSON.stringify({ model }),
+    }),
   koeOppgave: (planId: string, prioritet = 0, concurrency = 2) =>
     call<{ queued: boolean; queue: unknown[] }>("/oppgave/koe", {
       method: "POST",

@@ -442,6 +442,15 @@ export async function handleApi(req, res, route, url, deps = {}) {
     }
 
     // ---- Testkobling mot en AI-node (Hermes, ChatGPT, Ollama …) ---------
+    if (path === "/modeller" && method === "GET") {
+      const envKey = process.env.OPENROUTER_API_KEY ? decryptSecret(process.env.OPENROUTER_API_KEY) : "";
+      const cfg = doc("ai", { baseUrl: "", model: "", apiKey: "" });
+      const baseUrl = String(cfg.baseUrl || (envKey ? "https://openrouter.ai/api/v1" : "")).trim().replace(/\/+$/, "");
+      const key = envKey || decryptSecret(cfg.apiKey);
+      const modeller = baseUrl ? await listModels(baseUrl, { apiKey: key }).catch(() => []) : [];
+      return json(req, res, 200, { modeller, baseUrl });
+    }
+
     if (path === "/ai/test" && method === "POST") {
       const b = await readBody(req);
       const envKey = process.env.OPENROUTER_API_KEY ? decryptSecret(process.env.OPENROUTER_API_KEY) : "";

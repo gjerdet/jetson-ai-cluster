@@ -1,4 +1,5 @@
 import { TestKobling } from "./TestKobling";
+import { ModelSelector } from "./settings/ModelSelector";
 import { useState } from "react";
 import { debugOn, setDebug } from "@/lib/debug-log";
 import {
@@ -763,6 +764,7 @@ export function SettingsPanel({
                 Velg f.eks. Hermes-noden her, så tar den chat- og verktøyoppgavene. De andre nodene
                 brukes som reserve hvis den ikke svarer.
               </p>
+              <ModelSelector config={config} update={update} />
             </div>
 
 
