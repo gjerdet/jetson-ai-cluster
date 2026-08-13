@@ -633,6 +633,21 @@ export const backend = {
       method: "POST",
       body: JSON.stringify({ id, args }),
     }),
+
+  planleggOppgave: (mål: string, kontekst?: string) =>
+    call<{ plan: unknown }>("/oppgave/planlegg", {
+      method: "POST",
+      body: JSON.stringify({ mål, kontekst }),
+    }),
+  kjorOppgave: (planId: string, maks?: number) =>
+    call<{ ok: boolean; resultater: unknown[]; plan: unknown }>("/oppgave/kjør", {
+      method: "POST",
+      body: JSON.stringify({ planId, maks }),
+    }),
+  hentOppgaveStatus: (planId: string) =>
+    call<{ plan: unknown }>(`/oppgave/status/${encodeURIComponent(planId)}`),
+  hentOppgaveListe: () =>
+    call<{ planer: unknown[] }>("/oppgave/liste"),
 };
 
 export type VersionInfo = {

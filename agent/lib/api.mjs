@@ -95,6 +95,7 @@ import {
   listGeneratedTools,
   testTool,
 } from "./toolgen.mjs";
+import { runPlanOnce, runPlanUntilDone } from "./task-runner.mjs";
 
 /** Gjeldende innstillinger = standardverdier overstyrt av lagrede verdier. */
 const currentSettings = () => ({ ...SETTINGS_DEFAULTS, ...(doc("settings", {}) || {}) });
@@ -1092,6 +1093,30 @@ export async function handleApi(req, res, route, url, deps = {}) {
       });
       return json(req, res, 200, { evaluering: ev });
     }
+
+    if (path === "/oppgave/planlegg" && method === "POST") {
+      const b = await readBody(req);
+      const mål = str(b.mål ?? b.oppgave ?? "", "Mål", { maks: 1000, min: 1 });
+      const plan = await createPlan(mål, { kilde: "agent", kontekst: b.kontekst || "" });
+      return json(req, res, 200, { plan });
+    }
+    if (path === "/oppgave/kjor" && method === "POST") {
+      const b = await readBody(req);
+      const planId = str(b.planId, "Plan-ID", { maks: 200, min: 1 });
+      const plan = getPlan(planId);
+      if (!plan) return json(req, res, 404, { ok: false, error: "Plan ikke funnet." });
+      const resultater = await runPlanUntilDone(planId, Number(b.maks ?? 10));
+      const oppdatert = getPlan(planId);
+      return json(req, res, 200, { ok: true, resultater, plan: oppdatert });
+    }
+    if (path.match(/^\/oppgave\/status\/[^/]+$/) && method === "GET") {
+      const planId = String(path.split("/")[3] || "");
+      const plan = getPlan(planId);
+      if (!plan) return json(req, res, 404, { ok: false, error: "Plan ikke funnet." });
+      return json(req, res, 200, { plan });
+    }
+    if (path === "/oppgave/liste" && method === "GET")
+      return json(req, res, 200, { planer: listPlans({ limit: 50 }) });
 
     // ---- AGI: initiativ ---------------------------------------------------
     if (path === "/initiativ" && method === "GET")
