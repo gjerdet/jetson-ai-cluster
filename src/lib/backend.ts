@@ -640,7 +640,7 @@ export const backend = {
       body: JSON.stringify({ mål, kontekst }),
     }),
   kjorOppgave: (planId: string, maks?: number) =>
-    call<{ ok: boolean; resultater: unknown[]; plan: unknown }>("/oppgave/kjør", {
+    call<{ ok: boolean; resultater: unknown[]; plan: unknown }>("/oppgave/kjor", {
       method: "POST",
       body: JSON.stringify({ planId, maks }),
     }),
@@ -648,6 +648,15 @@ export const backend = {
     call<{ plan: unknown }>(`/oppgave/status/${encodeURIComponent(planId)}`),
   hentOppgaveListe: () =>
     call<{ planer: unknown[] }>("/oppgave/liste"),
+  koeOppgave: (planId: string, prioritet = 0, concurrency = 2) =>
+    call<{ queued: boolean; queue: unknown[] }>("/oppgave/koe", {
+      method: "POST",
+      body: JSON.stringify({ planId, prioritet, concurrency }),
+    }),
+  hentOppgaveKoe: () =>
+    call<{ ko: { items: unknown[]; active: unknown[] } }>("/oppgave/koe"),
+  fjernFraKoe: (planId: string) =>
+    call<{ fjernet: number }>(`/oppgave/koe/${encodeURIComponent(planId)}`, { method: "DELETE" }),
 };
 
 export type VersionInfo = {
