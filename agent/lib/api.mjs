@@ -536,10 +536,11 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
       // Klyngenodene utgjør poolen. Er klyngen tom, brukes den faste AI-noden.
       const registrerte = chatNoder(doc("nodes", { list: [] }).list);
+      const fallbackBase = String(cfg.baseUrl || (envKey ? "https://openrouter.ai/api/v1" : "")).trim().replace(/\/+$/, "");
       const fallbackNode = {
         id: "ai-standard",
         navn: "AI-node",
-        baseUrl: str(b.baseUrl || cfg.baseUrl || (envKey ? "https://openrouter.ai/api/v1" : ""), "Adresse", { maks: 300 }).replace(/\/+$/, ""),
+        baseUrl: fallbackBase,
         modell: str(b.model || cfg.model, "Modell", { maks: 120 }),
         vekt: 1,
       };
@@ -547,7 +548,21 @@ export async function handleApi(req, res, route, url, deps = {}) {
       // Er noden allerede registrert i klyngen, balanseres det som før.
       // Ellers brukes adressen klienten sendte med (HUD-nodene).
       const kjentNode = typeof b.nodeId === "string" && registrerte.some((n) => n.id === b.nodeId);
-      const pool = !kjentNode && (b.baseUrl || !registrerte.length) ? [fallbackNode] : registrerte;
+      // Robusthet: hvis klienten sender en baseUrl som ikke er i registrerte noder,
+      // legg den til som en ekstra fallback-node uten å erstatte poolen.
+      const klientBase = typeof b.baseUrl === "string" ? b.baseUrl.trim().replace(/\/+$/, "") : "";
+      const klientNode = klientBase
+        ? {
+            id: "klient-" + Math.random().toString(36).slice(2, 8),
+            navn: "HUD-valg",
+            baseUrl: klientBase,
+            modell: str(b.model || cfg.model, "Modell", { maks: 120 }),
+            vekt: 1,
+          }
+        : null;
+      const pool = [...registrerte];
+      if (klientNode && !kjentNode) pool.push(klientNode);
+      if (!pool.length) pool.push(fallbackNode);
       const oppgave = typeof b.oppgave === "string" ? b.oppgave : "chat";
       const foretrukket = typeof b.nodeId === "string" ? b.nodeId : "";
 
@@ -586,6 +601,30 @@ export async function handleApi(req, res, route, url, deps = {}) {
           ...(forsok.length ? { hoppetOver: forsok } : {}),
         });
       } catch (e) {
+        // Fallback til OpenRouter hvis lokal pool feiler og vi har nøkkel.
+        const openRouterBase = "https://openrouter.ai/api/v1";
+        const openRouterKey = envKey || key;
+        if (openRouterKey && baseUrl !== openRouterBase) {
+          try {
+            const fallback = await callChatEndpoint({
+              baseUrl: openRouterBase,
+              model: chosenModel || "openai/gpt-4o-mini",
+              messages,
+              temperature: Number(b.temperatur) || 0.7,
+              apiKey: openRouterKey,
+              timeoutMs: 45_000,
+            });
+            return json(req, res, 200, {
+              svar: fallback.svar,
+              model: fallback.model,
+              node: openRouterBase,
+              nodeId: "openrouter-fallback",
+              nodeNavn: "OpenRouter",
+              ms: 0,
+              hoppetOver: forsok,
+            });
+          } catch {}
+        }
         return json(req, res, 502, {
           error: `Nådde ingen AI-node: ${/abort/i.test(e?.message || "") ? "modellen svarte ikke i tide – den laster trolig fortsatt. Prøv igjen om et minutt, eller bruk en mindre modell." : e?.message || "ukjent"}`,
           kode: "unavailable",
