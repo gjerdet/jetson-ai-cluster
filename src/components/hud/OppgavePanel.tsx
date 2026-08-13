@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ClipboardList, Play, Trash2, Refresh, Plus } from "lucide-react";
+import { ClipboardList, Play, Trash2, RefreshCw, Plus } from "lucide-react";
 import { backend } from "@/lib/backend";
 
 type Plan = {
@@ -77,7 +77,7 @@ export function OppgavePanel() {
           <Plus className="size-3" /> Opprett
         </button>
         <button onClick={hentPlaner} className="hud-btn flex items-center gap-1">
-          <Refresh className="size-3" /> Oppdater
+          <RefreshCw className="size-3" /> Oppdater
         </button>
       </div>
 

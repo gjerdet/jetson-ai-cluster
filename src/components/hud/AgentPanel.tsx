@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Wrench, Bug, Route, Copy, Trash2, Download, Search } from "lucide-react";
+import { Wrench, Bug, Route, Copy, Trash2, Download, Search, ClipboardList } from "lucide-react";
 import { TOOL_CATALOG, type ToolSpec } from "@/lib/agent-tools";
+import { OppgavePanel } from "./OppgavePanel";
 import type { HudConfig } from "@/lib/hud-store";
 import {
   clearDebug,
@@ -90,7 +91,7 @@ function Rad({ e }: { e: DebugEntry }) {
 }
 
 export function AgentPanel({ config }: { config: HudConfig }) {
-  const [tab, setTab] = useState<"katalog" | "feilsok" | "ruting">("katalog");
+  const [tab, setTab] = useState<"katalog" | "feilsok" | "ruting" | "oppgave">("katalog");
   const [q, setQ] = useState("");
   const [test, setTest] = useState("");
   const dbg = useDebugLog();
@@ -121,6 +122,7 @@ export function AgentPanel({ config }: { config: HudConfig }) {
             ["katalog", "VERKTØYKATALOG", Wrench],
             ["feilsok", "FEILSØKING", Bug],
             ["ruting", "MODELL-RUTING", Route],
+            ["oppgave", "OPPGAVER", ClipboardList],
           ] as const
         ).map(([id, label, Icon]) => (
           <button
@@ -322,6 +324,9 @@ export function AgentPanel({ config }: { config: HudConfig }) {
             ) : null}
           </div>
         </div>
+      ) : null}
+      {tab === "oppgave" ? (
+        <OppgavePanel />
       ) : null}
     </div>
   );
