@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { doc, saveDoc } from "./store.mjs";
 import { askJson } from "./ai.mjs";
 import { remember } from "./memory.mjs";
+import { listGeneratedTools } from "./toolgen.mjs";
 
 const STATUS = ["venter", "aktiv", "fullført", "feilet", "påvent"];
 
@@ -39,14 +40,23 @@ export async function createPlan(mål, { kilde = "bruker", kontekst = "" } = {})
     logg: [],
   };
 
+  const verktoy = listGeneratedTools();
+  const verktoyListe = verktoy.length
+    ? verktoy.map(t => `- ${t.name}: ${t.description}`).join("\n")
+    : "- Ingen genererte verktøy ennå.";
+
   const prompt = `Bryt følgende mål ned i konkrete deloppgaver. Hver oppgave skal ha:
 - id (tall, 1,2,3...)
 - navn (kort)
 - beskrivelse
 - avhengigheter (liste med id-er, tom for første steg)
 - type: "ai" (krever AI-svar), "verktoy" (kjør et verktøy), "sjekk" (hent data), eller "vent" (vent på bruker/betingelse)
+- valgfritt: "verktøy" med navn og argumenter hvis type er "verktoy"
 
-Svar KUN med JSON på formen: {"steg": [{"id":1,"navn":"...","beskrivelse":"...","avhengigheter":[],"type":"..."}]}.
+Tilgjengelige verktøy:
+${verktoyListe}
+
+Svar KUN med JSON på formen: {"steg": [{"id":1,"navn":"...","beskrivelse":"...","avhengigheter":[],"type":"...","verktøy":{"navn":"...","args":{}}}]}.
 
 Mål: ${mål}
 ${kontekst ? `Kontekst: ${kontekst}` : ""}`;
@@ -59,6 +69,7 @@ ${kontekst ? `Kontekst: ${kontekst}` : ""}`;
     beskrivelse: String(s.beskrivelse || "").slice(0, 500),
     avhengigheter: Array.isArray(s.avhengigheter) ? s.avhengigheter.map(String) : [],
     type: ["ai", "verktoy", "sjekk", "vent"].includes(s.type) ? s.type : "ai",
+    verktøy: s.verktøy && typeof s.verktøy === "object" ? s.verktøy : null,
     status: "venter",
     resultat: null,
   }));

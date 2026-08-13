@@ -5,6 +5,7 @@
 import { listPlans, getPlan, nesteSteg, oppdaterSteg, markerPlanFerdig, loggPlan } from "./planner.mjs";
 import { evaluateChatReply } from "./evaluator.mjs";
 import { askAi, askJson } from "./ai.mjs";
+import { runPing } from "./ping-tool.mjs";
 
 export async function runPlanOnce(planId) {
   const plan = getPlan(planId);
@@ -25,11 +26,11 @@ export async function runPlanOnce(planId) {
 
   try {
     if (step.type === "verktøy") {
-      const bilde = step.beskrivelse.toLowerCase();
-      if (bilde.includes("ping")) {
-        const host = bilde.match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/)?.[0] || "192.168.1.1";
-        const antall = Number(bilde.match(/antall\s*:?\s*(\d+)/)?.[1] || 2);
-        const timeout = Number(bilde.match(/timeout\s*:?\s*(\d+)/)?.[1] || 5);
+      const navn = (step.verktøy?.navn || step.beskrivelse || "").toLowerCase();
+      if (navn.includes("ping")) {
+        const host = String(step.verktøy?.args?.host || step.beskrivelse.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/)?.[0] || "192.168.1.1");
+        const antall = Number(step.verktøy?.args?.antall || step.beskrivelse.match(/antall\s*:?\s*(\d+)/)?.[1] || 2);
+        const timeout = Number(step.verktøy?.args?.timeout || step.beskrivelse.match(/timeout\s*:?\s*(\d+)/)?.[1] || 5);
         resultat = await runPing({ host, antall, timeout });
       } else {
         resultat = await askAi(`Kjør verktøy for: ${step.beskrivelse}. Beskriv hva du gjorde og resultatet.`, { temperature: 0.2 });
