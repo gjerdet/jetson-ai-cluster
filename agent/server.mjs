@@ -26,6 +26,7 @@ import { MqttClient, parseMqttUrl } from "./lib/mqtt.mjs";
 import { createMqttHealth } from "./lib/mqtt-health.mjs";
 import { SETTINGS_DEFAULTS } from "./lib/contract.mjs";
 
+import { runPing } from "./lib/ping-tool.mjs";
 import { evaluate, rulesStatus } from "./lib/rules.mjs";
 import { notifyAll, startTelegram } from "./lib/telegram.mjs";
 import { corsBlocked, corsHeaders, rateLimit, validateEnv, withRequestLog, allowedOrigins, logDir } from "./lib/security.mjs";
@@ -497,6 +498,7 @@ const apiDeps = {
   mqttStatus,
   mqttHelse,
   restartMqtt: startMqtt,
+  runPing,
   rulesStatus,
   tls: !!TLS_OPTIONS,
   runNetworkTool: async ({ type, subnet, ports }) => {
