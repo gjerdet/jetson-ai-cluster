@@ -94,9 +94,13 @@ export async function evaluateChatReply({ spørsmål, svar, verktøy = [] }) {
   let ev = await evaluate({ spørsmål, svar, verktøy, threshold });
   if (ev && (ev.score === null || ev.score < 7)) {
     try {
+      const tidligere = listEvaluations(3).filter(e => e.spørsmål === spørsmål).slice(0, 2);
+      const tidligereFeil = tidligere.map(e => `- Forrige forsøk (${e.score}/10): ${e.problemer}. Forbedring: ${e.forbedring}`).join("\n");
       const raw1 = await askAi(`${prompt}
 
-Forsøk 2: forbedre svaret basert på kritikken. Svar KUN med JSON.`, {
+Tidligere feil ved lignende spørsmål:\n${tidligereFeil || "Ingen tidligere feil."}
+
+Forsøk 2: forbedre svaret basert på kritikken og tidligere feil. Svar KUN med JSON.`, {
         timeoutMs: 30_000,
         temperature: 0.7,
       });
@@ -108,6 +112,7 @@ Forsøk 2: forbedre svaret basert på kritikken. Svar KUN med JSON.`, {
   }
   return ev;
 }
+
 
 
 export function clearEvaluations() {
