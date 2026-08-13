@@ -500,6 +500,13 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const key = (typeof b.apiKey === "string" && b.apiKey.trim())
         ? b.apiKey.trim()
         : (envKey || decryptSecret(cfg.apiKey));
+      const baseUrl = String(b.baseUrl || cfg.baseUrl || (envKey ? "https://openrouter.ai/api/v1" : "")).trim().replace(/\/+$/, "");
+      const model = String(b.model || cfg.model || "").trim();
+      let chosenModel = model;
+      if (!chosenModel && /openrouter\.ai/i.test(baseUrl)) {
+        const modeller = await listModels(baseUrl, { apiKey: key }).catch(() => []);
+        if (modeller.length) chosenModel = modeller[0];
+      }
       const personalityPrompt = buildPersonalityPrompt(cfg.personality) || cfg.system || "";
       const harSystem = meldinger.some((m) => m && m.role === "system");
       const systemMelding = personalityPrompt && !harSystem
@@ -546,7 +553,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
       const kall = async (node) => {
         const baseUrl = String(node.baseUrl).replace(/\/+$/, "");
-        const model = str(b.model || node.modell || cfg.model, "Modell", { maks: 120 });
+        const model = str(b.model || node.modell || cfg.model || chosenModel, "Modell", { maks: 120 });
         const ctrl = new AbortController();
         // Første svar fra en kald modell på Jetson kan ta flere minutter.
         const grenseMs = Math.max(15_000, Number(cfg.timeoutMs) || 60_000);
