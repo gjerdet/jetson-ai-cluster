@@ -32,6 +32,16 @@ export function OppgavePanel() {
     hentKoe();
   }, []);
 
+  // Auto-kjør neste ventende oppgave når det er ledig kapasitet
+  useEffect(() => {
+    if (!koe.items.length) return;
+    if (koe.active.length) return;
+    const neste = koe.items.find((i: any) => i.status === "venter");
+    if (!neste) return;
+    const t = setTimeout(() => backend.kjorOppgave(neste.planId), 1500);
+    return () => clearTimeout(t);
+  }, [koe]);
+
   const opprettOgKjor = async () => {
     if (!input.trim()) return;
     setLoading(true);
