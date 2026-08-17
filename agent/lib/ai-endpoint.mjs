@@ -36,6 +36,7 @@ export function statusRaad(status, endpoint) {
     return sky ? "API-nøkkelen mangler eller er ugyldig." : "Noden avviste nøkkelen (401/403).";
   }
   if (status === 402) return "Kontoen mangler kreditt hos leverandøren.";
+  if (status === 400 && sky) return "Forespørselen ble avvist – sjekk modell-id (små bokstaver, «leverandør/modell»).";
   if (status === 404) return sky ? "Ukjent modellnavn – bruk formatet «leverandør/modell», f.eks. «openai/gpt-4o-mini»." : "Endepunktet finnes ikke på denne adressen.";
   if (status === 429) return "For mange forespørsler – vent litt og prøv igjen.";
   return "";
