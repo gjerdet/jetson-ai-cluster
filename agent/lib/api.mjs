@@ -392,7 +392,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
     // ---- AI-node for Telegram-boten -------------------------------------
     if (path === "/ai") {
       const openRouterKey = process.env.OPENROUTER_API_KEY ? decryptSecret(process.env.OPENROUTER_API_KEY) : "";
-      const base = { baseUrl: openRouterKey ? "https://openrouter.ai/api/v1" : "http://127.0.0.1:11434/v1", model: openRouterKey ? "Qwen/Qwen3-8B" : "llama3.1", apiKey: "", system: "" };
+      const base = { baseUrl: openRouterKey ? "https://openrouter.ai/api/v1" : "http://127.0.0.1:11434/v1", model: openRouterKey ? "qwen/qwen3-8b" : "llama3.1", apiKey: "", system: "" };
       if (method === "GET") {
         const cfg = doc("ai", base);
         // API-nøkkelen forlater aldri serveren – kun maskert form.
