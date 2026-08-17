@@ -71,15 +71,27 @@ export async function testAiDirekte(o: {
     if (!res.ok) {
       const presetVerktoy =
         /is not available for the 'chat-completions' API/i.test(tekst) || /openrouter:bash/i.test(tekst);
-      const raad = presetVerktoy
-        ? "OpenRouter-presetet har verktøy (f.eks. «bash») som kun støttes av Anthropic-API-et. Fjern verktøyene i presetet på openrouter.ai, eller bytt til en vanlig modell-id (f.eks. «qwen/qwen3-8b») i stedet for «@preset/…»."
-        : "";
+      let raad = "";
+      if (presetVerktoy) {
+        raad =
+          "OpenRouter-presetet har verktøy (f.eks. «bash») som kun støttes av Anthropic-API-et. Fjern verktøyene i presetet på openrouter.ai, eller bytt til en vanlig modell-id (f.eks. «qwen/qwen3-8b») i stedet for «@preset/…».";
+      } else if (res.status === 429) {
+        raad =
+          "Modellen er midlertidig ratebegrenset hos leverandøren (gratis-poolen er full). Vent litt og prøv igjen, velg en annen modell, eller legg inn din egen leverandørnøkkel på openrouter.ai/settings/integrations. Selve nøkkelen din virker – koblingen er OK.";
+      } else if (res.status === 401 || res.status === 403) {
+        raad = "API-nøkkelen mangler eller er ugyldig.";
+      } else if (res.status === 402) {
+        raad = "Kontoen mangler kreditt hos leverandøren.";
+      } else if (res.status === 404) {
+        raad = "Ukjent modell-id – bruk formatet «leverandør/modell», f.eks. «qwen/qwen3-8b».";
+      }
       return {
         ok: false,
         endpoint,
         error: `HTTP ${res.status}${raad ? ` – ${raad}` : ""}${tekst ? ` – ${tekst.slice(0, 200)}` : ""}`,
       };
     }
+
 
     let svar = "";
     try {

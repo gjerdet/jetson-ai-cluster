@@ -41,7 +41,7 @@ export function statusRaad(status, endpoint, detail = "") {
   if (status === 402) return "Kontoen mangler kreditt hos leverandøren.";
   if (status === 400 && sky) return "Forespørselen ble avvist – sjekk modell-id (små bokstaver, «leverandør/modell»).";
   if (status === 404) return sky ? "Ukjent modellnavn – bruk formatet «leverandør/modell», f.eks. «openai/gpt-4o-mini»." : "Endepunktet finnes ikke på denne adressen.";
-  if (status === 429) return "For mange forespørsler – vent litt og prøv igjen.";
+  if (status === 429) return sky ? "Modellen er midlertidig ratebegrenset hos leverandøren – vent litt, velg en annen modell, eller legg inn din egen leverandørnøkkel på openrouter.ai/settings/integrations." : "For mange forespørsler – vent litt og prøv igjen.";
   return "";
 }
 
