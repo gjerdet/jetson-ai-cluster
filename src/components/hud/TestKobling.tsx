@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Loader2, PlugZap } from "lucide-react";
 import { backend } from "@/lib/backend";
+import { testAiDirekte } from "@/lib/direkte-test";
 
 type Resultat = {
   ok: boolean;
@@ -11,6 +12,7 @@ type Resultat = {
   modeller?: string[];
   ms?: number;
   error?: string;
+  direkte?: boolean;
 };
 
 /** Liten «test kobling»-knapp for AI-noder (Hermes, ChatGPT, Ollama …). */
@@ -40,11 +42,24 @@ export function TestKobling({
 
       setRes(r);
     } catch (e) {
-      setRes({ ok: false, error: e instanceof Error ? e.message : String(e) });
+      // Backend-agenten er ikke tilgjengelig herfra (f.eks. i Lovable-forhåndsvisning).
+      // Da prøver vi rett fra nettleseren – fungerer for OpenRouter/OpenAI.
+      const d = await testAiDirekte({
+        baseUrl,
+        ...(model ? { model } : {}),
+        ...(apiKey ? { apiKey } : {}),
+      });
+      const agentFeil = e instanceof Error ? e.message : String(e);
+      setRes(
+        d.ok
+          ? { ...d, direkte: true }
+          : { ok: false, error: `Agent: ${agentFeil} | Direkte: ${d.error ?? "ukjent feil"}` },
+      );
     } finally {
       setKjorer(false);
     }
   };
+
 
   return (
     <div className="col-span-3 mt-1">
