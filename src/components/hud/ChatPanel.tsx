@@ -370,6 +370,7 @@ export function ChatPanel({
         // i innstillingene, sendes den med som ønsket node.
         const call = viaBackend
           ? await backend
+
               .aiChat(thread.map((m) => ({ role: m.role, content: m.content })), {
                 oppgave: round === 0 ? "chat" : "verktoy",
                 // Et eksplisitt modellvalg skal alltid vinne. Send adresse og
