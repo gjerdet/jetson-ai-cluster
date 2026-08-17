@@ -68,15 +68,21 @@ export function erModellMangler(tekst) {
   return /model .*not found|no such model|pull the model/i.test(String(tekst || ""));
 }
 
+/** OpenRouter-modeller er alltid «leverandør/modell» med små bokstaver. */
+export function normalizeModel(endpoint, model) {
+  const m = String(model || "").trim();
+  if (!m) return m;
+  return /openrouter\.ai/i.test(endpoint) ? m.toLowerCase() : m;
+}
+
 export function chatPayload(endpoint, { model, messages, temperature }) {
-  const payload = { model, messages, stream: false, temperature };
-  if (/openrouter\.ai/i.test(endpoint)) {
-    payload.tool_choice = 'none';
-  }
+  const m = normalizeModel(endpoint, model);
   if (/\/api\/chat$/i.test(endpoint)) {
-    return { model, messages, stream: false, options: { temperature } };
+    return { model: m, messages, stream: false, options: { temperature } };
   }
-  return payload;
+  // Ingen tool_choice mot OpenRouter: flere modeller avviser feltet med HTTP 400
+  // når det ikke følger med en tools-liste.
+  return { model: m, messages, stream: false, temperature };
 }
 
 export function chatText(data) {
