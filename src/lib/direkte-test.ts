@@ -69,12 +69,18 @@ export async function testAiDirekte(o: {
     });
     const tekst = await res.text();
     if (!res.ok) {
+      const presetVerktoy =
+        /is not available for the 'chat-completions' API/i.test(tekst) || /openrouter:bash/i.test(tekst);
+      const raad = presetVerktoy
+        ? "OpenRouter-presetet har verktøy (f.eks. «bash») som kun støttes av Anthropic-API-et. Fjern verktøyene i presetet på openrouter.ai, eller bytt til en vanlig modell-id (f.eks. «qwen/qwen3-8b») i stedet for «@preset/…»."
+        : "";
       return {
         ok: false,
         endpoint,
-        error: `HTTP ${res.status}${tekst ? ` – ${tekst.slice(0, 200)}` : ""}`,
+        error: `HTTP ${res.status}${raad ? ` – ${raad}` : ""}${tekst ? ` – ${tekst.slice(0, 200)}` : ""}`,
       };
     }
+
     let svar = "";
     try {
       const data = JSON.parse(tekst) as {

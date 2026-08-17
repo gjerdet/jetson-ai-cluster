@@ -30,8 +30,11 @@ export function chatEndpoints(input) {
 }
 
 /** Oversetter HTTP-status til et konkret råd på norsk. */
-export function statusRaad(status, endpoint) {
+export function statusRaad(status, endpoint, detail = "") {
   const sky = /openrouter\.ai|openai\.com/i.test(endpoint);
+  if (/is not available for the 'chat-completions' API/i.test(detail) || /openrouter:bash/i.test(detail)) {
+    return "OpenRouter-presetet har verktøy (f.eks. «bash») som bare virker med Anthropic-API-et. Fjern verktøyene i presetet på openrouter.ai, eller bruk en vanlig modell-id i stedet for «@preset/…».";
+  }
   if (status === 401 || status === 403) {
     return sky ? "API-nøkkelen mangler eller er ugyldig." : "Noden avviste nøkkelen (401/403).";
   }
@@ -41,6 +44,7 @@ export function statusRaad(status, endpoint) {
   if (status === 429) return "For mange forespørsler – vent litt og prøv igjen.";
   return "";
 }
+
 
 
 /** Henter tilgjengelige modeller fra en Ollama-node eller skytjeneste. */
@@ -122,7 +126,7 @@ export async function callChatEndpoint(input) {
       });
       if (!response.ok) {
         const detail = (await response.text().catch(() => "")).slice(0, 180);
-        const raad = statusRaad(response.status, endpoint);
+        const raad = statusRaad(response.status, endpoint, detail);
         feil.push(`${endpoint}: HTTP ${response.status}${raad ? ` – ${raad}` : ""}${detail ? ` (${detail})` : ""}`);
         continue;
       }
