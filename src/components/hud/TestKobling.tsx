@@ -85,7 +85,9 @@ export function TestKobling({
               <p>
                 Kontakt OK på {res.ms} ms — {res.model}
                 {res.byttetModell ? " (byttet til installert modell)" : ""}
+                {res.direkte ? " (testet direkte fra nettleseren)" : ""}
               </p>
+
               <p className="text-muted-foreground">{res.endpoint}</p>
               {res.svar ? <p className="text-muted-foreground">Svar: {res.svar}</p> : null}
             </>
