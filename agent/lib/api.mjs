@@ -601,7 +601,24 @@ export async function handleApi(req, res, route, url, deps = {}) {
           ...(forsok.length ? { hoppetOver: forsok } : {}),
         });
       } catch (e) {
-        // Fallback til OpenRouter hvis lokal pool feiler og vi har nøkkel.
+        const hoppetOver = e?.forsok ?? [];
+        // 1) Fallback til den konfigurerte AI-noden (Ollama/Hermes) hvis den
+        //    ikke allerede var med i poolen – klyngenodene kan være nede.
+        if (fallbackBase && !pool.some((n) => String(n.baseUrl).replace(/\/+$/, "") === fallbackBase)) {
+          try {
+            const direkte = await kall({ ...fallbackNode, baseUrl: fallbackBase });
+            return json(req, res, 200, {
+              svar: direkte.svar,
+              model: direkte.model,
+              node: direkte.baseUrl,
+              nodeId: fallbackNode.id,
+              nodeNavn: fallbackNode.navn,
+              ms: 0,
+              hoppetOver,
+            });
+          } catch {}
+        }
+        // 2) Fallback til OpenRouter hvis vi har nøkkel.
         const openRouterBase = "https://openrouter.ai/api/v1";
         const openRouterKey = envKey || key;
         if (openRouterKey && baseUrl !== openRouterBase) {
@@ -621,16 +638,17 @@ export async function handleApi(req, res, route, url, deps = {}) {
               nodeId: "openrouter-fallback",
               nodeNavn: "OpenRouter",
               ms: 0,
-              hoppetOver: forsok,
+              hoppetOver,
             });
           } catch {}
         }
         return json(req, res, 502, {
           error: `Nådde ingen AI-node: ${/abort/i.test(e?.message || "") ? "modellen svarte ikke i tide – den laster trolig fortsatt. Prøv igjen om et minutt, eller bruk en mindre modell." : e?.message || "ukjent"}`,
           kode: "unavailable",
-          forsok: e?.forsok ?? [],
+          forsok: hoppetOver,
         });
       }
+
     }
 
 
