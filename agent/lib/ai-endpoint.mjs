@@ -126,7 +126,7 @@ export async function callChatEndpoint(input) {
       });
       if (!response.ok) {
         const detail = (await response.text().catch(() => "")).slice(0, 180);
-        const raad = statusRaad(response.status, endpoint);
+        const raad = statusRaad(response.status, endpoint, detail);
         feil.push(`${endpoint}: HTTP ${response.status}${raad ? ` – ${raad}` : ""}${detail ? ` (${detail})` : ""}`);
         continue;
       }
