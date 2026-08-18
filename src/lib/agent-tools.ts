@@ -116,7 +116,7 @@ export const TOOL_CATALOG: ToolSpec[] = [
   },
   {
     name: "kollega_diagnose",
-    category: "noder",
+    category: "system",
     summary: "Ende-til-ende diagnose av en kollega-node (nå, autentisering, modell, svar).",
     args: '{"node": "Hermes"}',
     builtin: true,
