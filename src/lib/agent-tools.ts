@@ -829,9 +829,6 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
   const cfg = agentCfg(config);
   if (!cfg.baseUrl)
     return "Ingen agentadresse er konfigurert. Angi backend-adressen under SYSTEM → BACKEND.";
-  if (!cfg.enabled || (KREV_INNLOGGING && !cfg.token))
-    return "Backend-sesjonen mangler eller har utløpt. Logg inn på nytt under SYSTEM → BACKEND, og prøv oppgaven igjen.";
-
 
   try {
     if (call.name === "nett_skann") {
