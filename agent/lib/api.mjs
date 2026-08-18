@@ -370,6 +370,54 @@ export async function handleApi(req, res, route, url, deps = {}) {
       return json(req, res, 200, resultat);
     }
 
+    // ---- tale og stemmetrening -------------------------------------------
+    if (path === "/tts/config" && method === "GET") {
+      return json(req, res, 200, { config: ttsConfig() });
+    }
+    if (path === "/tts/config" && method === "PUT") {
+      const b = await readBody(req);
+      return json(req, res, 200, { config: saveTtsConfig(b) });
+    }
+    if (path === "/tts/stemmer" && method === "GET") {
+      return json(req, res, 200, { stemmer: await piperStemmer().catch(() => []) });
+    }
+    if (path === "/tts/tale" && method === "POST") {
+      const b = await readBody(req);
+      const tekst = String(b.tekst ?? b.text ?? "").trim();
+      if (!tekst) return json(req, res, 400, { error: "Mangler tekst." });
+      try {
+        const { lyd, mime } = await syntetiser(tekst, {
+          modell: b.modell,
+          lengthScale: b.lengthScale,
+          noiseScale: b.noiseScale,
+        });
+        res.writeHead(200, { "content-type": mime, "content-length": String(lyd.length), ...corsHeaders(req) });
+        res.end(lyd);
+        return true;
+      } catch (e) {
+        return json(req, res, 502, { error: String(e?.message || e) });
+      }
+    }
+    if (path === "/tts/klipp" && method === "GET") {
+      return json(req, res, 200, { klipp: listClips(), statistikk: clipStats() });
+    }
+    if (path === "/tts/klipp" && method === "POST") {
+      // base64 er ~1,37x rå størrelse: gi rom for klipp på 25 MB.
+      const b = await readBody(req, 40_000_000);
+      try {
+        return json(req, res, 200, { klipp: await addClip(b) });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+    if (path.startsWith("/tts/klipp/") && method === "DELETE") {
+      const id = decodeURIComponent(path.slice("/tts/klipp/".length));
+      return json(req, res, 200, { ok: await deleteClip(id) });
+    }
+    if (path === "/tts/treningssett" && method === "GET") {
+      return json(req, res, 200, { manifest: trainingManifest(), mappe: clipDir(), statistikk: clipStats() });
+    }
+
     // ---- maskin-ID-kort (hvem og hva denne maskinen faktisk er) ----------
     if (path === "/identitet" && method === "GET") {
       const kort = await maskinKort({ tving: url.searchParams.get("frisk") === "1" });
