@@ -357,6 +357,135 @@ export async function handleApi(req, res, route, url, deps = {}) {
       return json(req, res, 200, resultat);
     }
 
+    // ---- maskin-ID-kort (hvem og hva denne maskinen faktisk er) ----------
+    if (path === "/identitet" && method === "GET") {
+      const kort = await maskinKort({ tving: url.searchParams.get("frisk") === "1" });
+      return json(req, res, 200, { kort, tekst: kortTekst(kort) });
+    }
+    if (path === "/identitet/selvtest" && method === "POST") {
+      return json(req, res, 200, await selvtest());
+    }
+
+    // ---- kolleger (Hermes m.fl.) ----------------------------------------
+    if (path === "/kollega" && method === "GET") {
+      return json(req, res, 200, { kollegaer: listKollegaer(), profiler: kollegaProfiler() });
+    }
+    if (path === "/kollega/diagnose" && method === "POST") {
+      const b = await readBody(req);
+      const id = String(b.id ?? b.node ?? "").trim();
+      if (!id) return json(req, res, 200, { resultater: await diagnoserAlle() });
+      const k = listKollegaer().find((x) => x.id === id || x.navn.toLowerCase() === id.toLowerCase());
+      if (!k) return json(req, res, 404, { error: "Fant ikke kollegaen." });
+      return json(req, res, 200, { resultater: [await diagnoser(k)] });
+    }
+    if (path === "/kollega/deleger" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, await deleger({
+        node: String(b.node ?? ""),
+        oppgave: String(b.oppgave ?? ""),
+        kontekst: String(b.kontekst ?? ""),
+        runder: Number(b.runder ?? 1),
+        oppfolging: Array.isArray(b.oppfolging) ? b.oppfolging.map(String) : [],
+      }));
+    }
+
+    // ---- verktøybibliotek ------------------------------------------------
+    if (path === "/verktoy/genererte" && method === "GET") {
+      return json(req, res, 200, { verktoy: listGeneratedTools(), statistikk: toolStats() });
+    }
+    if (path === "/verktoy/genererte" && method === "POST") {
+      const b = await readBody(req);
+      const beskrivelse = String(b.beskrivelse ?? b.tekst ?? "").trim();
+      if (!beskrivelse) return json(req, res, 400, { error: "Mangler beskrivelse." });
+      const r = await byggVerktoy(beskrivelse, { runder: Number(b.runder ?? 3) });
+      loggRevisjon({
+        hva: `Nytt verktøy: ${r.verktoy?.name || "ukjent"}`,
+        hvorfor: beskrivelse,
+        type: "verktoy",
+        ref: r.verktoy?.id || "",
+        resultat: r.ok ? "testet OK" : "feilet i sandkassen",
+      });
+      return json(req, res, 200, r);
+    }
+    if (path === "/verktoy/genererte/test" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, await testTool(String(b.id ?? ""), b.args ?? {}));
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+    if (path === "/verktoy/genererte/kjor" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, { resultat: await runGeneratedTool(String(b.navn ?? ""), b.args ?? {}) });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+    if (path === "/verktoy/genererte/tilbake" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, { verktoy: rollbackTool(String(b.id ?? "")) });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+    if (path === "/verktoy/genererte/aktiver" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, { verktoy: enableTool(String(b.id ?? ""), b.aktiv !== false) });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+    if (path.startsWith("/verktoy/genererte/") && method === "DELETE") {
+      return json(req, res, 200, deleteGeneratedTool(decodeURIComponent(path.split("/").pop() || "")));
+    }
+
+    // ---- utvikling: kø, revisjon, lærte regler ---------------------------
+    if (path === "/initiativ" && method === "GET") {
+      return json(req, res, 200, {
+        status: initiativeStatus(),
+        ko: listKo(),
+        revisjoner: listRevisjoner(),
+        regler: laerteRegler(),
+        forslag: listInitiativeSuggestions(),
+        audit: listInitiativeAudit(),
+      });
+    }
+    if (path === "/initiativ" && method === "PUT") {
+      const b = await readBody(req);
+      return json(req, res, 200, setInitiativeActive(b.aktiv !== false));
+    }
+    if (path === "/initiativ/ko" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, { jobb: leggIKo({ type: String(b.type ?? "bygg-verktoy"), tekst: String(b.tekst ?? ""), prioritet: Number(b.prioritet ?? 5), data: b.data ?? {} }) });
+    }
+    if (path === "/initiativ/kjor" && method === "POST") {
+      return json(req, res, 200, { resultat: await runInitiativeNow() });
+    }
+    if (path === "/initiativ/tilbake" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, { revisjon: rullTilbake(String(b.id ?? "")) });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+    if (path === "/initiativ/forslag" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, {
+          forslag: b.godkjenn === false ? rejectSuggestion(String(b.id ?? "")) : approveSuggestion(String(b.id ?? "")),
+        });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+
+
     if (path === "/auth/logout" && method === "POST") {
       logout(user.token);
       return json(req, res, 200, { ok: true });
