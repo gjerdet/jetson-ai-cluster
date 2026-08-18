@@ -2,7 +2,7 @@ import type { CustomTool, HudConfig } from "./hud-store";
 import { deviceBrief, newCustomTool, newMemory, sanitizeToolName } from "./hud-store";
 import { historyFor, numericValue, mqttOnline, publishMqtt } from "./mqtt-bridge";
 import { fetchIntegration } from "./integrations.functions";
-import { briefingText, refreshFeed, searchText, snapshot } from "./world-feed";
+import { briefingText, layerStatusText, refreshFeed, searchText, snapshot } from "./world-feed";
 import { callNode, pingNode } from "./hud-client";
 import type { ChatMsg } from "./hud-client";
 import { CIDR_RE, checkScript, scanScript } from "./net-scan";
@@ -98,6 +98,13 @@ export const TOOL_CATALOG: ToolSpec[] = [
     category: "verden",
     summary: "Søker i World Monitor-hendelsene på fritekst og lag.",
     args: '{"sok": "ukraina", "lag": "war", "antall": 10}',
+    builtin: true,
+  },
+  {
+    name: "world_lag",
+    category: "verden",
+    summary: "Status per lag i World Monitor, inkludert Pentagon Pizza Index / DEFCON.",
+    args: '{"lag": "cyber"}',
     builtin: true,
   },
   {
@@ -279,6 +286,7 @@ Tilgjengelige verktøy:
 - system_hent {"navn": "TrueNAS", "sti": "/pool/dataset"} – henter data fra et tilkoblet lokalt system.
 - world_brief {"antall": 10} – topp hendelser fra World Monitor.
 - world_sok {"sok": "ukraina", "lag": "war", "antall": 10} – søk i World Monitor-hendelsene.
+- world_lag {"lag": "cyber"} – status per lag i World Monitor (uten «lag»: alle lag) og DEFCON/Pentagon Pizza.
 - maskin_kort {"frisk": true} – ferskt maskin-ID-kort: modell, OS, CPU/GPU, IP, subnett, lokale modeller, klyngenoder.
 - verktoy_bygg {"beskrivelse": "...", "runder": 3} – skriv, test og fiks et nytt verktøy i sandkassen til det virker.
 - kollega_diagnose {"node": "Hermes"} – ende-til-ende diagnose av en kollega-node.
@@ -593,6 +601,14 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     }
     if (!snapshot().events.length) return "World Monitor har ingen hendelser lastet enda. Prøv igjen om litt.";
     return searchText(q, { ...(lag ? { lag } : {}), antall });
+  }
+
+  if (call.name === "world_lag") {
+    const lag = str(call.args["lag"] ?? call.args["layer"]);
+    if (!snapshot().events.length) {
+      await Promise.race([refreshFeed().catch(() => undefined), new Promise((r) => setTimeout(r, 12_000))]);
+    }
+    return layerStatusText(lag || undefined);
   }
 
   if (call.name === "verktoy_bygg") {
