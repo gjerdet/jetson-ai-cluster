@@ -619,6 +619,8 @@ export interface GeneratedTool {
   enabled: boolean;
   testet: boolean;
   testResult: { ok: boolean; resultat?: unknown; feil?: string } | null;
+  testArgs?: Record<string, unknown>;
+  innebygd?: boolean;
 }
 
 export interface InitiativeStatus {

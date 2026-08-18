@@ -123,7 +123,7 @@ export function VerktoybibliotekSection() {
                   disabled={!valgtNode || jobber === `${t.id}-node`}
                   onClick={() =>
                     void kjor(`${t.id}-node`, async () =>
-                      backend.kjorVerktoyPaaNode(valgtNode, t.name, (t.testArgs as Record<string, unknown>) ?? {}),
+                      backend.kjorVerktoyPaaNode(valgtNode, t.name, t.testArgs ?? {}),
                     )
                   }
                   className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px]"
