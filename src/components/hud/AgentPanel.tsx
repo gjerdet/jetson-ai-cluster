@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Wrench, Bug, Route, Copy, Trash2, Download, Search, ClipboardList } from "lucide-react";
+import { Wrench, Bug, Route, Copy, Trash2, Download, Search, ClipboardList, Library } from "lucide-react";
 import { TOOL_CATALOG, type ToolSpec } from "@/lib/agent-tools";
 import { OppgavePanel } from "./OppgavePanel";
+import { VerktoybibliotekSection } from "./VerktoybibliotekSection";
 import type { HudConfig } from "@/lib/hud-store";
 import {
   clearDebug,
@@ -120,6 +121,7 @@ export function AgentPanel({ config }: { config: HudConfig }) {
         {(
           [
             ["katalog", "VERKTØYKATALOG", Wrench],
+            ["bibliotek", "BIBLIOTEK", Library],
             ["feilsok", "FEILSØKING", Bug],
             ["ruting", "MODELL-RUTING", Route],
             ["oppgave", "OPPGAVER", ClipboardList],
@@ -325,6 +327,7 @@ export function AgentPanel({ config }: { config: HudConfig }) {
           </div>
         </div>
       ) : null}
+      {tab === "bibliotek" ? <VerktoybibliotekSection /> : null}
       {tab === "oppgave" ? (
         <OppgavePanel />
       ) : null}
