@@ -92,7 +92,7 @@ function Rad({ e }: { e: DebugEntry }) {
 }
 
 export function AgentPanel({ config }: { config: HudConfig }) {
-  const [tab, setTab] = useState<"katalog" | "feilsok" | "ruting" | "oppgave">("katalog");
+  const [tab, setTab] = useState<"katalog" | "bibliotek" | "feilsok" | "ruting" | "oppgave">("katalog");
   const [q, setQ] = useState("");
   const [test, setTest] = useState("");
   const dbg = useDebugLog();
