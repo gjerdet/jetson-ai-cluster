@@ -54,7 +54,6 @@ function nettadresse(ip, bits) {
 function kortModell() {
   // Jetson-plattformen legger modellnavnet i device tree.
   try {
-    const fs = require("node:fs");
     return fs.readFileSync("/proc/device-tree/model", "utf8").replace(/\0/g, "").trim();
   } catch {
     return "";
