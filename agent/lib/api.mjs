@@ -172,7 +172,7 @@ async function readBody(req, maks = 5_000_000) {
  * `deps`: { publish(emne, payload), mqttStatus() }
  */
 /** Rutene backend-API-et eier, med eller uten «/api»-prefiks. */
-export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram", "/verktoy"];
+export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram", "/verktoy", "/identitet", "/kollega", "/initiativ", "/minne", "/planer", "/evalueringer"];
 
 /**
  * Innlogging kan slås av mens systemet kjører i et lukket lokalt miljø.
