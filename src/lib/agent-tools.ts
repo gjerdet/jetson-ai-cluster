@@ -298,6 +298,8 @@ Tilgjengelige verktøy:
 - verktoy_bygg {"beskrivelse": "...", "runder": 3} – skriv, test og fiks et nytt verktøy i sandkassen til det virker.
 - kollega_diagnose {"node": "Hermes"} – ende-til-ende diagnose av en kollega-node.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
+- laer_regel {"tekst": "...", "hvorfor": "..."} – lagrer en varig adferdsregel om HVORDAN du skal jobbe.
+  Reglene lastes inn i systemprompten din i alle senere samtaler (selvforbedring).
 - verktoy_liste {} – dine egendefinerte verktøy.
 - verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
 - verktoy_slett {"navn": "hent_vaer"} – slett et verktøy du har laget.
