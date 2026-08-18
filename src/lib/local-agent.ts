@@ -1,5 +1,6 @@
 import type { HudConfig } from "./hud-store";
 import { backend, backendToken, backendUrl } from "./backend";
+import { KREV_INNLOGGING } from "./auth-mode";
 
 
 /** Konfigurasjon for den lokale agent-tjenesten som kjører på Jetson/Pi. */
