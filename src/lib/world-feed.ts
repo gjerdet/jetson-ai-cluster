@@ -127,3 +127,30 @@ export function briefingText(limit = 10): string {
     : "Pentagon Pizza Index: ikke tilgjengelig.";
   return `WORLD MONITOR – topp ${limit} hendelser (${new Date().toLocaleString("nb-NO")}):\n${list}\n\n${defcon}`;
 }
+
+/** Søk i World Monitor-hendelsene på fritekst og/eller lag. Brukes av chat-verktøyet world_sok. */
+export function searchEvents(q: string, opts: { lag?: string; antall?: number } = {}): WorldEvent[] {
+  const needle = q.trim().toLowerCase();
+  const lag = (opts.lag ?? "").trim().toLowerCase();
+  const n = Math.max(1, Math.min(opts.antall ?? 10, 40));
+  return state.events
+    .filter((e) => (!lag || e.layer.toLowerCase() === lag) &&
+      (!needle ||
+        e.title.toLowerCase().includes(needle) ||
+        (e.summary ?? "").toLowerCase().includes(needle) ||
+        (e.place ?? "").toLowerCase().includes(needle)))
+    .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+    .slice(0, n);
+}
+
+/** Tekstlig svar til chat: søketreff formatert med tid, lag og kilde. */
+export function searchText(q: string, opts: { lag?: string; antall?: number } = {}): string {
+  const treff = searchEvents(q, opts);
+  if (!treff.length) return `Ingen treff i World Monitor for «${q}»${opts.lag ? ` i laget ${opts.lag}` : ""}.`;
+  return treff
+    .map((e, i) => {
+      const t = new Date(e.time).toLocaleString("nb-NO");
+      return `${i + 1}. [${e.layer}] ${e.title}${e.place ? ` – ${e.place}` : ""} (${t})${e.url ? ` – ${e.url}` : ""}`;
+    })
+    .join("\n");
+}
