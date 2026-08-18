@@ -39,7 +39,8 @@ import {
   useMqtt,
   type PendingCommand,
 } from "@/lib/mqtt-bridge";
-import { briefingText, refreshFeed, snapshot } from "@/lib/world-feed";
+import { briefingText, refreshFeed, snapshot, startFeedWarmup } from "@/lib/world-feed";
+import { learnedRulesPrompt, refreshLearnedRules } from "@/lib/learned-rules";
 import {
   parseToolCalls,
   runTool,
@@ -321,9 +322,12 @@ export function ChatPanel({
         title: `${rute.vekt.toUpperCase()} → ${rutet?.name ?? "ingen node"} (${rutet?.model ?? "?"})`,
         why: rute.grunn,
       });
+      void refreshLearnedRules();
+      startFeedWarmup();
       const live = mqttBrief();
       const sys = [
         systemPrompt(config),
+        learnedRulesPrompt(),
         live,
         smaaprat ? "" : mqttOnline() ? MQTT_TOOL_PROMPT : "",
         smaaprat ? "" : TOOL_PROMPT,

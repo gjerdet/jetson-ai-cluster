@@ -153,3 +153,51 @@ export function searchText(q: string, opts: { lag?: string; antall?: number } = 
     })
     .join("\n");
 }
+
+/** Status per lag: antall hendelser, ferskeste tidspunkt og øverste sak. */
+export function layerStatus(lag?: string): { lag: string; antall: number; sist: string; topp: string }[] {
+  const filter = (lag ?? "").trim().toLowerCase();
+  const grupper = new Map<string, WorldEvent[]>();
+  for (const e of state.events) {
+    if (filter && e.layer.toLowerCase() !== filter) continue;
+    const liste = grupper.get(e.layer) ?? [];
+    liste.push(e);
+    grupper.set(e.layer, liste);
+  }
+  return [...grupper.entries()]
+    .map(([navn, liste]) => {
+      const sortert = [...liste].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+      return {
+        lag: navn,
+        antall: liste.length,
+        sist: new Date(sortert[0]!.time).toLocaleString("nb-NO"),
+        topp: sortert[0]!.title,
+      };
+    })
+    .sort((a, b) => b.antall - a.antall);
+}
+
+/** Tekstsvar til chat-verktøyet world_lag, inkludert Pentagon Pizza / DEFCON. */
+export function layerStatusText(lag?: string): string {
+  const rader = layerStatus(lag);
+  const defcon = state.defcon
+    ? `Pentagon Pizza Index (proxy): nivå ${state.defcon.level} – ${state.defcon.label} (score ${state.defcon.score}/100).`
+    : "Pentagon Pizza Index: ikke tilgjengelig.";
+  if (!rader.length) return `Ingen hendelser${lag ? ` i laget ${lag}` : ""} akkurat nå.\n${defcon}`;
+  const linjer = rader
+    .slice(0, 40)
+    .map((r) => `- ${r.lag}: ${r.antall} hendelser, sist ${r.sist} – ${r.topp}`)
+    .join("\n");
+  return `WORLD MONITOR – status per lag (${new Date().toLocaleString("nb-NO")}):\n${linjer}\n\n${defcon}`;
+}
+
+let warmupTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Holder feeden varm i bakgrunnen slik at chat-verktøyene svarer med en gang. */
+export function startFeedWarmup(intervallMs = 10 * 60_000) {
+  if (warmupTimer) return;
+  if (!state.events.length && !running) void refreshFeed();
+  warmupTimer = setInterval(() => {
+    if (!running) void refreshFeed();
+  }, Math.max(60_000, intervallMs));
+}
