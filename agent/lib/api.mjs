@@ -421,7 +421,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path === "/verktoy/genererte/kjor-node" && method === "POST") {
       const b = await readBody(req);
       const nodeId = String(b.nodeId ?? "");
-      const node = (listNodes() || []).find((n) => n.id === nodeId);
+      const node = (doc("nodes", { list: [] }).list || []).find((n) => n.id === nodeId);
       if (!node) return json(req, res, 404, { error: `Fant ikke noden «${nodeId}».` });
       const base = String(node.agentUrl || "").replace(/\/+$/, "");
       if (!base) return json(req, res, 400, { error: `Noden «${node.navn}» har ingen agent-URL – den kan bare brukes til AI-kall.` });
