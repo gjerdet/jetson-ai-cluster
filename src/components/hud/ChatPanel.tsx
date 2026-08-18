@@ -249,8 +249,24 @@ export function ChatPanel({
           ]);
           return;
         }
+        // Ingen målt output = ingen svar. Modellen skal aldri gjette nettverksdata.
+        setMessages([
+          ...next,
+          {
+            role: "assistant",
+            content: `Jeg kunne ikke bekrefte enhetene i ${malSubnett ?? "subnettet"} fra faktisk måling, og jeg gjetter ikke på nettverksdata.\n\nRå output fra skanningen:\n\n\`\`\`\n${resultat.trim() || "(tomt svar)"}\n\`\`\``,
+            node: "BACKEND · NETTVERK",
+            time: Date.now(),
+            runs: [
+              { name: "nett_sjekk", args: {}, result: sjekk, ms: 0, time: Date.now(), ok: false },
+              { name: "nett_skann", args: skannArgs, result: resultat, ms, time: Date.now(), ok: false },
+            ],
+          },
+        ]);
+        return;
       }
-      if (nettIntensjon && nettIntensjon !== "devices") {
+
+      if (nettIntensjon) {
         setStage("verktøy: nett_sjekk");
         const t0 = performance.now();
         const resultat = await runTool({ name: "nett_sjekk", args: {}, raw: "VERKTØY: nett_sjekk {}" }, {
@@ -259,36 +275,37 @@ export function ChatPanel({
           topics: mqtt.topics,
         });
         const svar = answerNetworkQuestion(text, resultat);
+        const ms = Math.round(performance.now() - t0);
         trace({
           turId,
           kind: "verktoy",
           title: "nett_sjekk {}",
           why: "spørsmålet gjelder Jetsonens faktiske nettverkskonfigurasjon",
           detail: resultat,
-          ms: Math.round(performance.now() - t0),
-          ok: !/^(Feil:|Backend-sesjonen|Ingen agent)/i.test(resultat),
+          ms,
+          ok: Boolean(svar),
         });
-        if (svar) {
-          setMessages([
-            ...next,
-            {
-              role: "assistant",
-              content: svar,
-              node: "BACKEND · NETTVERK",
+        setMessages([
+          ...next,
+          {
+            role: "assistant",
+            content: svar
+              ?? `Jeg fikk ikke målt nettverkskonfigurasjonen min, og jeg gjetter ikke på IP, gateway eller DNS.\n\nRå output fra \`nett_sjekk\`:\n\n\`\`\`\n${resultat.trim() || "(tomt svar)"}\n\`\`\``,
+            node: "BACKEND · NETTVERK",
+            time: Date.now(),
+            runs: [{
+              name: "nett_sjekk",
+              args: {},
+              result: resultat,
+              ms,
               time: Date.now(),
-              runs: [{
-                name: "nett_sjekk",
-                args: {},
-                result: resultat,
-                ms: Math.round(performance.now() - t0),
-                time: Date.now(),
-                ok: true,
-              }],
-            },
-          ]);
-          return;
-        }
+              ok: Boolean(svar),
+            }],
+          },
+        ]);
+        return;
       }
+
 
 
       // Rask vei for småprat: hopp over kunnskapssøk og verktøyprompt,
