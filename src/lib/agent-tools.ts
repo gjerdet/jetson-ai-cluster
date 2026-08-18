@@ -843,7 +843,7 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       // godkjenning er forbeholdt handlinger som kan endre systemer eller data.
       const scanCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, ports ? 180000 : 90000) };
       let r;
-      if (backendToken()) {
+      if (backendToken() || !KREV_INNLOGGING) {
         try {
           r = await backendNetworkScan(subnet, ports);
         } catch {
@@ -865,7 +865,7 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       // bekreftelsesdialog. Aktiv skanning (nett_skann) krever fortsatt samtykke.
       const sjekkCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, 60000) };
       let r;
-      if (backendToken()) {
+      if (backendToken() || !KREV_INNLOGGING) {
         try {
           r = await backendNetworkCheck(subnet);
         } catch {
