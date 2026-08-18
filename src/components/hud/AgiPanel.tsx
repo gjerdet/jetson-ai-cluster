@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { backend } from "@/lib/backend";
+import { UtviklingSection } from "./UtviklingSection";
 import type {
   Evaluation,
   GeneratedTool,
@@ -57,7 +58,7 @@ function useInterval(ms: number, deps: unknown[] = []) {
 }
 
 export function AgiPanel() {
-  const [tab, setTab] = useState<"minne" | "planer" | "evalueringer" | "initiativ" | "verktoy">("minne");
+  const [tab, setTab] = useState<"minne" | "planer" | "evalueringer" | "initiativ" | "verktoy" | "utvikling">("minne");
   const tick = useInterval(5_000);
 
   const [stats, setStats] = useState<MemoryStats | null>(null);
@@ -187,6 +188,7 @@ export function AgiPanel() {
           { id: "evalueringer", label: "EVALUATOR", icon: MessageSquareWarning },
           { id: "initiativ", label: "INITIATIV", icon: Lightbulb },
           { id: "verktoy", label: "VERKTØY", icon: FlaskConical },
+          { id: "utvikling", label: "UTVIKLING", icon: Sparkles },
         ].map((t) => (
           <button
             key={t.id}
@@ -466,6 +468,8 @@ export function AgiPanel() {
             </div>
           </>
         ) : null}
+
+        {tab === "utvikling" ? <UtviklingSection /> : null}
 
         {tab === "verktoy" ? (
           <>
