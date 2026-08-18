@@ -7,6 +7,7 @@ import { callNode, pingNode } from "./hud-client";
 import type { ChatMsg } from "./hud-client";
 import { CIDR_RE, checkScript, scanScript } from "./net-scan";
 import { backend, backendToken } from "./backend";
+import { refreshLearnedRules } from "./learned-rules";
 
 import {
   agentCfg,
