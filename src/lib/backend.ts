@@ -299,6 +299,7 @@ async function call<T>(
         if (err.code === ERROR_CODES.UNAUTHORIZED) setBackendToken(null);
         throw err;
       }
+      sisteOkTid = Date.now();
       emit(true, null);
       return data as T;
     } catch (e) {
