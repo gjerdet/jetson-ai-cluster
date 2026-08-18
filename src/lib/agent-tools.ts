@@ -2,7 +2,7 @@ import type { CustomTool, HudConfig } from "./hud-store";
 import { deviceBrief, newCustomTool, newMemory, sanitizeToolName } from "./hud-store";
 import { historyFor, numericValue, mqttOnline, publishMqtt } from "./mqtt-bridge";
 import { fetchIntegration } from "./integrations.functions";
-import { briefingText, refreshFeed, snapshot } from "./world-feed";
+import { briefingText, refreshFeed, searchText, snapshot } from "./world-feed";
 import { callNode, pingNode } from "./hud-client";
 import type { ChatMsg } from "./hud-client";
 import { CIDR_RE, checkScript, scanScript } from "./net-scan";
@@ -91,6 +91,34 @@ export const TOOL_CATALOG: ToolSpec[] = [
     category: "verden",
     summary: "Topp hendelser fra World Monitor.",
     args: '{"antall": 10}',
+    builtin: true,
+  },
+  {
+    name: "world_sok",
+    category: "verden",
+    summary: "Søker i World Monitor-hendelsene på fritekst og lag.",
+    args: '{"sok": "ukraina", "lag": "war", "antall": 10}',
+    builtin: true,
+  },
+  {
+    name: "maskin_kort",
+    category: "system",
+    summary: "Maskin-ID-kort: modell, OS, CPU/GPU, IP, subnett, modeller og klyngenoder – ferske tall fra denne noden.",
+    args: '{"frisk": true}',
+    builtin: true,
+  },
+  {
+    name: "verktoy_bygg",
+    category: "verktoy",
+    summary: "Lar agenten skrive, teste og fikse et nytt verktøy i sandkassen til testen består.",
+    args: '{"beskrivelse": "sjekk diskbruk på alle noder", "runder": 3}',
+    builtin: true,
+  },
+  {
+    name: "kollega_diagnose",
+    category: "noder",
+    summary: "Ende-til-ende diagnose av en kollega-node (nå, autentisering, modell, svar).",
+    args: '{"node": "Hermes"}',
     builtin: true,
   },
   {
@@ -250,6 +278,10 @@ Tilgjengelige verktøy:
 - noder {} – status og svartid for alle AI-noder.
 - system_hent {"navn": "TrueNAS", "sti": "/pool/dataset"} – henter data fra et tilkoblet lokalt system.
 - world_brief {"antall": 10} – topp hendelser fra World Monitor.
+- world_sok {"sok": "ukraina", "lag": "war", "antall": 10} – søk i World Monitor-hendelsene.
+- maskin_kort {"frisk": true} – ferskt maskin-ID-kort: modell, OS, CPU/GPU, IP, subnett, lokale modeller, klyngenoder.
+- verktoy_bygg {"beskrivelse": "...", "runder": 3} – skriv, test og fiks et nytt verktøy i sandkassen til det virker.
+- kollega_diagnose {"node": "Hermes"} – ende-til-ende diagnose av en kollega-node.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
 - verktoy_liste {} – dine egendefinerte verktøy.
 - verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
@@ -292,7 +324,14 @@ R8. Du er ikke alene: Hermes og andre aktive noder er kolleger du kan sette i ar
     tekster), når du vil ha en second opinion på en konklusjon, eller når du vil dele opp en
     stor jobb i deler. Du kjører selv alle verktøy og målinger – kollegaen får kun tekst og
     resultater du allerede har hentet, og svaret er et forslag du må vurdere før du bruker det.
-    Si alltid i svaret hvem du spurte og hva de bidro med.
+    Si alltid i svaret hvem du spurte og hva de bidro med. Trenger du å vite hvorfor en kollega
+    ikke svarer, kjør kollega_diagnose før du melder feil.
+R9. DU ER LOKAL. Alt du gjør skjer på denne maskinen, i dette subnettet, uten sky. Er du i tvil
+    om hvem eller hvor du er – kjør maskin_kort {} og bruk tallene derfra. Aldri oppgi IP,
+    maskinvare, modellnavn eller subnett som ikke står i et ferskt maskin_kort eller nett_sjekk.
+R10. Mangler du et verktøy for oppgaven, bygg det: verktoy_bygg lager, tester og retter koden i
+    sandkassen automatisk. Bruk det før du sier at noe ikke er mulig. Sandkassen har lesetilgang
+    til LAN-tjenester, men ikke internett og ikke skrivetilgang.
 
 
 
