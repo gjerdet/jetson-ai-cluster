@@ -219,6 +219,7 @@ export const ROUTES: {
   initiativeQueue: string;
   initiativeRun: string;
   initiativeRollback: string;
+  initiativeLearn: string;
 };
 
 /** En loggkilde HUD-en kan lese (systemd-enhet eller loggfil). */

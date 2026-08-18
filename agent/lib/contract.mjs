@@ -121,6 +121,7 @@ export const ROUTES = {
   initiativeQueue: "/initiativ/ko",
   initiativeRun: "/initiativ/kjor",
   initiativeRollback: "/initiativ/tilbake",
+  initiativeLearn: "/initiativ/regel",
 
 };
 

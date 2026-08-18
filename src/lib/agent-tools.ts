@@ -136,6 +136,13 @@ export const TOOL_CATALOG: ToolSpec[] = [
     builtin: true,
   },
   {
+    name: "laer_regel",
+    category: "minne",
+    summary: "Lagrer en varig adferdsregel (selvforbedring) som gjelder i alle senere samtaler.",
+    args: '{"tekst": "Bruk alltid nett_skann med subnett 192.168.20.0/24", "hvorfor": "..."}',
+    builtin: true,
+  },
+  {
     name: "evaluering",
     category: "system",
     summary: "Vurder et AI-svar eller verktøyresultat 0-10 og få forbedringsforslag.",
@@ -291,6 +298,8 @@ Tilgjengelige verktøy:
 - verktoy_bygg {"beskrivelse": "...", "runder": 3} – skriv, test og fiks et nytt verktøy i sandkassen til det virker.
 - kollega_diagnose {"node": "Hermes"} – ende-til-ende diagnose av en kollega-node.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
+- laer_regel {"tekst": "...", "hvorfor": "..."} – lagrer en varig adferdsregel om HVORDAN du skal jobbe.
+  Reglene lastes inn i systemprompten din i alle senere samtaler (selvforbedring).
 - verktoy_liste {} – dine egendefinerte verktøy.
 - verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
 - verktoy_slett {"navn": "hent_vaer"} – slett et verktøy du har laget.
@@ -340,6 +349,21 @@ R9. DU ER LOKAL. Alt du gjør skjer på denne maskinen, i dette subnettet, uten 
 R10. Mangler du et verktøy for oppgaven, bygg det: verktoy_bygg lager, tester og retter koden i
     sandkassen automatisk. Bruk det før du sier at noe ikke er mulig. Sandkassen har lesetilgang
     til LAN-tjenester, men ikke internett og ikke skrivetilgang.
+    Utløsere som ALLTID betyr «bygg verktøy nå, ikke spør»: (a) du er i ferd med å skrive «jeg kan
+    ikke», «har ikke mulighet», «støttes ikke» eller «du må gjøre det manuelt»; (b) samme oppgave
+    har feilet to ganger med eksisterende verktøy; (c) oppgaven gjentar seg og du løser den med
+    engangs-skript hver gang; (d) brukeren spør om noe målbart lokalt som ingen verktøy dekker.
+    Rekkefølge: skript_test for engangsjobber → verktoy_bygg når det skal kunne gjenbrukes.
+
+R11. SELVFORBEDRING: lærer du noe om HVORDAN du bør jobbe, lagrer du det med laer_regel i samme
+    svar – uoppfordret. Dette gjelder når brukeren korrigerer deg, når du finner ut hvilket
+    subnett/port/kommando som faktisk virker her, når et verktøy måtte kalles på en spesiell måte,
+    eller når en fremgangsmåte feilet og du fant en som virket. Skriv regelen kort og handlingsrettet
+    («Ved nettverksskann: bruk 192.168.20.0/24 – automatikken bommer»), aldri som et faktum
+    (fakta hører til minne_lagre). Nevn i svaret at du har lært det. Er lærdommen for stor for én
+    regel, legg jobben i utviklingskøen i stedet.
+
+
 
 
 
@@ -670,6 +694,20 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     if (!ctx.update) return "Minnet er skrivebeskyttet akkurat nå.";
     ctx.update({ ...config, memories: [...(config.memories ?? []), newMemory(text)] });
     return `Lagret i langtidsminnet: «${text}».`;
+  }
+
+  if (call.name === "laer_regel") {
+    const tekst = str(call.args["tekst"] ?? call.args["regel"] ?? call.args["text"]).trim();
+    if (!tekst) return "Tom regel – ingenting lært.";
+    const hvorfor = str(call.args["hvorfor"] ?? call.args["grunn"]).trim() || "Lært i samtale";
+    try {
+      const r = await backend.laerRegel(tekst, hvorfor);
+      return r.duplikat
+        ? `Denne regelen kunne jeg allerede: «${tekst}».`
+        : `Lærte ny adferdsregel (gjelder fra nå av): «${tekst}».`;
+    } catch (e) {
+      return `Klarte ikke lagre regelen: ${e instanceof Error ? e.message : String(e)}`;
+    }
   }
 
   if (call.name === "verktoy_liste") {

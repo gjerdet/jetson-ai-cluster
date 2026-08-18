@@ -82,6 +82,7 @@ import {
   initiativeStatus,
   isActive as isInitiativeActive,
   laerteRegler,
+  laerRegel,
   leggIKo,
   listAudit as listInitiativeAudit,
   listKo,
@@ -473,6 +474,15 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path === "/initiativ/ko" && method === "POST") {
       const b = await readBody(req);
       return json(req, res, 200, { jobb: leggIKo({ type: String(b.type ?? "bygg-verktoy"), tekst: String(b.tekst ?? ""), prioritet: Number(b.prioritet ?? 5), data: b.data ?? {} }) });
+    }
+    // Lærdom fra en samtale: skrives inn som varig adferdsregel.
+    if (path === "/initiativ/regel" && method === "POST") {
+      const b = await readBody(req);
+      const tekst = String(b.tekst ?? b.regel ?? "").trim();
+      if (!tekst) return json(req, res, 400, { error: "Mangler regeltekst." });
+      const regel = laerRegel(tekst, String(b.hvorfor ?? "Lært i samtale"));
+      if (!regel) return json(req, res, 200, { regel: null, duplikat: true, regler: laerteRegler() });
+      return json(req, res, 200, { regel, duplikat: false, regler: laerteRegler() });
     }
     if (path === "/initiativ/kjor" && method === "POST") {
       return json(req, res, 200, { resultat: await runInitiativeNow() });
