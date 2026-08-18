@@ -106,6 +106,7 @@ import {
   runGeneratedTool,
   testTool,
   toolStats,
+  seedInnebygdeVerktoy,
 } from "./toolgen.mjs";
 import { kortTekst, maskinKort, selvtest } from "./identitet.mjs";
 import { deleger, diagnoser, diagnoserAlle, kollegaProfiler, listKollegaer } from "./kollega.mjs";
@@ -125,6 +126,12 @@ import { decryptSecret, encryptSecret, maskSecret } from "./secrets.mjs";
 import { callChatEndpoint, listModels } from "./ai-endpoint.mjs";
 import { listBackups, runBackup } from "./backup.mjs";
 import { ipSjekk, lagringsStatus } from "./system-tools.mjs";
+
+try {
+  seedInnebygdeVerktoy();
+} catch {
+  /* biblioteket seedes på nytt ved neste start */
+}
 import { startUpdate, updateStatus } from "./update-runner.mjs";
 import {
   addDocument,

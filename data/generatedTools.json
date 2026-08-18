@@ -1,0 +1,42 @@
+{
+  "list": [
+    {
+      "id": "e40f5ea4-7a30-4241-8df5-0a0a52067a06",
+      "tid": 1787050739361,
+      "beskrivelse": "Sjekker om en IP/vert svarer på nettet (ping + porter) og henter lagringsstatus (df) fra Jetson-noden verktøyet kjører på.",
+      "innebygd": true,
+      "enabled": true,
+      "testet": false,
+      "testResult": null,
+      "versjoner": [],
+      "name": "ip_og_lagring",
+      "description": "Sjekker om en IP/vert svarer på nettet (ping + porter) og henter lagringsstatus (df) fra Jetson-noden verktøyet kjører på.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ip": {
+            "type": "string",
+            "description": "IP eller vertsnavn som skal sjekkes, f.eks. 192.168.20.1"
+          },
+          "porter": {
+            "type": "string",
+            "description": "Kommaseparerte porter, f.eks. 22,443"
+          },
+          "base": {
+            "type": "string",
+            "description": "Agent-base, standard http://127.0.0.1:8787"
+          }
+        },
+        "required": [
+          "ip"
+        ]
+      },
+      "testArgs": {
+        "ip": "127.0.0.1",
+        "porter": "22"
+      },
+      "code": "module.exports = async function (args) {\n  const base = String(args.base || \"http://127.0.0.1:8787\").replace(/\\/+$/, \"\");\n  const ip = String(args.ip || \"\").trim();\n  if (!ip) return { ok: false, feil: \"Mangler ip.\" };\n  const porter = String(args.porter || \"\");\n  try {\n    const nett = await (await fetch(base + \"/api/verktoy/ip-sjekk?ip=\" + encodeURIComponent(ip) + \"&porter=\" + encodeURIComponent(porter))).json();\n    const lagring = await (await fetch(base + \"/api/verktoy/lagring\")).json();\n    return { ok: true, resultat: { nett, lagring } };\n  } catch (e) {\n    return { ok: false, feil: String(e && e.message ? e.message : e) };\n  }\n}"
+    }
+  ],
+  "statistikk": {}
+}
