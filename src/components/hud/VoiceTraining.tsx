@@ -39,31 +39,40 @@ export function VoiceTraining() {
 
   const lastOpp = async (filer: FileList | null) => {
     if (!filer?.length) return;
-    for (const fil of Array.from(filer)) {
-      setStatus(`laster opp ${fil.name}…`);
-      const base64 = await new Promise<string>((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(String(r.result).split(",")[1] ?? "");
-        r.onerror = () => rej(new Error("Klarte ikke lese fila"));
-        r.readAsDataURL(fil);
-      });
+    let lagret = 0;
+    const alle = Array.from(filer);
+    for (const fil of alle) {
+      setStatus("laster opp " + fil.name + "… (" + (lagret + 1) + "/" + alle.length + ")");
+      let base64 = "";
+      try {
+        base64 = await new Promise<string>((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(String(r.result).split(",")[1] ?? "");
+          r.onerror = () => rej(new Error("Klarte ikke lese fila"));
+          r.readAsDataURL(fil);
+        });
+      } catch (e) {
+        setStatus("lesefeil for " + fil.name + ": " + (e instanceof Error ? e.message : String(e)));
+        return;
+      }
       const sek = await varighet(fil);
       const { error } = await safe(() =>
         backend.leggTilKlipp({
           navn: fil.name,
-          tekst: filer.length === 1 ? tekst : "",
+          tekst: alle.length === 1 ? tekst : "",
           lydBase64: base64,
           mime: fil.type || "audio/wav",
           sekunder: sek,
         }),
       );
       if (error) {
-        setStatus(error.message);
+        setStatus("opplastingsfeil for " + fil.name + ": " + error.message);
         return;
       }
+      lagret++;
     }
     setTekst("");
-    setStatus("lagret");
+    setStatus("lagret " + lagret + " klipp");
     void last();
   };
 

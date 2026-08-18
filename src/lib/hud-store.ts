@@ -527,7 +527,7 @@ export const defaultConfig: HudConfig = {
       baseUrl: "https://openrouter.ai/api/v1",
       model: "openai/gpt-4o-mini",
       role: "worker",
-      enabled: false,
+      enabled: true,
     },
   ],
   talents: [
