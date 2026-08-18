@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Loader2, Play, Power, RotateCcw, Trash2 } from "lucide-react";
-import { backend, type GeneratedTool, type VerktoyStat } from "@/lib/backend";
+import { Loader2, Play, Power, RotateCcw, Server, Trash2 } from "lucide-react";
+import { backend, type ClusterNode, type GeneratedTool, type VerktoyStat } from "@/lib/backend";
 
 /**
  * VERKTØYBIBLIOTEK: selvlagde verktøy med bruksstatistikk – test, av/på,
@@ -13,6 +13,8 @@ export function VerktoybibliotekSection() {
   const [jobber, setJobber] = useState<string | null>(null);
   const [siste, setSiste] = useState<string | null>(null);
   const [onske, setOnske] = useState("");
+  const [noder, setNoder] = useState<ClusterNode[]>([]);
+  const [valgtNode, setValgtNode] = useState("");
 
   const last = async () => {
     setFeil(null);
@@ -20,6 +22,8 @@ export function VerktoybibliotekSection() {
       const r = await backend.hentVerktoybibliotek();
       setVerktoy(r.verktoy ?? []);
       setStats(r.statistikk ?? []);
+      const n = await backend.hentNoder().catch(() => ({ noder: [] as ClusterNode[] }));
+      setNoder(n.noder ?? []);
     } catch (e) {
       setFeil(e instanceof Error ? e.message : String(e));
     }
@@ -67,6 +71,22 @@ export function VerktoybibliotekSection() {
         </button>
       </div>
 
+      <div className="flex items-center gap-2">
+        <span className="hud-title text-[9px] text-muted-foreground">KJØR PÅ</span>
+        <select
+          value={valgtNode}
+          onChange={(e) => setValgtNode(e.target.value)}
+          className="flex-1 rounded border border-primary/20 bg-background/30 px-2 py-1 text-[11px] outline-none"
+        >
+          <option value="">denne Jetson-noden (lokalt)</option>
+          {noder.map((n) => (
+            <option key={n.id} value={n.id}>
+              {n.navn} {n.agentUrl ? "" : "(uten agent)"}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {siste ? (
         <pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded bg-background/50 p-1 font-mono text-[10px] text-cyan-200/80">
           {siste}
@@ -98,6 +118,18 @@ export function VerktoybibliotekSection() {
                 >
                   <Play className="mr-1 inline size-3" />
                   TEST
+                </button>
+                <button
+                  disabled={!valgtNode || jobber === `${t.id}-node`}
+                  onClick={() =>
+                    void kjor(`${t.id}-node`, async () =>
+                      backend.kjorVerktoyPaaNode(valgtNode, t.name, t.testArgs ?? {}),
+                    )
+                  }
+                  className="hud-btn hud-btn-hoverable hud-title !py-0.5 text-[9px]"
+                >
+                  <Server className="mr-1 inline size-3" />
+                  KJØR PÅ NODE
                 </button>
                 <button
                   onClick={() => void kjor(t.id, async () => backend.settVerktoyAktiv(t.id, !t.enabled))}

@@ -108,6 +108,26 @@ export function UtviklingSection() {
       </div>
 
       <div className="hud-panel space-y-1">
+        <span className="hud-label">Lærte regler (R11)</span>
+        {!data?.regler?.length ? (
+          <div className="text-[10px] text-muted-foreground">
+            Ingen lærte regler ennå. Korriger ham i chat – han lagrer regelen selv med laer_regel.
+          </div>
+        ) : (
+          data.regler.map((r, i) => (
+            <div key={r.id} className="flex items-start justify-between gap-2 border-b border-primary/10 py-1 text-[10px]">
+              <div className="text-foreground">
+                <span className="mr-1 font-mono text-primary/80">L{i + 1}</span>
+                {r.tekst}
+              </div>
+              <span className="shrink-0 text-muted-foreground">{new Date(r.tid).toLocaleString("nb-NO")}</span>
+            </div>
+          ))
+        )}
+      </div>
+
+
+      <div className="hud-panel space-y-1">
         <span className="hud-label">Forbedringskø</span>
         {!data?.ko?.length ? (
           <div className="text-[10px] text-muted-foreground">Køen er tom.</div>

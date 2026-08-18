@@ -109,6 +109,9 @@ export const ROUTES = {
   generatedTools: "/verktoy/genererte",
   generatedToolTest: "/verktoy/genererte/test",
   generatedToolRun: "/verktoy/genererte/kjor",
+  generatedToolRunNode: "/verktoy/genererte/kjor-node",
+  toolStorage: "/verktoy/lagring",
+  toolIpCheck: "/verktoy/ip-sjekk",
   generatedToolRollback: "/verktoy/genererte/tilbake",
   generatedToolEnable: "/verktoy/genererte/aktiver",
 

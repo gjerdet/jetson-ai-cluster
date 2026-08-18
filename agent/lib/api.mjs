@@ -106,6 +106,7 @@ import {
   runGeneratedTool,
   testTool,
   toolStats,
+  seedInnebygdeVerktoy,
 } from "./toolgen.mjs";
 import { kortTekst, maskinKort, selvtest } from "./identitet.mjs";
 import { deleger, diagnoser, diagnoserAlle, kollegaProfiler, listKollegaer } from "./kollega.mjs";
@@ -124,6 +125,13 @@ import { corsBlocked, corsHeaders, rateLimit } from "./security.mjs";
 import { decryptSecret, encryptSecret, maskSecret } from "./secrets.mjs";
 import { callChatEndpoint, listModels } from "./ai-endpoint.mjs";
 import { listBackups, runBackup } from "./backup.mjs";
+import { ipSjekk, lagringsStatus } from "./system-tools.mjs";
+
+try {
+  seedInnebygdeVerktoy();
+} catch {
+  /* biblioteket seedes på nytt ved neste start */
+}
 import { startUpdate, updateStatus } from "./update-runner.mjs";
 import {
   addDocument,
@@ -403,6 +411,42 @@ export async function handleApi(req, res, route, url, deps = {}) {
     }
 
     // ---- verktøybibliotek ------------------------------------------------
+    if (path === "/verktoy/lagring" && (method === "GET" || method === "POST")) {
+      return json(req, res, 200, await lagringsStatus());
+    }
+    if (path === "/verktoy/ip-sjekk" && (method === "GET" || method === "POST")) {
+      const b = method === "POST" ? await readBody(req) : Object.fromEntries(url.searchParams);
+      const porter = Array.isArray(b.porter)
+        ? b.porter
+        : String(b.porter ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+      try {
+        return json(req, res, 200, await ipSjekk(String(b.ip ?? b.vert ?? ""), porter));
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+    if (path === "/verktoy/genererte/kjor-node" && method === "POST") {
+      const b = await readBody(req);
+      const nodeId = String(b.nodeId ?? "");
+      const node = (doc("nodes", { list: [] }).list || []).find((n) => n.id === nodeId);
+      if (!node) return json(req, res, 404, { error: `Fant ikke noden «${nodeId}».` });
+      const base = String(node.agentUrl || "").replace(/\/+$/, "");
+      if (!base) return json(req, res, 400, { error: `Noden «${node.navn}» har ingen agent-URL – den kan bare brukes til AI-kall.` });
+      const token = node.agentToken || "";
+      const r = await fetch(`${base}/api/verktoy/genererte/kjor`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(token ? { authorization: `Bearer ${token}`, "x-agent-token": token } : {}),
+        },
+        body: JSON.stringify({ navn: String(b.navn ?? ""), args: b.args ?? {} }),
+      });
+      const tekst = await r.text();
+      let data = null;
+      try { data = tekst ? JSON.parse(tekst) : null; } catch { data = { raa: tekst.slice(0, 500) }; }
+      if (!r.ok) return json(req, res, 502, { error: data?.error || `HTTP ${r.status} fra ${node.navn}` });
+      return json(req, res, 200, { node: node.navn, via: base, ...data });
+    }
     if (path === "/verktoy/genererte" && method === "GET") {
       return json(req, res, 200, { verktoy: listGeneratedTools(), statistikk: toolStats() });
     }

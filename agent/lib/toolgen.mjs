@@ -224,3 +224,59 @@ export function enableTool(id, enabled) {
   persist(d);
   return t;
 }
+
+/* ----------------------- innebygde verktøy (seed) ------------------------ */
+
+const INNEBYGD = [
+  {
+    name: "ip_og_lagring",
+    description:
+      "Sjekker om en IP/vert svarer på nettet (ping + porter) og henter lagringsstatus (df) fra Jetson-noden verktøyet kjører på.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ip: { type: "string", description: "IP eller vertsnavn som skal sjekkes, f.eks. 192.168.20.1" },
+        porter: { type: "string", description: "Kommaseparerte porter, f.eks. 22,443" },
+        base: { type: "string", description: "Agent-base, standard http://127.0.0.1:8787" },
+      },
+      required: ["ip"],
+    },
+    testArgs: { ip: "127.0.0.1", porter: "22" },
+    code: `module.exports = async function (args) {
+  const base = String(args.base || "http://127.0.0.1:8787").replace(/\\/+$/, "");
+  const ip = String(args.ip || "").trim();
+  if (!ip) return { ok: false, feil: "Mangler ip." };
+  const porter = String(args.porter || "");
+  try {
+    const nett = await (await fetch(base + "/api/verktoy/ip-sjekk?ip=" + encodeURIComponent(ip) + "&porter=" + encodeURIComponent(porter))).json();
+    const lagring = await (await fetch(base + "/api/verktoy/lagring")).json();
+    return { ok: true, resultat: { nett, lagring } };
+  } catch (e) {
+    return { ok: false, feil: String(e && e.message ? e.message : e) };
+  }
+}`,
+  },
+];
+
+/** Legger inn innebygde verktøy i biblioteket hvis de mangler. Idempotent. */
+export function seedInnebygdeVerktoy() {
+  const d = db();
+  let endret = false;
+  for (const mal of INNEBYGD) {
+    if (d.list.some((t) => t.name === mal.name)) continue;
+    d.list.unshift({
+      id: randomUUID(),
+      tid: Date.now(),
+      beskrivelse: mal.description,
+      innebygd: true,
+      enabled: true,
+      testet: false,
+      testResult: null,
+      versjoner: [],
+      ...mal,
+    });
+    endret = true;
+  }
+  if (endret) persist(d);
+  return d.list.filter((t) => t.innebygd).map((t) => t.name);
+}
