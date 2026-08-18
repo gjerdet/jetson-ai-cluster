@@ -706,6 +706,12 @@ export const backend = {
     call<{ resultat: unknown }>(ROUTES.initiativeRun!, { method: "POST" }, { timeoutMs: 300_000, retries: 0 }),
   rullTilbakeRevisjon: (id: string) =>
     call<{ revisjon: Revisjon }>(ROUTES.initiativeRollback!, { method: "POST", body: JSON.stringify({ id }) }, { retries: 0 }),
+  laerRegel: (tekst: string, hvorfor?: string) =>
+    call<{ regel: { id: string; tekst: string } | null; duplikat: boolean }>(
+      ROUTES.initiativeLearn!,
+      { method: "POST", body: JSON.stringify({ tekst, hvorfor }) },
+      { retries: 0 },
+    ),
 
   // ---- verktøybibliotek ----
   hentVerktoybibliotek: () =>
