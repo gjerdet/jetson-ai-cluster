@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { Trash2, Upload, FileAudio, Copy } from "lucide-react";
-import { backend, safe, type VoiceClip } from "@/lib/backend";
+import { backend, backendUrl, BackendError, safe, type VoiceClip } from "@/lib/backend";
+
+/** Feiltekst med konkret råd og hvilken adresse som ble forsøkt. */
+const feiltekst = (e: Error) =>
+  e instanceof BackendError
+    ? `${e.message}${e.raad ? ` ${e.raad}` : ""} (adresse: ${backendUrl()})`
+    : e.message;
 
 /**
  * Opplasting av treningsklipp for stemme-kloning.
@@ -17,7 +23,7 @@ export function VoiceTraining() {
 
   const last = async () => {
     const { data, error } = await safe(() => backend.hentKlipp());
-    if (error) return setStatus(error.message);
+    if (error) return setStatus(feiltekst(error));
     setKlipp(data.klipp);
     setStat(data.statistikk);
   };
@@ -58,7 +64,7 @@ export function VoiceTraining() {
         }),
       );
       if (error) {
-        setStatus(error.message);
+        setStatus(feiltekst(error));
         return;
       }
     }
@@ -74,7 +80,7 @@ export function VoiceTraining() {
 
   const hentManifest = async () => {
     const { data, error } = await safe(() => backend.hentTreningssett());
-    if (error) return setStatus(error.message);
+    if (error) return setStatus(feiltekst(error));
     setManifest(data.manifest);
     setMappe(data.mappe);
   };
