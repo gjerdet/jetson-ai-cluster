@@ -234,12 +234,26 @@ const RETRYABLE: ErrorCode[] = [
 ];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Tidspunkt for siste vellykkede kall – brukes til å skille TLS fra avbrutt kall. */
+let sisteOkTid = 0;
+
 function networkError(e: unknown): BackendError {
   const msg = e instanceof Error ? e.message : String(e);
   if (/abort/i.test(msg)) return new BackendError(ERROR_CODES.TIMEOUT, undefined, 0);
+  // Har backend-en svart oss de siste 10 minuttene, er sertifikatet allerede
+  // godtatt i denne nettleseren. Da er dette et avbrutt/feilet enkeltkall –
+  // typisk at agenten brukte for lang tid eller lukket forbindelsen.
+  if (Date.now() - sisteOkTid < 600_000) {
+    return new BackendError(
+      ERROR_CODES.NETWORK,
+      "Agenten brøt forbindelsen midt i kallet (den svarte fint like før). Sjekk LOGG-panelet eller «journalctl -u jarvis-agent -n 50» på Jetson – ofte tok AI-svaret for lang tid.",
+      0,
+    );
+  }
   if (backendUrl().startsWith("https://")) return new BackendError(ERROR_CODES.TLS, undefined, 0);
   return new BackendError(ERROR_CODES.NETWORK, undefined, 0);
 }
+
 
 async function call<T>(
   path: string,
@@ -285,6 +299,7 @@ async function call<T>(
         if (err.code === ERROR_CODES.UNAUTHORIZED) setBackendToken(null);
         throw err;
       }
+      sisteOkTid = Date.now();
       emit(true, null);
       return data as T;
     } catch (e) {
