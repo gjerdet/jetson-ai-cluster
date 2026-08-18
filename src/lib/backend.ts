@@ -674,6 +674,139 @@ export const backend = {
     call<{ ko: { items: unknown[]; active: unknown[] } }>("/oppgave/koe"),
   fjernFraKoe: (planId: string) =>
     call<{ fjernet: number }>(`/oppgave/koe/${encodeURIComponent(planId)}`, { method: "DELETE" }),
+
+  // ---- maskin-ID-kort ----
+  hentIdentitet: (frisk = false) =>
+    call<{ kort: MaskinKort; tekst: string }>(`${ROUTES.identity}${frisk ? "?frisk=1" : ""}`, {}, { timeoutMs: 20_000 }),
+  identitetSelvtest: () =>
+    call<{ ok: boolean; avvik: string[]; kort: MaskinKort }>(ROUTES.identitySelftest!, { method: "POST" }, { timeoutMs: 25_000, retries: 0 }),
+
+  // ---- kolleger ----
+  hentKollegaer: () => call<{ kollegaer: Kollega[] }>(ROUTES.colleagues!).then((r) => r.kollegaer),
+  diagnoserKollega: (id = "") =>
+    call<{ resultater: KollegaDiagnose[] }>(
+      ROUTES.colleagueDiagnose!,
+      { method: "POST", body: JSON.stringify({ id }) },
+      { timeoutMs: 120_000, retries: 0 },
+    ).then((r) => r.resultater),
+  delegerTilKollega: (v: { node?: string; oppgave: string; kontekst?: string; runder?: number }) =>
+    call<{ ok: boolean; kollega?: string; svar?: string; feil?: string; utveksling: { fra: string; tekst: string; ms?: number }[] }>(
+      ROUTES.colleagueDelegate!,
+      { method: "POST", body: JSON.stringify(v) },
+      { timeoutMs: 300_000, retries: 0 },
+    ),
+
+  // ---- utvikling / selvforbedring ----
+  hentUtvikling: () => call<Utvikling>(ROUTES.initiative!, {}, { timeoutMs: 20_000 }),
+  settUtviklingAktiv: (aktiv: boolean) =>
+    call<{ aktiv: boolean }>(ROUTES.initiative!, { method: "PUT", body: JSON.stringify({ aktiv }) }, { retries: 0 }),
+  leggIUtviklingsko: (v: { type: string; tekst: string; prioritet?: number; data?: Record<string, unknown> }) =>
+    call<{ jobb: KoJobb }>(ROUTES.initiativeQueue!, { method: "POST", body: JSON.stringify(v) }, { retries: 0 }),
+  kjorUtvikling: () =>
+    call<{ resultat: unknown }>(ROUTES.initiativeRun!, { method: "POST" }, { timeoutMs: 300_000, retries: 0 }),
+  rullTilbakeRevisjon: (id: string) =>
+    call<{ revisjon: Revisjon }>(ROUTES.initiativeRollback!, { method: "POST", body: JSON.stringify({ id }) }, { retries: 0 }),
+
+  // ---- verktøybibliotek ----
+  hentVerktoybibliotek: () =>
+    call<{ verktoy: GeneratedTool[]; statistikk: VerktoyStat[] }>(ROUTES.generatedTools!, {}, { timeoutMs: 20_000 }),
+  byggVerktoy: (beskrivelse: string, runder = 3) =>
+    call<{ ok: boolean; verktoy: GeneratedTool; historikk: { runde: number; ok: boolean; detalj: unknown }[] }>(
+      ROUTES.generatedTools!,
+      { method: "POST", body: JSON.stringify({ beskrivelse, runder }) },
+      { timeoutMs: 600_000, retries: 0 },
+    ),
+  kjorGenerertVerktoy: (navn: string, args: Record<string, unknown> = {}) =>
+    call<{ resultat: unknown }>(
+      ROUTES.generatedToolRun!,
+      { method: "POST", body: JSON.stringify({ navn, args }) },
+      { timeoutMs: 60_000, retries: 0 },
+    ),
+  rullTilbakeVerktoy: (id: string) =>
+    call<{ verktoy: GeneratedTool }>(ROUTES.generatedToolRollback!, { method: "POST", body: JSON.stringify({ id }) }, { retries: 0 }),
+  settVerktoyAktiv: (id: string, aktiv: boolean) =>
+    call<{ verktoy: GeneratedTool }>(ROUTES.generatedToolEnable!, { method: "POST", body: JSON.stringify({ id, aktiv }) }, { retries: 0 }),
+};
+
+export type MaskinKort = {
+  tid: number;
+  vert: string;
+  modell: string;
+  os: string;
+  kjerner: number;
+  minneMb: number;
+  fritt_minne_mb: number;
+  oppetidSek: number;
+  last: number;
+  nett: { grensesnitt: string; ip: string; maske: string; cidr: string; mac: string }[];
+  primaerIp: string;
+  subnett: string;
+  gpu: unknown;
+  tjenester: Record<string, unknown> | null;
+  modeller: string[];
+  lastedeModeller: string[];
+  klynge: { id: string; navn?: string; baseUrl: string }[];
+};
+
+export type Kollega = {
+  id: string;
+  navn: string;
+  baseUrl: string;
+  model: string;
+  profil: { snittMs?: number; feil?: number; sistOk?: number; sisteFeiltekst?: string } | null;
+};
+
+export type KollegaDiagnose = {
+  ok: boolean;
+  kollega?: string;
+  steg: { navn: string; ok: boolean | null; detalj: string }[];
+};
+
+export type KoJobb = {
+  id: string;
+  tid: number;
+  type: string;
+  tekst: string;
+  prioritet: number;
+  status: string;
+  resultat?: string;
+};
+
+export type Revisjon = {
+  id: string;
+  tid: number;
+  hva: string;
+  hvorfor: string;
+  resultat: string;
+  type: string;
+  ref: string;
+  tilbakerullet: boolean;
+};
+
+export type VerktoyStat = {
+  navn: string;
+  kall: number;
+  feil: number;
+  feilrate: number;
+  snittMs: number;
+  sisteFeil: string;
+  sist: number;
+};
+
+export type Utvikling = {
+  status: {
+    aktiv: boolean;
+    ledig: boolean;
+    sisteChat: number;
+    jobberNa: string | null;
+    ko: number;
+    revisjoner: number;
+  };
+  ko: KoJobb[];
+  revisjoner: Revisjon[];
+  regler: { id: string; tid: number; tekst: string }[];
+  forslag: InitiativeSuggestion[];
+  audit: { tid: number; hendelse: string; risiko: string; godkjent: boolean; auto: boolean }[];
 };
 
 export type VersionInfo = {
