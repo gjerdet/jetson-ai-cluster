@@ -4,7 +4,7 @@
  * Typene ligger i contract.d.ts og deles av frontend via src/lib/contract.ts.
  */
 
-export const API_VERSION = "2.2.0";
+export const API_VERSION = "2.3.0";
 
 /** Versjon på konfig-pakkene som eksporteres/importeres mellom installasjoner. */
 export const CONFIG_BUNDLE_VERSION = 1;
@@ -26,6 +26,8 @@ export const CONFIG_DOCS = [
   "evaluations",
   "initiative",
   "generatedTools",
+  "kollegaer",
+  "laering",
 ];
 
 export const RULE_OPERATORS = ["over", "under", "lik", "endres"];
@@ -106,6 +108,19 @@ export const ROUTES = {
   initiativeSuggestions: "/initiativ/forslag",
   generatedTools: "/verktoy/genererte",
   generatedToolTest: "/verktoy/genererte/test",
+  generatedToolRun: "/verktoy/genererte/kjor",
+  generatedToolRollback: "/verktoy/genererte/tilbake",
+  generatedToolEnable: "/verktoy/genererte/aktiver",
+
+  // identitet, kolleger og utvikling
+  identity: "/identitet",
+  identitySelftest: "/identitet/selvtest",
+  colleagues: "/kollega",
+  colleagueDiagnose: "/kollega/diagnose",
+  colleagueDelegate: "/kollega/deleger",
+  initiativeQueue: "/initiativ/ko",
+  initiativeRun: "/initiativ/kjor",
+  initiativeRollback: "/initiativ/tilbake",
 
 };
 
