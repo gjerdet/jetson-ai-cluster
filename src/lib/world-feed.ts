@@ -137,8 +137,7 @@ export function searchEvents(q: string, opts: { lag?: string; antall?: number } 
     .filter((e) => (!lag || e.layer.toLowerCase() === lag) &&
       (!needle ||
         e.title.toLowerCase().includes(needle) ||
-        (e.summary ?? "").toLowerCase().includes(needle) ||
-        (e.place ?? "").toLowerCase().includes(needle)))
+        (e.detail ?? "").toLowerCase().includes(needle)))
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
     .slice(0, n);
 }
@@ -150,7 +149,7 @@ export function searchText(q: string, opts: { lag?: string; antall?: number } = 
   return treff
     .map((e, i) => {
       const t = new Date(e.time).toLocaleString("nb-NO");
-      return `${i + 1}. [${e.layer}] ${e.title}${e.place ? ` – ${e.place}` : ""} (${t})${e.url ? ` – ${e.url}` : ""}`;
+      return `${i + 1}. [${e.layer}] ${e.title} (${t})${e.url ? ` – ${e.url}` : ""}`;
     })
     .join("\n");
 }
