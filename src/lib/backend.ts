@@ -5,6 +5,7 @@
  * Robusthet: tidsavbrudd, automatisk gjenforsøk på nettverksfeil,
  * maskinlesbare feilkoder og norske brukertekster fra den delte kontrakten.
  */
+import { isPreviewHostname } from "@/lib/preview-hosts";
 import {
   DEFAULTS,
   ERROR_CODES,
@@ -129,13 +130,22 @@ const ss = () => (typeof sessionStorage !== "undefined" ? sessionStorage : null)
 /**
  * Standardadressen til agenten når ingenting er lagret.
  *
- * Den første Jetson-noden er standard backend. Brukeren kan fortsatt overstyre
- * adressen i GUI-et; den lagrede adressen har alltid prioritet i backendUrl().
+ * Kjører HUD-en fra agenten selv (f.eks. https://<jetson>:8443, som proxer
+ * GUI-et), bruker vi samme opphav. Da slipper vi feil port, blandet innhold
+ * (http fra en https-side) og sertifikatspørsmål. Ellers faller vi tilbake til
+ * den første Jetson-noden; lagret adresse i GUI-et vinner alltid.
  */
-export const standardBackendUrl = (_loc?: { hostname?: string; protocol?: string }) => DEFAULT_BACKEND_URL;
+export const standardBackendUrl = (loc?: { hostname?: string; origin?: string }) => {
+  const w = typeof window !== "undefined" ? window.location : undefined;
+  const hostname = loc?.hostname ?? w?.hostname;
+  const origin = loc?.origin ?? w?.origin;
+  if (origin && hostname && !isPreviewHostname(hostname)) return origin.replace(/\/+$/, "");
+  return DEFAULT_BACKEND_URL;
+};
 
 export const backendUrl = () =>
   (typeof localStorage !== "undefined" && localStorage.getItem(LS_URL)) || standardBackendUrl();
+
 
 export const backendToken = () => {
   if (memToken) return memToken;

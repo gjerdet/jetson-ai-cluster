@@ -370,6 +370,7 @@ export function ChatPanel({
         // i innstillingene, sendes den med som ønsket node.
         const call = viaBackend
           ? await backend
+
               .aiChat(thread.map((m) => ({ role: m.role, content: m.content })), {
                 oppgave: round === 0 ? "chat" : "verktoy",
                 // Et eksplisitt modellvalg skal alltid vinne. Send adresse og
@@ -406,7 +407,17 @@ export function ChatPanel({
                   },
                 };
               })
+              // Backend-agenten er ikke tilgjengelig herfra (f.eks. i
+              // forhåndsvisningen, eller selvsignert TLS ikke godkjent).
+              // Da prøver vi noden direkte fra nettleseren – virker for
+              // skytjenester som OpenRouter/OpenAI.
+              .catch(async (e) => {
+                logSelfEvent("warn", `Backend utilgjengelig – prøver direkte fra nettleseren (${e instanceof Error ? e.message : String(e)})`);
+                const r = await direkte(round);
+                return { ...r, node: { ...r.node, name: `${r.node.name} · direkte` } };
+              })
           : await direkte(round);
+
 
 
         const raw = call.text;

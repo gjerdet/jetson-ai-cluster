@@ -112,7 +112,8 @@ describe("standard backend-adresse", () => {
   it("bruker alltid den konfigurerte Jetson-noden når ingen adresse er lagret", () => {
     expect(DEFAULT_BACKEND_URL).toBe("https://192.168.12.5:8443");
     expect(standardBackendUrl()).toBe("https://192.168.12.5:8443");
-    expect(standardBackendUrl({ hostname: "localhost", protocol: "http:" })).toBe(DEFAULT_BACKEND_URL);
-    expect(standardBackendUrl({ hostname: "id-preview--abc.lovable.app", protocol: "https:" })).toBe(DEFAULT_BACKEND_URL);
+    expect(standardBackendUrl({ hostname: "192.168.12.5", origin: "https://192.168.12.5:8443" })).toBe("https://192.168.12.5:8443");
+    expect(standardBackendUrl({ hostname: "localhost", origin: "http://localhost:8080" })).toBe(DEFAULT_BACKEND_URL);
+    expect(standardBackendUrl({ hostname: "id-preview--abc.lovable.app", origin: "https://id-preview--abc.lovable.app" })).toBe(DEFAULT_BACKEND_URL);
   });
 });
