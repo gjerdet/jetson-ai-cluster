@@ -136,6 +136,13 @@ export const TOOL_CATALOG: ToolSpec[] = [
     builtin: true,
   },
   {
+    name: "laer_regel",
+    category: "minne",
+    summary: "Lagrer en varig adferdsregel (selvforbedring) som gjelder i alle senere samtaler.",
+    args: '{"tekst": "Bruk alltid nett_skann med subnett 192.168.20.0/24", "hvorfor": "..."}',
+    builtin: true,
+  },
+  {
     name: "evaluering",
     category: "system",
     summary: "Vurder et AI-svar eller verktøyresultat 0-10 og få forbedringsforslag.",
