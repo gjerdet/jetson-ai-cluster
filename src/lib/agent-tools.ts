@@ -158,6 +158,13 @@ export const TOOL_CATALOG: ToolSpec[] = [
     builtin: true,
   },
   {
+    name: "verktoy_paa_node",
+    category: "system",
+    summary: "Kjører et bibliotek-verktøy på en annen Jetson-node i klyngen (via nodens egen agent).",
+    args: '{"nodeId": "jetson-2", "navn": "ip_og_lagring", "args": {"ip": "192.168.20.1"}}',
+    builtin: true,
+  },
+  {
     name: "verktoy_liste",
     category: "verktoy",
     summary: "Lister alle egendefinerte verktøy som er laget.",
@@ -302,6 +309,8 @@ Tilgjengelige verktøy:
 - laer_regel {"tekst": "...", "hvorfor": "..."} – lagrer en varig adferdsregel om HVORDAN du skal jobbe.
   Reglene lastes inn i systemprompten din i alle senere samtaler (selvforbedring).
 - verktoy_liste {} – dine egendefinerte verktøy.
+- verktoy_paa_node {"nodeId": "...", "navn": "...", "args": {...}} – kjører et bibliotek-verktøy på en annen
+  Jetson-node. Bruk det når jobben hører hjemme på den maskinen (dens disk, dens nett, dens GPU).
 - verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
 - verktoy_slett {"navn": "hent_vaer"} – slett et verktøy du har laget.
 - ping {"host": "192.168.1.1", "antall": 2, "timeout": 5} – bekreft at en vert er oppe med ICMP eller TCP-fallback.
@@ -710,6 +719,22 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
         : `Lærte ny adferdsregel (gjelder fra nå av): «${tekst}».`;
     } catch (e) {
       return `Klarte ikke lagre regelen: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "verktoy_paa_node") {
+    const nodeId = str(call.args["nodeId"] ?? call.args["node"]).trim();
+    const navn = str(call.args["navn"] ?? call.args["verktoy"]).trim();
+    if (!nodeId || !navn) return "Trenger både nodeId og navn på verktøyet.";
+    try {
+      const r = await backend.kjorVerktoyPaaNode(
+        nodeId,
+        navn,
+        (call.args["args"] as Record<string, unknown>) ?? {},
+      );
+      return `Kjørte «${navn}» på ${r.node}: ${JSON.stringify(r.resultat ?? r).slice(0, 1200)}`;
+    } catch (e) {
+      return `Klarte ikke kjøre «${navn}» på node ${nodeId}: ${e instanceof Error ? e.message : String(e)}`;
     }
   }
 
