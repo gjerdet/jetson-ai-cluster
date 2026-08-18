@@ -55,6 +55,12 @@ import {
 } from "./tts.mjs";
 
 import {
+  addFeedback as addFeedbackEntry,
+  getVekt,
+  listFeedback,
+} from "./feedback.mjs";
+
+import {
   forget as forgetMemory,
   getMemory,
   memoryContext,
@@ -684,7 +690,22 @@ export async function handleApi(req, res, route, url, deps = {}) {
       }
     }
 
-    // ---- AI-proxy: backend-en fordeler chatten mellom nodene -------------
+        if (path === "/feedback" && method === "POST") {
+      const b = await readBody(req);
+      const rad = await addFeedbackEntry({
+        sporsmaal: str(b.sporsmaal, "Spørsmål", { maks: 1000 }),
+        feilSvar: str(b.feilSvar, "Feil svar", { maks: 4000 }),
+        riktigSvar: str(b.riktigSvar, "Riktig svar", { maks: 4000 }),
+        kategori: String(b.kategori || "generelt").trim().slice(0, 60),
+      });
+      return json(req, res, 200, { ok: true, entry: rad });
+    }
+
+    if (path === "/feedback" && method === "GET") {
+      return json(req, res, 200, { entries: listFeedback(), vekt: getVekt() });
+    }
+
+// ---- AI-proxy: backend-en fordeler chatten mellom nodene -------------
     if (path === "/ai/chat" && method === "POST") {
       const b = await readBody(req);
       const meldinger = Array.isArray(b.meldinger) ? b.meldinger : [];
