@@ -208,6 +208,17 @@ export const ROUTES: {
   initiativeSuggestions: string;
   generatedTools: string;
   generatedToolTest: string;
+  generatedToolRun: string;
+  generatedToolRollback: string;
+  generatedToolEnable: string;
+  identity: string;
+  identitySelftest: string;
+  colleagues: string;
+  colleagueDiagnose: string;
+  colleagueDelegate: string;
+  initiativeQueue: string;
+  initiativeRun: string;
+  initiativeRollback: string;
 };
 
 /** En loggkilde HUD-en kan lese (systemd-enhet eller loggfil). */

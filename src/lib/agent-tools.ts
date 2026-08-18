@@ -2,7 +2,7 @@ import type { CustomTool, HudConfig } from "./hud-store";
 import { deviceBrief, newCustomTool, newMemory, sanitizeToolName } from "./hud-store";
 import { historyFor, numericValue, mqttOnline, publishMqtt } from "./mqtt-bridge";
 import { fetchIntegration } from "./integrations.functions";
-import { briefingText, refreshFeed, snapshot } from "./world-feed";
+import { briefingText, refreshFeed, searchText, snapshot } from "./world-feed";
 import { callNode, pingNode } from "./hud-client";
 import type { ChatMsg } from "./hud-client";
 import { CIDR_RE, checkScript, scanScript } from "./net-scan";
@@ -91,6 +91,34 @@ export const TOOL_CATALOG: ToolSpec[] = [
     category: "verden",
     summary: "Topp hendelser fra World Monitor.",
     args: '{"antall": 10}',
+    builtin: true,
+  },
+  {
+    name: "world_sok",
+    category: "verden",
+    summary: "Søker i World Monitor-hendelsene på fritekst og lag.",
+    args: '{"sok": "ukraina", "lag": "war", "antall": 10}',
+    builtin: true,
+  },
+  {
+    name: "maskin_kort",
+    category: "system",
+    summary: "Maskin-ID-kort: modell, OS, CPU/GPU, IP, subnett, modeller og klyngenoder – ferske tall fra denne noden.",
+    args: '{"frisk": true}',
+    builtin: true,
+  },
+  {
+    name: "verktoy_bygg",
+    category: "verktoy",
+    summary: "Lar agenten skrive, teste og fikse et nytt verktøy i sandkassen til testen består.",
+    args: '{"beskrivelse": "sjekk diskbruk på alle noder", "runder": 3}',
+    builtin: true,
+  },
+  {
+    name: "kollega_diagnose",
+    category: "system",
+    summary: "Ende-til-ende diagnose av en kollega-node (nå, autentisering, modell, svar).",
+    args: '{"node": "Hermes"}',
     builtin: true,
   },
   {
@@ -250,6 +278,10 @@ Tilgjengelige verktøy:
 - noder {} – status og svartid for alle AI-noder.
 - system_hent {"navn": "TrueNAS", "sti": "/pool/dataset"} – henter data fra et tilkoblet lokalt system.
 - world_brief {"antall": 10} – topp hendelser fra World Monitor.
+- world_sok {"sok": "ukraina", "lag": "war", "antall": 10} – søk i World Monitor-hendelsene.
+- maskin_kort {"frisk": true} – ferskt maskin-ID-kort: modell, OS, CPU/GPU, IP, subnett, lokale modeller, klyngenoder.
+- verktoy_bygg {"beskrivelse": "...", "runder": 3} – skriv, test og fiks et nytt verktøy i sandkassen til det virker.
+- kollega_diagnose {"node": "Hermes"} – ende-til-ende diagnose av en kollega-node.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
 - verktoy_liste {} – dine egendefinerte verktøy.
 - verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
@@ -292,7 +324,14 @@ R8. Du er ikke alene: Hermes og andre aktive noder er kolleger du kan sette i ar
     tekster), når du vil ha en second opinion på en konklusjon, eller når du vil dele opp en
     stor jobb i deler. Du kjører selv alle verktøy og målinger – kollegaen får kun tekst og
     resultater du allerede har hentet, og svaret er et forslag du må vurdere før du bruker det.
-    Si alltid i svaret hvem du spurte og hva de bidro med.
+    Si alltid i svaret hvem du spurte og hva de bidro med. Trenger du å vite hvorfor en kollega
+    ikke svarer, kjør kollega_diagnose før du melder feil.
+R9. DU ER LOKAL. Alt du gjør skjer på denne maskinen, i dette subnettet, uten sky. Er du i tvil
+    om hvem eller hvor du er – kjør maskin_kort {} og bruk tallene derfra. Aldri oppgi IP,
+    maskinvare, modellnavn eller subnett som ikke står i et ferskt maskin_kort eller nett_sjekk.
+R10. Mangler du et verktøy for oppgaven, bygg det: verktoy_bygg lager, tester og retter koden i
+    sandkassen automatisk. Bruk det før du sier at noe ikke er mulig. Sandkassen har lesetilgang
+    til LAN-tjenester, men ikke internett og ikke skrivetilgang.
 
 
 
@@ -480,6 +519,24 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     ];
 
     const t0 = Date.now();
+    // Foretrekk backend-delegering: den kan kjøre flere runder og stille oppfølgingsspørsmål.
+    const runder = Math.max(1, Math.min(Number(call.args["runder"] ?? 1) || 1, 4));
+    try {
+      const r = await backend.delegerTilKollega({
+        node: kollega.name,
+        oppgave,
+        ...(kontekst ? { kontekst } : {}),
+        runder,
+      });
+      if (r?.ok && r.svar?.trim()) {
+        const logg = (r.utveksling ?? [])
+          .map((u) => `  · ${u.fra}${u.ms ? ` (${u.ms} ms)` : ""}: ${u.tekst.slice(0, 400)}`)
+          .join("\n");
+        return `Svar fra ${r.kollega ?? kollega.name} etter ${runder} runde(r):\n${r.svar.trim()}${logg ? `\n\nUtveksling:\n${logg}` : ""}`;
+      }
+    } catch {
+      // faller videre til direkte kall under
+    }
     try {
       const svar = await backend.aiChat(meldinger, {
         baseUrl: kollega.baseUrl,
@@ -498,6 +555,60 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
       } catch (e2) {
         return `Fikk ikke kontakt med ${kollega.name}: ${e2 instanceof Error ? e2.message : String(e)}`;
       }
+    }
+  }
+
+  if (call.name === "kollega_diagnose") {
+    const id = str(call.args["node"] ?? call.args["id"] ?? "");
+    try {
+      const res = await backend.diagnoserKollega(id);
+      if (!res.length) return "Ingen kolleger registrert å diagnostisere.";
+      return res
+        .map(
+          (r) =>
+            `${r.kollega ?? "ukjent"}: ${r.ok ? "OK" : "FEIL"}\n` +
+            r.steg.map((s) => `  ${s.ok === null ? "–" : s.ok ? "✓" : "✗"} ${s.navn}: ${s.detalj}`).join("\n"),
+        )
+        .join("\n\n");
+    } catch (e) {
+      return `Diagnose feilet: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "maskin_kort") {
+    try {
+      const r = await backend.hentIdentitet(Boolean(call.args["frisk"]));
+      return r.tekst || JSON.stringify(r.kort, null, 2);
+    } catch (e) {
+      return `Klarte ikke hente maskin-ID-kortet fra lokal agent: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "world_sok") {
+    const q = str(call.args["sok"] ?? call.args["q"] ?? call.args["tekst"]);
+    const lag = str(call.args["lag"] ?? call.args["layer"]);
+    const antall = Number(call.args["antall"] ?? 10) || 10;
+    if (!snapshot().events.length) {
+      await Promise.race([refreshFeed().catch(() => undefined), new Promise((r) => setTimeout(r, 12_000))]);
+    }
+    if (!snapshot().events.length) return "World Monitor har ingen hendelser lastet enda. Prøv igjen om litt.";
+    return searchText(q, { ...(lag ? { lag } : {}), antall });
+  }
+
+  if (call.name === "verktoy_bygg") {
+    const beskrivelse = str(call.args["beskrivelse"] ?? call.args["oppgave"] ?? call.args["tekst"]);
+    if (!beskrivelse) return "Mangler «beskrivelse» – si hva verktøyet skal gjøre.";
+    const runder = Math.max(1, Math.min(Number(call.args["runder"] ?? 3) || 3, 5));
+    try {
+      const r = await backend.byggVerktoy(beskrivelse, runder);
+      const logg = (r.historikk ?? [])
+        .map((h) => `  runde ${h.runde}: ${h.ok ? "bestod" : "feilet"}`)
+        .join("\n");
+      return r.ok
+        ? `Bygde og testet verktøyet «${r.verktoy?.name ?? "ukjent"}» i sandkassen.\n${logg}`
+        : `Klarte ikke få verktøyet til å bestå testen etter ${runder} runder.\n${logg}`;
+    } catch (e) {
+      return `Verktøybygging feilet: ${e instanceof Error ? e.message : String(e)}`;
     }
   }
 
