@@ -395,6 +395,15 @@ const server = TLS_OPTIONS
   ? https.createServer(TLS_OPTIONS, securedHandler)
   : http.createServer(securedHandler);
 
+// AI-svar fra en kald modell kan ta flere minutter. Node kutter forbindelsen
+// etter 5 min (requestTimeout) og holder keep-alive i bare 5 s – da ser
+// nettleseren «failed to fetch» midt i chatten. Vi hever grensene.
+server.requestTimeout = 0; // ingen hard grense på hvor lenge et kall kan vare
+server.headersTimeout = 120_000;
+server.keepAliveTimeout = 75_000;
+server.timeout = 0;
+
+
 /**
  * Valgfri lytter som kun sender folk videre til HTTPS.
  * AGENT_HTTP_REDIRECT_PORT=8786 → http://vert:8786/... ⇒ https://vert:PORT/...
