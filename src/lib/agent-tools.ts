@@ -8,6 +8,7 @@ import type { ChatMsg } from "./hud-client";
 import { CIDR_RE, checkScript, scanScript } from "./net-scan";
 import { backend, backendToken } from "./backend";
 import { refreshLearnedRules } from "./learned-rules";
+import { KREV_INNLOGGING } from "./auth-mode";
 
 import {
   agentCfg,
