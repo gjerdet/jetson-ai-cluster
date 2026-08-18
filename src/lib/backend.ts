@@ -728,6 +728,13 @@ export const backend = {
       { method: "POST", body: JSON.stringify({ navn, args }) },
       { timeoutMs: 60_000, retries: 0 },
     ),
+  /** Kjører et bibliotek-verktøy på en annen Jetson-node via dens agent. */
+  kjorVerktoyPaaNode: (nodeId: string, navn: string, args: Record<string, unknown> = {}) =>
+    call<{ node: string; via: string; resultat?: unknown }>(
+      ROUTES.generatedToolRunNode!,
+      { method: "POST", body: JSON.stringify({ nodeId, navn, args }) },
+      { retries: 0, timeoutMs: 30_000 },
+    ),
   rullTilbakeVerktoy: (id: string) =>
     call<{ verktoy: GeneratedTool }>(ROUTES.generatedToolRollback!, { method: "POST", body: JSON.stringify({ id }) }, { retries: 0 }),
   settVerktoyAktiv: (id: string, aktiv: boolean) =>
