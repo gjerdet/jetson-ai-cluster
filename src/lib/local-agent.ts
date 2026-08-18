@@ -1,5 +1,6 @@
 import type { HudConfig } from "./hud-store";
 import { backend, backendToken, backendUrl } from "./backend";
+import { KREV_INNLOGGING } from "./auth-mode";
 
 
 /** Konfigurasjon for den lokale agent-tjenesten som kjører på Jetson/Pi. */
@@ -33,6 +34,9 @@ export function agentCfg(config: HudConfig): LocalAgentConfig {
   const url = backendUrl();
   const token = backendToken();
   if (token) return { ...cfg, enabled: true, baseUrl: url || cfg.baseUrl, token };
+  // Innlogging av: backend-en godtar kall uten sesjonstoken, så verktøyene skal virke.
+  if (!KREV_INNLOGGING && (url || cfg.baseUrl))
+    return { ...cfg, enabled: true, baseUrl: url || cfg.baseUrl };
   if (cfg.enabled && cfg.baseUrl && cfg.token) return cfg;
   return { ...cfg, enabled: false };
 }

@@ -8,6 +8,7 @@ import type { ChatMsg } from "./hud-client";
 import { CIDR_RE, checkScript, scanScript } from "./net-scan";
 import { backend, backendToken } from "./backend";
 import { refreshLearnedRules } from "./learned-rules";
+import { KREV_INNLOGGING } from "./auth-mode";
 
 import {
   agentCfg,
@@ -828,7 +829,7 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
   const cfg = agentCfg(config);
   if (!cfg.baseUrl)
     return "Ingen agentadresse er konfigurert. Angi backend-adressen under SYSTEM → BACKEND.";
-  if (!cfg.enabled || !cfg.token)
+  if (!cfg.enabled || (KREV_INNLOGGING && !cfg.token))
     return "Backend-sesjonen mangler eller har utløpt. Logg inn på nytt under SYSTEM → BACKEND, og prøv oppgaven igjen.";
 
 
@@ -842,7 +843,7 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       // godkjenning er forbeholdt handlinger som kan endre systemer eller data.
       const scanCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, ports ? 180000 : 90000) };
       let r;
-      if (backendToken()) {
+      if (backendToken() || !KREV_INNLOGGING) {
         try {
           r = await backendNetworkScan(subnet, ports);
         } catch {
@@ -864,7 +865,7 @@ async function runAgentTool(call: ToolCall, config: HudConfig): Promise<string> 
       // bekreftelsesdialog. Aktiv skanning (nett_skann) krever fortsatt samtykke.
       const sjekkCfg = { ...cfg, timeoutMs: Math.max(cfg.timeoutMs, 60000) };
       let r;
-      if (backendToken()) {
+      if (backendToken() || !KREV_INNLOGGING) {
         try {
           r = await backendNetworkCheck(subnet);
         } catch {
