@@ -82,6 +82,7 @@ import {
   initiativeStatus,
   isActive as isInitiativeActive,
   laerteRegler,
+  laerRegel,
   leggIKo,
   listAudit as listInitiativeAudit,
   listKo,
