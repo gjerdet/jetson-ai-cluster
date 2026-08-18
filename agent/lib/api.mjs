@@ -1274,7 +1274,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
     // ---- AGI: planer ------------------------------------------------------
     if (path === "/planer" && method === "GET")
-      return json(req, res, 200, { planer: listPlans({ aktiv: q.get("aktiv") === "1", limit: 50 }) });
+      return json(req, res, 200, { planer: listPlans({ aktiv: url.searchParams.get("aktiv") === "1", limit: 50 }) });
 
     if (path === "/planer" && method === "POST") {
       const b = await readBody(req);
