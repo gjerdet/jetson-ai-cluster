@@ -81,20 +81,33 @@ import {
   approveSuggestion,
   initiativeStatus,
   isActive as isInitiativeActive,
+  laerteRegler,
+  leggIKo,
   listAudit as listInitiativeAudit,
+  listKo,
+  listRevisjoner,
   listSuggestions as listInitiativeSuggestions,
+  loggRevisjon,
+  markerBrukeraktivitet,
   rejectSuggestion,
+  rullTilbake,
   runNow as runInitiativeNow,
   setActive as setInitiativeActive,
 } from "./initiative.mjs";
 import {
+  byggVerktoy,
   deleteGeneratedTool,
   enableTool,
   generateTool,
   getGeneratedTool,
   listGeneratedTools,
+  rollbackTool,
+  runGeneratedTool,
   testTool,
+  toolStats,
 } from "./toolgen.mjs";
+import { kortTekst, maskinKort, selvtest } from "./identitet.mjs";
+import { deleger, diagnoser, diagnoserAlle, kollegaProfiler, listKollegaer } from "./kollega.mjs";
 import { runPlanOnce, runPlanUntilDone } from "./task-runner.mjs";
 
 /** Gjeldende innstillinger = standardverdier overstyrt av lagrede verdier. */
