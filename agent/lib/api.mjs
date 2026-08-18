@@ -636,6 +636,8 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const b = await readBody(req);
       const meldinger = Array.isArray(b.meldinger) ? b.meldinger : [];
       if (!meldinger.length) return json(req, res, 400, { error: "Ingen meldinger" });
+      // Brukeraktivitet stopper bakgrunnsarbeidet umiddelbart.
+      markerBrukeraktivitet();
       const cfg = doc("ai", { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1", apiKey: "", system: "" });
       // En nøkkel som følger med forespørselen (f.eks. OpenRouter fra HUD-en) vinner.
       const envKey = process.env.OPENROUTER_API_KEY ? decryptSecret(process.env.OPENROUTER_API_KEY) : "";
