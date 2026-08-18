@@ -249,7 +249,23 @@ export function ChatPanel({
           ]);
           return;
         }
+        // Ingen målt output = ingen svar. Modellen skal aldri gjette nettverksdata.
+        setMessages([
+          ...next,
+          {
+            role: "assistant",
+            content: `Jeg kunne ikke bekrefte enhetene i ${malSubnett ?? "subnettet"} fra faktisk måling, og jeg gjetter ikke på nettverksdata.\n\nRå output fra skanningen:\n\n\`\`\`\n${resultat.trim() || "(tomt svar)"}\n\`\`\``,
+            node: "BACKEND · NETTVERK",
+            time: Date.now(),
+            runs: [
+              { name: "nett_sjekk", args: {}, result: sjekk, ms: 0, time: Date.now(), ok: false },
+              { name: "nett_skann", args: skannArgs, result: resultat, ms, time: Date.now(), ok: false },
+            ],
+          },
+        ]);
+        return;
       }
+
       if (nettIntensjon && nettIntensjon !== "devices") {
         setStage("verktøy: nett_sjekk");
         const t0 = performance.now();
