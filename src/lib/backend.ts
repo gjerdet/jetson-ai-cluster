@@ -5,6 +5,7 @@
  * Robusthet: tidsavbrudd, automatisk gjenforsøk på nettverksfeil,
  * maskinlesbare feilkoder og norske brukertekster fra den delte kontrakten.
  */
+import { isPreviewHostname } from "@/lib/preview-hosts";
 import {
   DEFAULTS,
   ERROR_CODES,
