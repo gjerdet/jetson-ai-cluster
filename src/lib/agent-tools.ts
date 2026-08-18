@@ -696,6 +696,20 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     return `Lagret i langtidsminnet: «${text}».`;
   }
 
+  if (call.name === "laer_regel") {
+    const tekst = str(call.args["tekst"] ?? call.args["regel"] ?? call.args["text"]).trim();
+    if (!tekst) return "Tom regel – ingenting lært.";
+    const hvorfor = str(call.args["hvorfor"] ?? call.args["grunn"]).trim() || "Lært i samtale";
+    try {
+      const r = await backend.laerRegel(tekst, hvorfor);
+      return r.duplikat
+        ? `Denne regelen kunne jeg allerede: «${tekst}».`
+        : `Lærte ny adferdsregel (gjelder fra nå av): «${tekst}».`;
+    } catch (e) {
+      return `Klarte ikke lagre regelen: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
   if (call.name === "verktoy_liste") {
     const list = config.customTools ?? [];
     if (!list.length) return "Ingen egendefinerte verktøy er laget enda.";
