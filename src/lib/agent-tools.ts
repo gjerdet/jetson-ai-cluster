@@ -702,6 +702,8 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     const hvorfor = str(call.args["hvorfor"] ?? call.args["grunn"]).trim() || "Lært i samtale";
     try {
       const r = await backend.laerRegel(tekst, hvorfor);
+      // Tvinger inn regelen i systemprompten allerede i neste tur.
+      await refreshLearnedRules(true).catch(() => []);
       return r.duplikat
         ? `Denne regelen kunne jeg allerede: «${tekst}».`
         : `Lærte ny adferdsregel (gjelder fra nå av): «${tekst}».`;
