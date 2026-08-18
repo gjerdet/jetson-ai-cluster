@@ -209,6 +209,9 @@ export const ROUTES: {
   generatedTools: string;
   generatedToolTest: string;
   generatedToolRun: string;
+  generatedToolRunNode: string;
+  toolStorage: string;
+  toolIpCheck: string;
   generatedToolRollback: string;
   generatedToolEnable: string;
   identity: string;
