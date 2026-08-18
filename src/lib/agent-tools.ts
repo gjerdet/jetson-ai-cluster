@@ -480,6 +480,24 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     ];
 
     const t0 = Date.now();
+    // Foretrekk backend-delegering: den kan kjøre flere runder og stille oppfølgingsspørsmål.
+    const runder = Math.max(1, Math.min(Number(call.args["runder"] ?? 1) || 1, 4));
+    try {
+      const r = await backend.delegerTilKollega({
+        node: kollega.name,
+        oppgave,
+        ...(kontekst ? { kontekst } : {}),
+        runder,
+      });
+      if (r?.ok && r.svar?.trim()) {
+        const logg = (r.utveksling ?? [])
+          .map((u) => `  · ${u.fra}${u.ms ? ` (${u.ms} ms)` : ""}: ${u.tekst.slice(0, 400)}`)
+          .join("\n");
+        return `Svar fra ${r.kollega ?? kollega.name} etter ${runder} runde(r):\n${r.svar.trim()}${logg ? `\n\nUtveksling:\n${logg}` : ""}`;
+      }
+    } catch {
+      // faller videre til direkte kall under
+    }
     try {
       const svar = await backend.aiChat(meldinger, {
         baseUrl: kollega.baseUrl,
@@ -498,6 +516,60 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
       } catch (e2) {
         return `Fikk ikke kontakt med ${kollega.name}: ${e2 instanceof Error ? e2.message : String(e)}`;
       }
+    }
+  }
+
+  if (call.name === "kollega_diagnose") {
+    const id = str(call.args["node"] ?? call.args["id"] ?? "");
+    try {
+      const res = await backend.diagnoserKollega(id);
+      if (!res.length) return "Ingen kolleger registrert å diagnostisere.";
+      return res
+        .map(
+          (r) =>
+            `${r.kollega ?? "ukjent"}: ${r.ok ? "OK" : "FEIL"}\n` +
+            r.steg.map((s) => `  ${s.ok === null ? "–" : s.ok ? "✓" : "✗"} ${s.navn}: ${s.detalj}`).join("\n"),
+        )
+        .join("\n\n");
+    } catch (e) {
+      return `Diagnose feilet: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "maskin_kort") {
+    try {
+      const r = await backend.hentIdentitet(Boolean(call.args["frisk"]));
+      return r.tekst || JSON.stringify(r.kort, null, 2);
+    } catch (e) {
+      return `Klarte ikke hente maskin-ID-kortet fra lokal agent: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "world_sok") {
+    const q = str(call.args["sok"] ?? call.args["q"] ?? call.args["tekst"]);
+    const lag = str(call.args["lag"] ?? call.args["layer"]);
+    const antall = Number(call.args["antall"] ?? 10) || 10;
+    if (!snapshot().events.length) {
+      await Promise.race([refreshFeed().catch(() => undefined), new Promise((r) => setTimeout(r, 12_000))]);
+    }
+    if (!snapshot().events.length) return "World Monitor har ingen hendelser lastet enda. Prøv igjen om litt.";
+    return searchText(q, { ...(lag ? { lag } : {}), antall });
+  }
+
+  if (call.name === "verktoy_bygg") {
+    const beskrivelse = str(call.args["beskrivelse"] ?? call.args["oppgave"] ?? call.args["tekst"]);
+    if (!beskrivelse) return "Mangler «beskrivelse» – si hva verktøyet skal gjøre.";
+    const runder = Math.max(1, Math.min(Number(call.args["runder"] ?? 3) || 3, 5));
+    try {
+      const r = await backend.byggVerktoy(beskrivelse, runder);
+      const logg = (r.historikk ?? [])
+        .map((h) => `  runde ${h.runde}: ${h.ok ? "bestod" : "feilet"}`)
+        .join("\n");
+      return r.ok
+        ? `Bygde og testet verktøyet «${r.verktoy?.name ?? "ukjent"}» i sandkassen.\n${logg}`
+        : `Klarte ikke få verktøyet til å bestå testen etter ${runder} runder.\n${logg}`;
+    } catch (e) {
+      return `Verktøybygging feilet: ${e instanceof Error ? e.message : String(e)}`;
     }
   }
 
