@@ -5,6 +5,7 @@
  * slik at agenten aldri må anta noe om egen maskinvare eller eget nett.
  */
 import os from "node:os";
+import fs from "node:fs";
 import { lokalSnapshot } from "./gpu.mjs";
 import { doc } from "./store.mjs";
 
