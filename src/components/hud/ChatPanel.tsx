@@ -26,9 +26,9 @@ import { type ChatMsg, type ToolRun } from "@/lib/hud-client";
 import { callBalanced, callTracked } from "@/lib/balancer";
 import { logRouting } from "@/lib/routing-log";
 import { nyTur, trace } from "@/lib/debug-log";
-import { velgRute } from "@/lib/model-router";
+import { velgRute, erSkyNode } from "@/lib/model-router";
 import { erLokaltSvar, selvsjekk, tungNode, STANDARD_TERSKEL } from "@/lib/self-check";
-import { bokfor, estimerTokens, kanEskalere, konseptFor } from "@/lib/token-budget";
+import { bokfor, estimerTokens, kanEskalere, konseptFor, harTokenGrense } from "@/lib/token-budget";
 import { backend, backendToken } from "@/lib/backend";
 import { clearChat, loadChat, loadChatRemote, saveChat, saveChatRemote } from "@/lib/chat-store";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
@@ -723,7 +723,39 @@ export function ChatPanel({
   };
 
   return (
-    <div className="flex h-full flex-col gap-2">
+    <div className="relative flex h-full flex-col gap-2">
+      {skySporsmal ? (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+          <div className="w-[min(28rem,90%)] space-y-3 border border-primary/40 bg-background/90 p-4">
+            <p className="hud-title text-[10px] text-primary">GODKJENN SKY-KALL</p>
+            <p className="text-xs text-muted-foreground">
+              Det lokale svaret ble underkjent ({skySporsmal.grunn}). Skal jeg spørre sky-noden{" "}
+              <span className="text-primary">{skySporsmal.node}</span>? Anslag ~{skySporsmal.anslag} tokens.
+              Du har ingen token-grense satt, derfor spør jeg først.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="hud-title border border-primary/50 px-3 py-1 text-[10px] text-primary hover:bg-primary/10"
+                onClick={() => skySporsmal.svar("ja")}
+              >
+                TILLAT ÉN GANG
+              </button>
+              <button
+                className="hud-title border border-primary/30 px-3 py-1 text-[10px] text-muted-foreground hover:bg-primary/10"
+                onClick={() => skySporsmal.svar("okt")}
+              >
+                TILLAT DENNE ØKTEN
+              </button>
+              <button
+                className="hud-title border border-destructive/50 px-3 py-1 text-[10px] text-destructive hover:bg-destructive/10"
+                onClick={() => skySporsmal.svar("nei")}
+              >
+                BLI LOKAL
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 space-y-3 overflow-auto pr-1">
         {messages.length === 0 ? (
           <p className="hud-title text-[10px] text-muted-foreground">
