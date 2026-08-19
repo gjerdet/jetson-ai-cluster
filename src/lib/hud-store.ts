@@ -474,6 +474,10 @@ export type HudConfig = {
   loadBalance: boolean;
   /** ruter tunge oppgaver til OpenRouter/Hermes og småprat til lokal modell */
   autoRoute?: boolean;
+  /** lokal modell svarer alltid først; tung node brukes kun ved svakt svar */
+  lokalForst?: boolean;
+  /** poenggrense (0-10) i selvsjekken for å eskalere til tung node */
+  eskalerTerskel?: number;
   /** husk samtalen mellom omstart av nettleseren (lokalt) */
   keepHistory: boolean;
   /** send chat-kallet gjennom den lokale backend-en i stedet for rett til noden */
