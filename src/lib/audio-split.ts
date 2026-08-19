@@ -26,7 +26,7 @@ async function tilMono22k(fil: File): Promise<Float32Array> {
   const mono = new Float32Array(dekodet.length);
   for (let k = 0; k < kanaler; k++) {
     const data = dekodet.getChannelData(k);
-    for (let i = 0; i < data.length; i++) mono[i] += data[i]! / kanaler;
+    for (let i = 0; i < data.length; i++) mono[i] = (mono[i] ?? 0) + data[i]! / kanaler;
   }
   if (dekodet.sampleRate === MAALRATE) return mono;
 
