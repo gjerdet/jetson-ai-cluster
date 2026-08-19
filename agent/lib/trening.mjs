@@ -457,8 +457,13 @@ function start(id) {
 /** Oversetter typiske feil i loggen til noe brukeren kan handle på. */
 function tolkFeil(logg = "") {
   const t = String(logg);
+  if (/Kjør med sudo|sudo: a (terminal|password) is required|must be run as root|Permission denied/i.test(t))
+    return "Installasjonen trenger root. Gi jarvis-brukeren passordfri sudo, eller kjør «sudo bash agent/scripts/installer-piper.sh» på noden.";
+  if (/No such file or directory.*installer-piper|installer-piper\.sh: .*not found/i.test(t))
+    return "Fant ikke installer-piper.sh – kjør git pull og sudo bash agent/scripts/update-jetson.sh.";
   if (/piper_train mangler|No module named .?piper_train/i.test(t))
     return "Piper-treningsmiljøet mangler. Kjør INSTALLER PIPER (eller sudo bash agent/scripts/installer-piper.sh).";
+
   if (/ffmpeg mangler|ffmpeg: not found/i.test(t)) return "ffmpeg mangler – sudo apt install ffmpeg.";
   if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
   if (/out of memory|CUDA out of memory|Killed/i.test(t)) return "Tom for minne – velg presetet «Jetson · lav VRAM».";
