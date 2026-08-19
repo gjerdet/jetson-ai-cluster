@@ -797,7 +797,7 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
   }
 
   if (call.name === "les_url") {
-    const url = str(call.args["url"] ?? call.args["adresse"], 800);
+    const url = str(call.args["url"] ?? call.args["adresse"]).trim();
     if (!url) return "Mangler «url».";
     try {
       const r = await backend.hentNettsideTilKunnskap(url);
