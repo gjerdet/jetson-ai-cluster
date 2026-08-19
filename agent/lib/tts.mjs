@@ -42,26 +42,29 @@ export async function syntetiser(tekst, opts = {}) {
   const cfg = ttsConfig();
   const url = String(opts.piperUrl || cfg.piperUrl || "").trim();
   if (!url) throw new Error("Piper-URL er ikke satt.");
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 60_000);
-  try {
-    const res = await fetch(url, {
+  const fullBody = {
+    text: tekst,
+    voice: opts.modell || cfg.modell,
+    length_scale: Number(opts.lengthScale ?? cfg.lengthScale),
+    noise_scale: Number(opts.noiseScale ?? cfg.noiseScale),
+  };
+  const send = (body) =>
+    fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        text: tekst,
-        voice: opts.modell || cfg.modell,
-        length_scale: Number(opts.lengthScale ?? cfg.lengthScale),
-        noise_scale: Number(opts.noiseScale ?? cfg.noiseScale),
-      }),
-      signal: ctrl.signal,
+      body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`Piper svarte ${res.status}: ${(await res.text()).slice(0, 200)}`);
-    const buf = Buffer.from(await res.arrayBuffer());
-    return { lyd: buf, mime: res.headers.get("content-type") || "audio/wav" };
-  } finally {
-    clearTimeout(t);
+
+  let res = await send(fullBody);
+  // Flere Piper HTTP-fasader laster én modell ved oppstart og godtar bare
+  // { text }. De svarer 400/422 hvis voice/skalafelt følger med.
+  if (res.status === 400 || res.status === 422) {
+    res = await send({ text: tekst });
   }
+  if (!res.ok) throw new Error(`Piper svarte ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (!buf.length) throw new Error("Piper svarte uten lyddata.");
+  return { lyd: buf, mime: res.headers.get("content-type") || "audio/wav" };
 }
 
 /** Henter modell-lista fra Piper hvis serveren tilbyr det. */

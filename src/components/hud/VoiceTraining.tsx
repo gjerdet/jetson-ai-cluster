@@ -79,7 +79,11 @@ export function VoiceTraining() {
       lagret++;
     }
     setTekst("");
-    setStatus("lagret " + lagret + " klipp");
+    setStatus(
+      "lagret " +
+        lagret +
+        " klipp som treningsdata – klippet blir ikke brukt av TEST STEMME før en Piper-modell er trent og valgt",
+    );
     void last();
   };
 
@@ -121,7 +125,8 @@ export function VoiceTraining() {
       <p className="text-[10px] leading-relaxed text-muted-foreground">
         Last opp ren tale (helst 16 kHz WAV, 3–15 sek per klipp) med nøyaktig transkripsjon.
         10–20 minutter holder til finetuning av en eksisterende Piper-modell; 30–60 minutter gir
-        best resultat. Alt lagres lokalt på Jetson-en.
+        best resultat. Alt lagres lokalt på Jetson-en. Ett opplastet klipp er bare treningsdata og
+        endrer ikke stemmen som brukes av TEST STEMME.
       </p>
 
       <textarea
