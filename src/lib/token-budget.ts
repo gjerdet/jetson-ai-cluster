@@ -62,7 +62,7 @@ const MONSTER: [Konsept, RegExp][] = [
   ["kode", /(```|kode|skript|script|python|bash|regex|sql|typescript|javascript|stack ?trace|traceback|exception|kompiler)/i],
   ["infrastruktur", /(proxmox|truenas|docker|kubernetes|zfs|server|systemd|backup|disk|raid|virtuell|vm\b|ubuntu)/i],
   ["smarthus", /(homey|mqtt|smarthus|lys|termostat|sensor|automasjon|z-wave|zigbee)/i],
-  ["kunnskap", /(hva er|hvem|hvor mange|forklar|历史|historie|definisjon|lær meg|hvordan fungerer)/i],
+  ["kunnskap", /(hva er|hvem|hvor mange|forklar|historie|definisjon|lær meg|hvordan fungerer)/i],
 ];
 
 /** Grov emne-klassifisering av et spørsmål. */
