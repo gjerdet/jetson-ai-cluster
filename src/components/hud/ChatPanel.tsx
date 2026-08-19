@@ -551,8 +551,18 @@ export function ChatPanel({
           title: `selvsjekk ${sjekk.poeng}/10${sjekk.heuristisk ? " (gratis regelsjekk)" : " (lokal modell)"}`,
           why: sjekk.grunn,
         });
-        const tung = sjekk.eskaler ? tungNode(config, rutet) : undefined;
-        if (tung) {
+        const konsept = konseptFor(text);
+        const anslag = estimerTokens(text, answer) + 300;
+        const budsjett = sjekk.eskaler
+          ? kanEskalere(config.tokenBudsjett, konsept, anslag)
+          : { tillatt: true, grunn: "" };
+        const tung = sjekk.eskaler && budsjett.tillatt ? tungNode(config, rutet) : undefined;
+        if (sjekk.eskaler && !budsjett.tillatt) {
+          selvsjekkNotat =
+            `Selvsjekk ${sjekk.poeng}/10 (${sjekk.grunn}), men token-budsjettet stopper eskalering: ${budsjett.grunn}. ` +
+            "Beholder det lokale svaret – juster budsjettet under SYSTEM → innstillinger om du vil bruke mer.";
+          trace({ turId, kind: "ruting", title: `budsjett blokkerte eskalering (${konsept})`, why: budsjett.grunn });
+        } else if (tung) {
           setStage(`eskalerer til ${tung.name}`);
           try {
             const bedre = await callTracked(tung, [
