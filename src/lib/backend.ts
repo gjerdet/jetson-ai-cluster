@@ -547,6 +547,29 @@ export const backend = {
     ),
   lagreRagConfig: (v: Partial<RagConfig>) =>
     call<{ config: RagConfig }>(ROUTES.knowledgeConfig!, { method: "PUT", body: JSON.stringify(v) }, { retries: 0 }),
+  // ---- selvlæring: søk på nettet og lær ----
+  sokWeb: (sporsmal: string, antall = 5) =>
+    call<{ sporsmal: string; treff: { tittel: string; url: string }[] }>(
+      ROUTES.knowledgeWebSearch!,
+      { method: "POST", body: JSON.stringify({ sporsmal, antall }) },
+      { timeoutMs: 30_000, retries: 0 },
+    ),
+  hentNettsideTilKunnskap: (url: string) =>
+    call<{ url: string; tittel: string; tekst: string }>(
+      ROUTES.knowledgeFetchUrl!,
+      { method: "POST", body: JSON.stringify({ url }) },
+      { timeoutMs: 40_000, retries: 0 },
+    ),
+  laerOm: (tema: string, o: { urler?: string[]; antall?: number } = {}) =>
+    call<{
+      ok: boolean;
+      tema: string;
+      laerte: number;
+      sokte: boolean;
+      kilder: { url: string; tittel: string; tegn: number; biter: number; dokId: string; utdrag: string; feil?: string }[];
+      treff: KnowledgeHit[];
+    }>(ROUTES.knowledgeLearn!, { method: "POST", body: JSON.stringify({ tema, ...o }) }, { timeoutMs: 240_000, retries: 0 }),
+
   reindekserKunnskap: () =>
     call<{ oppdatert: number; totalt: number; model: string }>(
       ROUTES.knowledgeReindex!,

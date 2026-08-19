@@ -131,6 +131,28 @@ export const TOOL_CATALOG: ToolSpec[] = [
     builtin: true,
   },
   {
+    name: "laer_om",
+    category: "minne",
+    summary:
+      "Skaffer ny kunnskap: søker på nettet (eller henter oppgitte URL-er), leser kildene og lagrer dem varig i den lokale kunnskapsbasen.",
+    args: '{"tema": "Junos BGP-konfigurasjon", "antall": 3}',
+    builtin: true,
+  },
+  {
+    name: "web_sok",
+    category: "minne",
+    summary: "Fritekstsøk på nettet – gir tittel og URL til kilder du kan lære av.",
+    args: '{"sok": "TrueNAS Scale API v2.0 pools", "antall": 5}',
+    builtin: true,
+  },
+  {
+    name: "les_url",
+    category: "minne",
+    summary: "Henter og leser en nettside eller dokumentasjonsside som ren tekst.",
+    args: '{"url": "https://www.truenas.com/docs/api/"}',
+    builtin: true,
+  },
+  {
     name: "minne_lagre",
     category: "minne",
     summary: "Lagrer et varig faktum i lokalt minne.",
@@ -306,6 +328,10 @@ Tilgjengelige verktøy:
 - maskin_kort {"frisk": true} – ferskt maskin-ID-kort: modell, OS, CPU/GPU, IP, subnett, lokale modeller, klyngenoder.
 - verktoy_bygg {"beskrivelse": "...", "runder": 3} – skriv, test og fiks et nytt verktøy i sandkassen til det virker.
 - kollega_diagnose {"node": "Hermes"} – ende-til-ende diagnose av en kollega-node.
+- laer_om {"tema": "Junos BGP-konfigurasjon", "antall": 3} – skaff deg NY kunnskap: søker på nettet,
+  leser kildene og lagrer dem varig i den lokale kunnskapsbasen. Du kan også gi {"urler": ["https://..."]}.
+- web_sok {"sok": "TrueNAS API pools", "antall": 5} – finn kilder (tittel + URL) uten å lagre noe.
+- les_url {"url": "https://..."} – les én side/dokumentasjon som ren tekst.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
 - laer_regel {"tekst": "...", "hvorfor": "..."} – lagrer en varig adferdsregel om HVORDAN du skal jobbe.
   Reglene lastes inn i systemprompten din i alle senere samtaler (selvforbedring).
@@ -373,6 +399,16 @@ R11. SELVFORBEDRING: lærer du noe om HVORDAN du bør jobbe, lagrer du det med l
     («Ved nettverksskann: bruk 192.168.20.0/24 – automatikken bommer»), aldri som et faktum
     (fakta hører til minne_lagre). Nevn i svaret at du har lært det. Er lærdommen for stor for én
     regel, legg jobben i utviklingskøen i stedet.
+
+R12. KUNNSKAPSHULL = LÆR, IKKE UNNSKYLD. Vet du ikke nok om et emne (produkt, API, syntaks,
+    feilmelding, versjon), skal du IKKE svare «jeg vet ikke», gjette eller be brukeren slå det opp.
+    Kjør laer_om {"tema": "..."} først, les kildene du får tilbake, og svar deretter med
+    kildehenvisning (tittel + URL). Utløsere: du er usikker på en kommando/API-sti, brukeren nevner
+    et produkt eller en versjon du ikke kjenner, du er i ferd med å skrive «jeg har ikke kunnskap om»,
+    eller et svar ville bygget på antakelser. Bruk web_sok når du bare trenger å finne kilder, og
+    les_url når brukeren allerede har gitt deg lenken. Alt du lærer havner i den lokale
+    kunnskapsbasen og hentes automatisk neste gang – si kort i svaret hva du lærte deg og hvorfra.
+    Er lærdommen om HVORDAN du skal jobbe, lagre den i tillegg med laer_regel (R11).
 
 
 
@@ -720,6 +756,54 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
         : `Lærte ny adferdsregel (gjelder fra nå av): «${tekst}».`;
     } catch (e) {
       return `Klarte ikke lagre regelen: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "laer_om") {
+    const tema = str(call.args["tema"] ?? call.args["emne"] ?? call.args["sporsmal"] ?? call.args["tekst"]);
+    if (!tema) return "Mangler «tema» – si hva jeg skal lære meg.";
+    const urler = Array.isArray(call.args["urler"]) ? (call.args["urler"] as unknown[]).map(String) : [];
+    const antall = Math.max(1, Math.min(Number(call.args["antall"] ?? 3) || 3, 5));
+    try {
+      const r = await backend.laerOm(tema, { urler, antall });
+      if (!r.kilder.length) return `Fant ingen kilder om «${tema}».`;
+      const kilder = r.kilder
+        .map((k) => `- ${k.tittel} (${k.url})${k.feil ? ` – FEIL: ${k.feil}` : ` – ${k.biter} biter lagret`}`)
+        .join("\n");
+      const utdrag = r.kilder
+        .filter((k) => k.utdrag)
+        .map((k) => `[${k.tittel}]\n${k.utdrag}`)
+        .join("\n\n")
+        .slice(0, 6000);
+      return (
+        `Lærte om «${tema}» fra ${r.laerte} kilde(r) og lagret det i kunnskapsbasen.\n${kilder}\n\n` +
+        `UTDRAG FRA KILDENE (bruk dette i svaret, og oppgi kilde):\n${utdrag}`
+      );
+    } catch (e) {
+      return `Klarte ikke lære om «${tema}»: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "web_sok") {
+    const q = str(call.args["sok"] ?? call.args["q"] ?? call.args["tema"] ?? call.args["tekst"]);
+    if (!q) return "Mangler søketekst.";
+    const antall = Math.max(1, Math.min(Number(call.args["antall"] ?? 5) || 5, 10));
+    try {
+      const r = await backend.sokWeb(q, antall);
+      return r.treff.map((t, i) => `${i + 1}. ${t.tittel}\n   ${t.url}`).join("\n");
+    } catch (e) {
+      return `Nettsøk feilet: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "les_url") {
+    const url = str(call.args["url"] ?? call.args["adresse"]).trim();
+    if (!url) return "Mangler «url».";
+    try {
+      const r = await backend.hentNettsideTilKunnskap(url);
+      return `${r.tittel} (${r.url}):\n${r.tekst.slice(0, 8000)}`;
+    } catch (e) {
+      return `Klarte ikke lese siden: ${e instanceof Error ? e.message : String(e)}`;
     }
   }
 
