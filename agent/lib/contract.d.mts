@@ -187,6 +187,9 @@ export const ROUTES: {
   knowledgeSearch: string;
   knowledgeConfig: string;
   knowledgeReindex: string;
+  knowledgeWebSearch: string;
+  knowledgeFetchUrl: string;
+  knowledgeLearn: string;
   tts: string;
   ttsConfig: string;
   ttsVoices: string;
