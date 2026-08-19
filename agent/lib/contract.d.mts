@@ -151,6 +151,8 @@ export const ROUTES: {
   ttsClipsVerify: string;
   ttsClipsTranscribeAll: string;
   ttsTraining: string;
+  ttsTrainingPlan: string;
+  ttsTrainingInstall: string;
   status: string;
   login: string;
   register: string;
@@ -600,6 +602,42 @@ export interface TrainingJob {
   ferdig: string;
   modellFil?: string;
   publisert?: string;
+  mangler?: string[];
+  telemetri?: TrainingTelemetry[];
+}
+
+export interface TrainingTelemetry {
+  tid: number;
+  cpu: number;
+  minneBruktMb: number;
+  minneTotalMb: number;
+  gpuUtnyttelse: number | null;
+  gpuBruktMb: number | null;
+  gpuTotalMb: number | null;
+  tempC: number | null;
+}
+
+export interface TrainingPreset {
+  id: string;
+  navn: string;
+  beskrivelse: string;
+  env: Record<string, string>;
+}
+
+export interface TrainingPlan {
+  mappe: string;
+  manifest: string;
+  navn: string;
+  utMappe: string;
+  skript: string;
+  kommando: string;
+  presets: TrainingPreset[];
+  preset: string;
+  statistikk: VoiceClipStats;
+  miljo: { ffmpeg: boolean; espeak: boolean; piperTrain: boolean; skript: boolean; gpu: GpuStatus | null };
+  mangler: string[];
+  problemer: string[];
+  kanStarte: boolean;
 }
 
 export interface TrainingQueue {

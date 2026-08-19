@@ -6,10 +6,143 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { DATA_DIR, doc, saveDoc, flushNow } from "./store.mjs";
-import { clipDir, trainingManifest, clipStats, ttsConfig, saveTtsConfig, transkriberAlle } from "./tts.mjs";
+import { clipDir, trainingManifest, clipStats, ttsConfig, saveTtsConfig, transkriberAlle, listClips } from "./tts.mjs";
+import { gpuStatus } from "./gpu.mjs";
+import os from "node:os";
+
+/** Skriptet som gjør hele Piper-jobben lokalt (datasett → trening → onnx). */
+export const TRENING_SKRIPT = process.env.JARVIS_TRENING_SKRIPT || "/opt/jarvis-agent/scripts/tren-stemme.sh";
+
+/**
+ * Ferdige oppsett for Jetson Nano Super (8 GB delt minne).
+ * `env` legges foran kommandoen slik at tren-stemme.sh plukker dem opp.
+ */
+export const TRENING_PRESETS = [
+  {
+    id: "jetson-lav",
+    navn: "Jetson · lav VRAM (trygg)",
+    beskrivelse: "Liten batch og low quality. Bruker minst minne – start her hvis trening kræsjer.",
+    env: { PIPER_BATCH: "4", PIPER_EPOCHS: "1500", PIPER_QUALITY: "low" },
+  },
+  {
+    id: "jetson-balansert",
+    navn: "Jetson · balansert",
+    beskrivelse: "Standardvalg. Grei kvalitet uten å sprenge minnet på 8 GB.",
+    env: { PIPER_BATCH: "8", PIPER_EPOCHS: "2000", PIPER_QUALITY: "medium" },
+  },
+  {
+    id: "jetson-kvalitet",
+    navn: "Jetson · høy kvalitet (treg)",
+    beskrivelse: "Flere epoker og medium quality. Tar mange timer – kjør over natta.",
+    env: { PIPER_BATCH: "6", PIPER_EPOCHS: "4000", PIPER_QUALITY: "medium" },
+  },
+  {
+    id: "finetune-no",
+    navn: "Finjuster norsk stemme (få klipp)",
+    beskrivelse: "Bygger videre på en ferdig norsk modell. Best når du har under 30 minutter lyd.",
+    env: { PIPER_BATCH: "4", PIPER_EPOCHS: "800", PIPER_QUALITY: "medium", PIPER_FINETUNE_NO: "1" },
+  },
+];
+
+const MAKS_TELEMETRI = 120;
+
+function kjor(cmd, args, timeout = 5000) {
+  return new Promise((resolve) => {
+    try {
+      execFile(cmd, args, { timeout, encoding: "utf8" }, (err, stdout) => resolve(err && !stdout ? null : String(stdout || "").trim()));
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function harKommando(navn) {
+  return Boolean(await kjor("bash", ["-lc", `command -v ${navn} >/dev/null 2>&1 && echo ja`]));
+}
+
+async function harPiperTrain() {
+  const ut = await kjor(
+    "bash",
+    ["-lc", `for v in "$PIPER_VENV" "$HOME/piper/.venv" /opt/jarvis/piper/src/python/.venv /opt/jarvis/piper/.venv /opt/piper/.venv; do [ -f "$v/bin/activate" ] && . "$v/bin/activate" && break; done; python3 -m piper_train.preprocess --help >/dev/null 2>&1 && echo ja`],
+    15000,
+  );
+  return Boolean(ut);
+}
+
+/**
+ * Forhåndsvisning + validering før trening: hvilke stier som brukes,
+ * hva som mangler på maskinen, og en ferdig utfylt kommando.
+ */
+export async function treningPlan({ navn = "", preset = "jetson-balansert" } = {}) {
+  const stat = clipStats();
+  const jobbNavn = rentNavn(navn);
+  const utMappe = path.join(DATA_DIR, "stemmemodeller", `${jobbNavn}-<jobbid>`);
+  const mappe = clipDir();
+  const manifest = path.join(utMappe, "metadata.csv");
+
+  const [ffmpeg, espeak, piperTrain, gpu] = await Promise.all([
+    harKommando("ffmpeg"),
+    harKommando("espeak-ng"),
+    harPiperTrain(),
+    gpuStatus().catch(() => null),
+  ]);
+
+  const filer = await fs.readdir(mappe).catch(() => null);
+  const utenLyd = [];
+  for (const k of listClips().filter((x) => x.tekst && !x.pauset)) {
+    const base = String(k.fil || "").replace(/\.[^.]+$/, "");
+    if (!(filer || []).some((f) => String(f).replace(/\.[^.]+$/, "") === base)) utenLyd.push(base);
+  }
+
+  const problemer = [];
+  if (filer === null) problemer.push(`Klippmappa finnes ikke enda: ${mappe} – last opp minst ett klipp først.`);
+  if (!stat.aktive) problemer.push("Ingen aktive klipp. Last opp lyd under SYSTEM → STEMME.");
+  if (stat.aktive && !stat.medTekst) problemer.push("Ingen klipp har transkripsjon. Kjør AUTO-TRANSKRIBER eller skriv teksten selv.");
+  if (utenLyd.length) problemer.push(`${utenLyd.length} klipp mangler lydfil på disk (${utenLyd.slice(0, 3).join(", ")}).`);
+  if (stat.aktiveSekunder < 300)
+    problemer.push(`Bare ${Math.round(stat.aktiveSekunder / 60)} min lyd – regn med svakt resultat. 15–30 min anbefales.`);
+
+  const mangler = [];
+  if (!ffmpeg) mangler.push("ffmpeg");
+  if (!espeak) mangler.push("espeak-ng");
+  if (!piperTrain) mangler.push("piper_train");
+
+  const valgt = TRENING_PRESETS.find((p) => p.id === preset) || TRENING_PRESETS[1];
+  return {
+    mappe,
+    manifest,
+    navn: jobbNavn,
+    utMappe,
+    skript: TRENING_SKRIPT,
+    kommando: byggKommando(valgt.id),
+    presets: TRENING_PRESETS,
+    preset: valgt.id,
+    statistikk: stat,
+    miljo: { ffmpeg, espeak, piperTrain, skript: await fileFinnes(TRENING_SKRIPT), gpu },
+    mangler,
+    // Kritiske problemer stopper start; advarsler gjør det ikke.
+    problemer,
+    kanStarte: Boolean(stat.medTekst) && filer !== null && !utenLyd.length,
+  };
+}
+
+const fileFinnes = (f) => fs.access(f).then(() => true).catch(() => false);
+
+const rentNavn = (n) =>
+  String(n || `stemme-${new Date().toISOString().slice(0, 10)}`).replace(/[^\w.\- ]+/g, "_").slice(0, 60) || "stemme";
+
+/** Bygger en komplett bash-kommando for et preset (med plassholdere intakt). */
+export function byggKommando(presetId = "jetson-balansert", { autoInstall = true } = {}) {
+  const p = TRENING_PRESETS.find((x) => x.id === presetId) || TRENING_PRESETS[1];
+  const env = { ...(autoInstall ? { JARVIS_AUTO_INSTALL: "1" } : {}), ...p.env };
+  const pre = Object.entries(env)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(" ");
+  return `${pre} bash ${TRENING_SKRIPT} {mappe} {manifest} {navn} {ut}`;
+}
 
 const MAKS_LOGG = 500;
 const jobbDoc = () => doc("treningsjobber", { list: [] });
@@ -47,8 +180,9 @@ function logg(id, linje) {
 const prosesser = new Map();
 
 /** Legger en jobb i køen og starter den hvis ingen kjører. */
-export async function koLeggTil({ navn, kommando, autoTranskriber = true } = {}) {
+export async function koLeggTil({ navn, kommando, autoTranskriber = true, hoppOverValidering = false } = {}) {
   let stat = clipStats();
+  if (hoppOverValidering) return koLeggTilRaa({ navn, kommando, stat });
   // Klipp uten tekst kan ikke trenes på – prøv lokal STT først, slik at
   // brukeren bare trenger å laste opp lyd og trykke start.
   let transkripsjon = null;
@@ -60,11 +194,15 @@ export async function koLeggTil({ navn, kommando, autoTranskriber = true } = {})
     throw new Error(`Auto-transkripsjon feilet: ${transkripsjon.feil[0]} – sett STT-adressen i SYSTEM → STEMME eller skriv teksten manuelt.`);
   if (!stat.medTekst) throw new Error("Ingen aktive klipp med transkripsjon – legg til tekst før du starter trening.");
   const cfg = ttsConfig();
-  const cmd = String(kommando || cfg.treningKommando || "").trim();
-  if (!cmd) throw new Error("Ingen treningskommando er satt (SYSTEM → STEMME → treningKommando).");
+  // Tomt felt? Bruk standardkommandoen så brukeren slipper å finne på noe.
+  const cmd = String(kommando || cfg.treningKommando || byggKommando()).trim();
+
+  // Validering før vi bruker timer på en jobb som uansett feiler.
+  const plan = await treningPlan({ navn });
+  if (!plan.kanStarte) throw new Error(plan.problemer[0] || "Treningssettet er ikke klart.");
 
   const id = randomUUID();
-  const jobbNavn = String(navn || `stemme-${new Date().toISOString().slice(0, 10)}`).replace(/[^\w.\- ]+/g, "_").slice(0, 60);
+  const jobbNavn = rentNavn(navn);
   const utMappe = path.join(DATA_DIR, "stemmemodeller", `${jobbNavn}-${id.slice(0, 8)}`);
   await fs.mkdir(utMappe, { recursive: true });
   const manifestFil = path.join(utMappe, "metadata.csv");
@@ -85,6 +223,38 @@ export async function koLeggTil({ navn, kommando, autoTranskriber = true } = {})
       .replaceAll("{navn}", jobbNavn)
       .replaceAll("{ut}", utMappe),
     logg: [],
+    telemetri: [],
+    mangler: plan.mangler,
+    feil: "",
+    opprettet: new Date().toISOString(),
+    startet: "",
+    ferdig: "",
+  };
+  lagre([...(jobbDoc().list || []), jobb]);
+  kjorNeste();
+  return jobb;
+}
+
+/** Kjører en vilkårlig kommando (f.eks. installasjon) som en jobb med logg. */
+async function koLeggTilRaa({ navn, kommando, stat }) {
+  const cmd = String(kommando || "").trim();
+  if (!cmd) throw new Error("Ingen kommando å kjøre.");
+  const id = randomUUID();
+  const jobbNavn = rentNavn(navn);
+  const utMappe = path.join(DATA_DIR, "stemmemodeller", `${jobbNavn}-${id.slice(0, 8)}`);
+  await fs.mkdir(utMappe, { recursive: true });
+  const jobb = {
+    id,
+    navn: jobbNavn,
+    status: "kø",
+    fremdrift: 0,
+    klipp: stat?.medTekst || 0,
+    sekunder: 0,
+    manifest: "",
+    utMappe,
+    kommando: cmd.replaceAll("{ut}", utMappe).replaceAll("{navn}", jobbNavn),
+    logg: [],
+    telemetri: [],
     feil: "",
     opprettet: new Date().toISOString(),
     startet: "",
@@ -151,6 +321,26 @@ function start(id) {
   }
   prosesser.set(id, p);
 
+  // Sanntids ressursbruk (CPU/GPU/VRAM) mens jobben kjører – vises i GUI-et.
+  const telemetriTimer = setInterval(async () => {
+    const gpu = await gpuStatus().catch(() => null);
+    const fri = os.freemem() / 1048576;
+    const total = os.totalmem() / 1048576;
+    const punkt = {
+      tid: Date.now(),
+      cpu: Math.round((os.loadavg()[0] / Math.max(1, os.cpus().length)) * 100),
+      minneBruktMb: Math.round(total - fri),
+      minneTotalMb: Math.round(total),
+      gpuUtnyttelse: gpu?.utnyttelse ?? null,
+      gpuBruktMb: gpu?.bruktMb ?? null,
+      gpuTotalMb: gpu?.totalMb ?? null,
+      tempC: gpu?.tempC ?? null,
+    };
+    const j2 = hentJobb(id);
+    if (!j2 || j2.status !== "kjører") return;
+    oppdater(id, { telemetri: [...(j2.telemetri || []), punkt].slice(-MAKS_TELEMETRI) });
+  }, 5000);
+
   const lesLinjer = (strom) => {
     let rest = "";
     strom.setEncoding("utf8");
@@ -175,6 +365,7 @@ function start(id) {
   lesLinjer(p.stderr);
 
   p.on("close", async (kode) => {
+    clearInterval(telemetriTimer);
     prosesser.delete(id);
     const gjeldende = hentJobb(id);
     if (gjeldende?.status === "avbrutt") return kjorNeste();
@@ -189,11 +380,30 @@ function start(id) {
       oppdater(id, { status: "ferdig", fremdrift: 100, ferdig: new Date().toISOString(), modellFil });
       logg(id, modellFil ? `ferdig – modell: ${modellFil}` : "ferdig (fant ingen .onnx automatisk)");
     } else {
-      oppdater(id, { status: "feilet", feil: `Prosessen avsluttet med kode ${kode}`, ferdig: new Date().toISOString() });
-      logg(id, `feilet med kode ${kode}`);
+      const siste = (gjeldende?.logg || []).slice(-25).join("\n");
+      const hint = tolkFeil(siste);
+      oppdater(id, {
+        status: "feilet",
+        feil: `Prosessen avsluttet med kode ${kode}${hint ? ` – ${hint}` : ""}`,
+        ferdig: new Date().toISOString(),
+      });
+      logg(id, `feilet med kode ${kode}${hint ? ` (${hint})` : ""}`);
     }
     kjorNeste();
   });
+}
+
+/** Oversetter typiske feil i loggen til noe brukeren kan handle på. */
+function tolkFeil(logg = "") {
+  const t = String(logg);
+  if (/piper_train mangler|No module named .?piper_train/i.test(t))
+    return "Piper-treningsmiljøet mangler. Kjør INSTALLER PIPER (eller sudo bash agent/scripts/installer-piper.sh).";
+  if (/ffmpeg mangler|ffmpeg: not found/i.test(t)) return "ffmpeg mangler – sudo apt install ffmpeg.";
+  if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
+  if (/out of memory|CUDA out of memory|Killed/i.test(t)) return "Tom for minne – velg presetet «Jetson · lav VRAM».";
+  if (/ingen lydfil|No such file/i.test(t)) return "Fant ikke lydfilene som manifestet peker på.";
+  if (/Fant ingen checkpoint/i.test(t)) return "Treningen rakk aldri å lagre et checkpoint – øk epoker eller sjekk loggen over.";
+  return "";
 }
 
 export function koStatus() {
