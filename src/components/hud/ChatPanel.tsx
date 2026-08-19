@@ -28,6 +28,7 @@ import { logRouting } from "@/lib/routing-log";
 import { nyTur, trace } from "@/lib/debug-log";
 import { velgRute } from "@/lib/model-router";
 import { erLokaltSvar, selvsjekk, tungNode, STANDARD_TERSKEL } from "@/lib/self-check";
+import { bokfor, estimerTokens, kanEskalere, konseptFor } from "@/lib/token-budget";
 import { backend, backendToken } from "@/lib/backend";
 import { clearChat, loadChat, loadChatRemote, saveChat, saveChatRemote } from "@/lib/chat-store";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
