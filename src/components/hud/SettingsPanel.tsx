@@ -694,6 +694,7 @@ export function SettingsPanel({
               </span>
             </label>
 
+            <TokenBudsjettSection config={config} update={update} />
 
             <label className="flex items-center gap-2 text-foreground/80">
               <input
