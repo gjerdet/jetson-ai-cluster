@@ -65,6 +65,8 @@ import {
   publiser as treningPubliser,
   hentJobb as treningJobb,
   treningPlan,
+  startInstallasjonPiper,
+
 } from "./trening.mjs";
 
 import {
