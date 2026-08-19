@@ -26,9 +26,9 @@ import { type ChatMsg, type ToolRun } from "@/lib/hud-client";
 import { callBalanced, callTracked } from "@/lib/balancer";
 import { logRouting } from "@/lib/routing-log";
 import { nyTur, trace } from "@/lib/debug-log";
-import { velgRute } from "@/lib/model-router";
+import { velgRute, erSkyNode } from "@/lib/model-router";
 import { erLokaltSvar, selvsjekk, tungNode, STANDARD_TERSKEL } from "@/lib/self-check";
-import { bokfor, estimerTokens, kanEskalere, konseptFor } from "@/lib/token-budget";
+import { bokfor, estimerTokens, kanEskalere, konseptFor, harTokenGrense } from "@/lib/token-budget";
 import { backend, backendToken } from "@/lib/backend";
 import { clearChat, loadChat, loadChatRemote, saveChat, saveChatRemote } from "@/lib/chat-store";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
@@ -88,8 +88,17 @@ export function ChatPanel({
   const [elapsed, setElapsed] = useState(0);
   const [pending, setPending] = useState<PendingCommand[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // godkjenning før sky-kall når det ikke finnes token-grense
+  const [skySporsmal, setSkySporsmal] = useState<{
+    node: string;
+    grunn: string;
+    anslag: number;
+    svar: (v: "ja" | "nei" | "okt") => void;
+  } | null>(null);
+  const skyOkt = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const mqtt = useMqtt();
+
 
   // stemme (Web Speech API – kjører lokalt, ingen sky)
   const [voice, setVoice] = useState(() => loadVoiceConfig());
@@ -557,13 +566,41 @@ export function ChatPanel({
         const budsjett = sjekk.eskaler
           ? kanEskalere(config.tokenBudsjett, konsept, anslag)
           : { tillatt: true, grunn: "" };
-        const tung = sjekk.eskaler && budsjett.tillatt ? tungNode(config, rutet) : undefined;
+        const kandidat = sjekk.eskaler && budsjett.tillatt ? tungNode(config, rutet) : undefined;
+
+        // Uten en satt token-grense skal brukeren godkjenne hvert sky-kall.
+        let avslag = "";
+        let tung = kandidat;
+        if (
+          kandidat &&
+          erSkyNode(kandidat) &&
+          !harTokenGrense(config.tokenBudsjett) &&
+          !skyOkt.current
+        ) {
+          setStage("venter på godkjenning");
+          const valg = await new Promise<"ja" | "nei" | "okt">((resolve) =>
+            setSkySporsmal({ node: kandidat.name, grunn: sjekk.grunn, anslag, svar: resolve }),
+          );
+          setSkySporsmal(null);
+          if (valg === "okt") skyOkt.current = true;
+          if (valg === "nei") {
+            tung = undefined;
+            avslag =
+              `Selvsjekk ${sjekk.poeng}/10 (${sjekk.grunn}), men du avslo kontakt med sky-noden ${kandidat.name}. ` +
+              "Beholder det lokale svaret. Sett en token-grense under SYSTEM → BUDSJETT om du vil at jeg skal eskalere automatisk.";
+            trace({ turId, kind: "ruting", title: `sky-kall avslått (${kandidat.name})`, why: "ingen token-grense satt" });
+          }
+        }
+
         if (sjekk.eskaler && !budsjett.tillatt) {
           selvsjekkNotat =
             `Selvsjekk ${sjekk.poeng}/10 (${sjekk.grunn}), men token-budsjettet stopper eskalering: ${budsjett.grunn}. ` +
             "Beholder det lokale svaret – juster budsjettet under SYSTEM → innstillinger om du vil bruke mer.";
           trace({ turId, kind: "ruting", title: `budsjett blokkerte eskalering (${konsept})`, why: budsjett.grunn });
+        } else if (avslag) {
+          selvsjekkNotat = avslag;
         } else if (tung) {
+
           setStage(`eskalerer til ${tung.name}`);
           try {
             const bedre = await callTracked(tung, [
@@ -686,7 +723,39 @@ export function ChatPanel({
   };
 
   return (
-    <div className="flex h-full flex-col gap-2">
+    <div className="relative flex h-full flex-col gap-2">
+      {skySporsmal ? (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+          <div className="w-[min(28rem,90%)] space-y-3 border border-primary/40 bg-background/90 p-4">
+            <p className="hud-title text-[10px] text-primary">GODKJENN SKY-KALL</p>
+            <p className="text-xs text-muted-foreground">
+              Det lokale svaret ble underkjent ({skySporsmal.grunn}). Skal jeg spørre sky-noden{" "}
+              <span className="text-primary">{skySporsmal.node}</span>? Anslag ~{skySporsmal.anslag} tokens.
+              Du har ingen token-grense satt, derfor spør jeg først.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="hud-title border border-primary/50 px-3 py-1 text-[10px] text-primary hover:bg-primary/10"
+                onClick={() => skySporsmal.svar("ja")}
+              >
+                TILLAT ÉN GANG
+              </button>
+              <button
+                className="hud-title border border-primary/30 px-3 py-1 text-[10px] text-muted-foreground hover:bg-primary/10"
+                onClick={() => skySporsmal.svar("okt")}
+              >
+                TILLAT DENNE ØKTEN
+              </button>
+              <button
+                className="hud-title border border-destructive/50 px-3 py-1 text-[10px] text-destructive hover:bg-destructive/10"
+                onClick={() => skySporsmal.svar("nei")}
+              >
+                BLI LOKAL
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 space-y-3 overflow-auto pr-1">
         {messages.length === 0 ? (
           <p className="hud-title text-[10px] text-muted-foreground">
