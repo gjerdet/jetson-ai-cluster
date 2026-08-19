@@ -577,6 +577,7 @@ export const defaultConfig: HudConfig = {
   autoRoute: true,
   lokalForst: true,
   eskalerTerskel: 6,
+  tokenBudsjett: standardBudsjett,
   keepHistory: true,
   chatViaBackend: true,
   knowledge: true,
