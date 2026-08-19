@@ -131,6 +131,28 @@ export const TOOL_CATALOG: ToolSpec[] = [
     builtin: true,
   },
   {
+    name: "laer_om",
+    category: "minne",
+    summary:
+      "Skaffer ny kunnskap: søker på nettet (eller henter oppgitte URL-er), leser kildene og lagrer dem varig i den lokale kunnskapsbasen.",
+    args: '{"tema": "Junos BGP-konfigurasjon", "antall": 3}',
+    builtin: true,
+  },
+  {
+    name: "web_sok",
+    category: "minne",
+    summary: "Fritekstsøk på nettet – gir tittel og URL til kilder du kan lære av.",
+    args: '{"sok": "TrueNAS Scale API v2.0 pools", "antall": 5}',
+    builtin: true,
+  },
+  {
+    name: "les_url",
+    category: "minne",
+    summary: "Henter og leser en nettside eller dokumentasjonsside som ren tekst.",
+    args: '{"url": "https://www.truenas.com/docs/api/"}',
+    builtin: true,
+  },
+  {
     name: "minne_lagre",
     category: "minne",
     summary: "Lagrer et varig faktum i lokalt minne.",
