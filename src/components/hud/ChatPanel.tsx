@@ -566,13 +566,41 @@ export function ChatPanel({
         const budsjett = sjekk.eskaler
           ? kanEskalere(config.tokenBudsjett, konsept, anslag)
           : { tillatt: true, grunn: "" };
-        const tung = sjekk.eskaler && budsjett.tillatt ? tungNode(config, rutet) : undefined;
+        const kandidat = sjekk.eskaler && budsjett.tillatt ? tungNode(config, rutet) : undefined;
+
+        // Uten en satt token-grense skal brukeren godkjenne hvert sky-kall.
+        let avslag = "";
+        let tung = kandidat;
+        if (
+          kandidat &&
+          erSkyNode(kandidat) &&
+          !harTokenGrense(config.tokenBudsjett) &&
+          !skyOkt.current
+        ) {
+          setStage("venter på godkjenning");
+          const valg = await new Promise<"ja" | "nei" | "okt">((resolve) =>
+            setSkySporsmal({ node: kandidat.name, grunn: sjekk.grunn, anslag, svar: resolve }),
+          );
+          setSkySporsmal(null);
+          if (valg === "okt") skyOkt.current = true;
+          if (valg === "nei") {
+            tung = undefined;
+            avslag =
+              `Selvsjekk ${sjekk.poeng}/10 (${sjekk.grunn}), men du avslo kontakt med sky-noden ${kandidat.name}. ` +
+              "Beholder det lokale svaret. Sett en token-grense under SYSTEM → BUDSJETT om du vil at jeg skal eskalere automatisk.";
+            trace({ turId, kind: "ruting", title: `sky-kall avslått (${kandidat.name})`, why: "ingen token-grense satt" });
+          }
+        }
+
         if (sjekk.eskaler && !budsjett.tillatt) {
           selvsjekkNotat =
             `Selvsjekk ${sjekk.poeng}/10 (${sjekk.grunn}), men token-budsjettet stopper eskalering: ${budsjett.grunn}. ` +
             "Beholder det lokale svaret – juster budsjettet under SYSTEM → innstillinger om du vil bruke mer.";
           trace({ turId, kind: "ruting", title: `budsjett blokkerte eskalering (${konsept})`, why: budsjett.grunn });
+        } else if (avslag) {
+          selvsjekkNotat = avslag;
         } else if (tung) {
+
           setStage(`eskalerer til ${tung.name}`);
           try {
             const bedre = await callTracked(tung, [
