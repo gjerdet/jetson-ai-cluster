@@ -620,7 +620,8 @@ export const backend = {
       headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ tekst, modell }),
     });
-    if (!res.ok) throw new BackendError(`Backend svarte ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    if (!res.ok)
+      throw new BackendError(ERROR_CODES.SERVER, `Backend svarte ${res.status}: ${(await res.text()).slice(0, 200)}`, res.status);
     return res.blob();
   },
   treningsko: () => call<TrainingQueue>(ROUTES.ttsTraining!),
