@@ -37,8 +37,14 @@ describe("modell-ruting", () => {
     expect(klassifiser("```py\nprint(1)\n```").vekt).toBe("tung");
   });
 
-  it("ruter tungt til skynode og lett til lokal", () => {
-    expect(velgRute(cfg, "feilsøk docker-containeren min").node?.id).toBe("n2");
+  it("ruter tungt til skynode og lett til lokal når lokal-først er av", () => {
+    const c = { ...cfg, lokalForst: false };
+    expect(velgRute(c, "feilsøk docker-containeren min").node?.id).toBe("n2");
+    expect(velgRute(c, "hei").node?.id).toBe("n1");
+  });
+
+  it("lokal-først lar lokal node ta også tunge oppgaver", () => {
+    expect(velgRute(cfg, "feilsøk docker-containeren min").node?.id).toBe("n1");
     expect(velgRute(cfg, "hei").node?.id).toBe("n1");
   });
 
