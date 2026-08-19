@@ -153,17 +153,22 @@ EOF
   visudo -cf /etc/sudoers.d/jarvis-update >/dev/null || rm -f /etc/sudoers.d/jarvis-update
   systemctl daemon-reload
   ok "Oppdatering fra GUI er aktivert"
+fi
 
-# Lar agenten installere Piper-treningsmiljøet selv (kun disse kommandoene).
+# Lar agenten installere Piper-treningsmiljøet selv (kun dette skriptet).
+# Må ikke ligge inni testen for jarvis-update.service; Piper-knappen skal også
+# fungere på installasjoner der den valgfrie oppdateringstjenesten mangler.
 APP_SCRIPTS="$APP_DIR/scripts"
 cat >/etc/sudoers.d/jarvis-stemme <<EOF
-jarvis ALL=(root) NOPASSWD: /usr/bin/apt-get update, /usr/bin/apt-get install -y ffmpeg espeak-ng libespeak-ng1
 jarvis ALL=(root) NOPASSWD: /bin/bash $APP_SCRIPTS/installer-piper.sh
 jarvis ALL=(root) NOPASSWD: /usr/bin/bash $APP_SCRIPTS/installer-piper.sh
 EOF
 chmod 440 /etc/sudoers.d/jarvis-stemme
-visudo -cf /etc/sudoers.d/jarvis-stemme >/dev/null || rm -f /etc/sudoers.d/jarvis-stemme
-
+if visudo -cf /etc/sudoers.d/jarvis-stemme >/dev/null; then
+  ok "Piper-installasjon fra GUI er autorisert"
+else
+  rm -f /etc/sudoers.d/jarvis-stemme
+  feil "Kunne ikke aktivere Piper-installasjon fra GUI (ugyldig sudoers-regel)"
 fi
 chown jarvis:jarvis /var/log/jarvis 2>/dev/null || true
 

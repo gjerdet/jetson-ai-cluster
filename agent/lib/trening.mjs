@@ -58,22 +58,30 @@ export async function startInstallasjonPiper() {
     throw new Error(`Fant ikke installasjonsskriptet (${skript}). Kjør «git pull» og sudo bash agent/scripts/update-jetson.sh på Jetson-noden.`);
 
   const erRoot = typeof process.getuid === "function" ? process.getuid() === 0 : false;
-  let prefiks = "";
+  let kommando = `/bin/bash ${shellArg(skript)}`;
   if (!erRoot) {
-    const sudoOk = Boolean(await kjor("bash", ["-lc", "sudo -n true >/dev/null 2>&1 && echo ja"], 8000));
+    // Test den nøyaktige kommandoen sudoers gir tilgang til. `sudo -n true`
+    // er med vilje ikke tillatt av den begrensede regelen og ga derfor falsk
+    // negativ selv når Piper-installasjonen faktisk var autorisert.
+    const bashSti = fsSync.existsSync("/usr/bin/bash") ? "/usr/bin/bash" : "/bin/bash";
+    const sudoOk = Boolean(await kjor("sudo", ["-n", "-l", bashSti, skript], 8000));
     if (!sudoOk)
       throw new Error(
-        `Agenten kjører uten root og har ikke passordfri sudo. Kjør på Jetson: sudo bash ${skript} – eller gi jarvis-brukeren NOPASSWD i sudoers.`,
+        `Piper-installasjonen er ikke autorisert for agentbrukeren. Kjør én gang på Jetson: sudo bash agent/scripts/update-jetson.sh`,
       );
-    prefiks = "sudo -n ";
+    kommando = `sudo -n ${bashSti} ${shellArg(skript)}`;
   }
 
   return koLeggTil({
     navn: "installer-piper",
-    kommando: `${prefiks}bash ${skript}`,
+    kommando,
     autoTranskriber: false,
     hoppOverValidering: true,
   });
+}
+
+function shellArg(verdi) {
+  return `'${String(verdi).replaceAll("'", `'\\''`)}'`;
 }
 
 
