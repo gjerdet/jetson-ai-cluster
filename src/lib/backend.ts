@@ -606,6 +606,24 @@ export const backend = {
       { method: "POST", body: JSON.stringify({ overskriv }) },
       { timeoutMs: 180_000, retries: 0 },
     ),
+  transkriberAlle: (overskriv = false) =>
+    call<{ forsokt: number; ok: number; feilet: number; feil: string[]; statistikk: VoiceClipStats }>(
+      ROUTES.ttsClipsTranscribeAll!,
+      { method: "POST", body: JSON.stringify({ overskriv }) },
+      { timeoutMs: 600_000, retries: 0 },
+    ),
+  /** Syntetiserer tale og gir tilbake lyden som Blob (for å prøvelytte en modell). */
+  taleLyd: async (tekst: string, modell?: string) => {
+    const token = backendToken();
+    const res = await fetch(`${backendUrl()}/api${ROUTES.tts}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ tekst, modell }),
+    });
+    if (!res.ok)
+      throw new BackendError(ERROR_CODES.SERVER, `Backend svarte ${res.status}: ${(await res.text()).slice(0, 200)}`, res.status);
+    return res.blob();
+  },
   treningsko: () => call<TrainingQueue>(ROUTES.ttsTraining!),
   startTrening: (v: { navn?: string; kommando?: string }) =>
     call<{ jobb: TrainingJob }>(ROUTES.ttsTraining!, { method: "POST", body: JSON.stringify(v) }, { retries: 0 }),

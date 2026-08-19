@@ -123,8 +123,22 @@ export function VoiceTraining() {
     setStatus(
       `lagret ${lagret} klipp` +
         (feilet ? ` – ${feilet} feilet` : "") +
-        " – klippene legges til i settet og erstatter ikke de gamle. De brukes ikke av TEST STEMME før en Piper-modell er trent og valgt.",
+        " – auto-transkriberer nå slik at klippene kan trenes på…",
     );
+    // Auto-transkripsjon rett etter opplasting: da trenger du bare å laste opp
+    // og trykke START TRENING.
+    const { data: tr, error: trFeil } = await safe(() => backend.transkriberAlle());
+    if (trFeil)
+      setStatus(
+        `lagret ${lagret} klipp – auto-transkripsjon feilet (${feiltekst(trFeil)}). ` +
+          "Skriv teksten manuelt, eller sett STT-adressen i tale-innstillingene.",
+      );
+    else
+      setStatus(
+        `lagret ${lagret} klipp · transkriberte ${tr.ok} av ${tr.forsokt}` +
+          (tr.feilet ? ` (${tr.feilet} feilet: ${tr.feil[0] ?? ""})` : "") +
+          " – klippene legges til i settet og erstatter ikke de gamle.",
+      );
     void last();
   };
 

@@ -94,6 +94,7 @@ export const ROUTES = {
   ttsClips: "/tts/klipp",
   ttsManifest: "/tts/treningssett",
   ttsClipsVerify: "/tts/klipp/verifiser",
+  ttsClipsTranscribeAll: "/tts/klipp/transkriber-alle",
   ttsTraining: "/tts/trening",
   logs: "/logger",
   logSources: "/logger/kilder",

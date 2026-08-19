@@ -149,6 +149,7 @@ export function validateSettings(input: unknown, current?: BackendSettings): Bac
 
 export const ROUTES: {
   ttsClipsVerify: string;
+  ttsClipsTranscribeAll: string;
   ttsTraining: string;
   status: string;
   login: string;

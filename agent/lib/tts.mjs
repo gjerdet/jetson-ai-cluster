@@ -215,6 +215,25 @@ export async function transkriberKlipp(id, { overskriv = false } = {}) {
   return { klipp: oppdaterKlipp(id, { tekst, tekstKilde: "auto" }), hoppetOver: false };
 }
 
+/**
+ * Transkriberer alle aktive klipp som mangler tekst. Brukes rett etter
+ * opplasting og før trening, slik at brukeren slipper å skrive tekst manuelt.
+ */
+export async function transkriberAlle({ overskriv = false } = {}) {
+  const mal = listClips().filter((k) => !k.pauset && (overskriv || !(k.tekst || "").trim()));
+  const resultat = { forsokt: mal.length, ok: 0, feilet: 0, feil: [] };
+  for (const k of mal) {
+    try {
+      await transkriberKlipp(k.id, { overskriv });
+      resultat.ok += 1;
+    } catch (e) {
+      resultat.feilet += 1;
+      if (resultat.feil.length < 5) resultat.feil.push(`${k.navn}: ${String(e?.message || e)}`);
+    }
+  }
+  return { ...resultat, statistikk: clipStats() };
+}
+
 export async function deleteClip(id) {
   const d = klippDoc();
   const treff = (d.list || []).find((k) => k.id === id);
