@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { NODE_DUTIES, NODE_DUTY_LABELS, type NodeDuty } from "@/lib/contract";
+import { standardBudsjett } from "@/lib/token-budget";
 
 export { NODE_DUTIES, NODE_DUTY_LABELS };
 export type { NodeDuty };
