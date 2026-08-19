@@ -985,6 +985,31 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path === "/kunnskap/reindekser" && method === "POST")
       return json(req, res, 200, await reindex());
 
+    // ---- selvlæring: søk på nettet og lær ---------------------------------
+    if (path === "/kunnskap/web-sok" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, await sokWeb(str(b.sporsmal ?? b.q, "Søketekst", { maks: 500, min: 1 }), b.antall));
+    }
+
+    if (path === "/kunnskap/hent-url" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, await hentUrl(str(b.url, "URL", { maks: 800, min: 1 })));
+    }
+
+    if (path === "/kunnskap/laer" && method === "POST") {
+      const b = await readBody(req);
+      return json(
+        req,
+        res,
+        200,
+        await laerOm({
+          tema: str(b.tema ?? b.sporsmal, "Tema", { maks: 300, min: 1 }),
+          urler: Array.isArray(b.urler) ? b.urler : [],
+          antall: b.antall,
+        }),
+      );
+    }
+
     // ---- tale (TTS) og treningsklipp -------------------------------------
     if (path === "/tts/tale" && method === "POST") {
       const b = await readBody(req);
