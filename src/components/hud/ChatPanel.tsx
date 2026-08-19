@@ -88,8 +88,17 @@ export function ChatPanel({
   const [elapsed, setElapsed] = useState(0);
   const [pending, setPending] = useState<PendingCommand[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // godkjenning før sky-kall når det ikke finnes token-grense
+  const [skySporsmal, setSkySporsmal] = useState<{
+    node: string;
+    grunn: string;
+    anslag: number;
+    svar: (v: "ja" | "nei" | "okt") => void;
+  } | null>(null);
+  const skyOkt = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const mqtt = useMqtt();
+
 
   // stemme (Web Speech API – kjører lokalt, ingen sky)
   const [voice, setVoice] = useState(() => loadVoiceConfig());
