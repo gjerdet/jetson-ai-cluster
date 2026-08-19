@@ -55,6 +55,7 @@ import {
   oppdaterKlipp,
   verifiserKlipp,
   transkriberKlipp,
+  transkriberAlle,
 } from "./tts.mjs";
 import {
   koLeggTil as treningStart,
@@ -1059,6 +1060,11 @@ export async function handleApi(req, res, route, url, deps = {}) {
         });
         return json(req, res, 200, { klipp: k, statistikk: clipStats() });
       }
+    }
+
+    if (path === "/tts/klipp/transkriber-alle" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, await transkriberAlle({ overskriv: Boolean(b?.overskriv) }));
     }
 
     if (path === "/tts/klipp/verifiser" && method === "GET")

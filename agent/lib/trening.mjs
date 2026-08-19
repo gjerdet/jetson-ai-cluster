@@ -9,7 +9,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { DATA_DIR, doc, saveDoc, flushNow } from "./store.mjs";
-import { clipDir, trainingManifest, clipStats, ttsConfig, saveTtsConfig } from "./tts.mjs";
+import { clipDir, trainingManifest, clipStats, ttsConfig, saveTtsConfig, transkriberAlle } from "./tts.mjs";
 
 const MAKS_LOGG = 500;
 const jobbDoc = () => doc("treningsjobber", { list: [] });
@@ -47,8 +47,17 @@ function logg(id, linje) {
 const prosesser = new Map();
 
 /** Legger en jobb i køen og starter den hvis ingen kjører. */
-export async function koLeggTil({ navn, kommando } = {}) {
-  const stat = clipStats();
+export async function koLeggTil({ navn, kommando, autoTranskriber = true } = {}) {
+  let stat = clipStats();
+  // Klipp uten tekst kan ikke trenes på – prøv lokal STT først, slik at
+  // brukeren bare trenger å laste opp lyd og trykke start.
+  let transkripsjon = null;
+  if (autoTranskriber && stat.medTekst < stat.aktive) {
+    transkripsjon = await transkriberAlle().catch((e) => ({ feilet: 1, feil: [String(e?.message || e)] }));
+    stat = clipStats();
+  }
+  if (!stat.medTekst && transkripsjon?.feil?.length)
+    throw new Error(`Auto-transkripsjon feilet: ${transkripsjon.feil[0]} – sett STT-adressen i SYSTEM → STEMME eller skriv teksten manuelt.`);
   if (!stat.medTekst) throw new Error("Ingen aktive klipp med transkripsjon – legg til tekst før du starter trening.");
   const cfg = ttsConfig();
   const cmd = String(kommando || cfg.treningKommando || "").trim();
