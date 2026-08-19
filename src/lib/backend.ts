@@ -42,6 +42,10 @@ import {
   type PoolStatus,
   type ProvisionJob,
   type TtsConfig,
+  type VoiceClipStats,
+  type VoiceClipVerify,
+  type TrainingJob,
+  type TrainingQueue,
   type VoiceClip,
   type MemoryItem,
   type Plan,
@@ -53,6 +57,10 @@ import {
 } from "@/lib/contract";
 
 export type {
+  VoiceClipStats,
+  VoiceClipVerify,
+  TrainingJob,
+  TrainingQueue,
   AiConfig,
   KnowledgeDoc,
   KnowledgeHit,
@@ -584,8 +592,33 @@ export const backend = {
       (r) => r.config,
     ),
   hentTtsStemmer: () => call<{ stemmer: string[] }>(ROUTES.ttsVoices!).then((r) => r.stemmer),
-  hentKlipp: () =>
-    call<{ klipp: VoiceClip[]; statistikk: { antall: number; sekunder: number; bytes: number } }>(ROUTES.ttsClips!),
+  hentKlipp: () => call<{ klipp: VoiceClip[]; statistikk: VoiceClipStats }>(ROUTES.ttsClips!),
+  verifiserKlipp: () => call<VoiceClipVerify>(ROUTES.ttsClipsVerify!),
+  oppdaterKlipp: (id: string, endring: { tekst?: string; pauset?: boolean }) =>
+    call<{ klipp: VoiceClip; statistikk: VoiceClipStats }>(
+      `${ROUTES.ttsClips}/${encodeURIComponent(id)}`,
+      { method: "PATCH", body: JSON.stringify(endring) },
+      { retries: 0 },
+    ),
+  transkriberKlipp: (id: string, overskriv = false) =>
+    call<{ klipp: VoiceClip; hoppetOver: boolean }>(
+      `${ROUTES.ttsClips}/${encodeURIComponent(id)}/transkriber`,
+      { method: "POST", body: JSON.stringify({ overskriv }) },
+      { timeoutMs: 180_000, retries: 0 },
+    ),
+  treningsko: () => call<TrainingQueue>(ROUTES.ttsTraining!),
+  startTrening: (v: { navn?: string; kommando?: string }) =>
+    call<{ jobb: TrainingJob }>(ROUTES.ttsTraining!, { method: "POST", body: JSON.stringify(v) }, { retries: 0 }),
+  avbrytTrening: (id: string) =>
+    call<{ ok: boolean }>(`${ROUTES.ttsTraining}/${encodeURIComponent(id)}`, { method: "POST" }, { retries: 0 }),
+  slettTrening: (id: string) =>
+    call<TrainingQueue>(`${ROUTES.ttsTraining}/${encodeURIComponent(id)}`, { method: "DELETE" }, { retries: 0 }),
+  publiserTrening: (id: string, modell?: string) =>
+    call<{ modell: string }>(
+      `${ROUTES.ttsTraining}/${encodeURIComponent(id)}/publiser`,
+      { method: "POST", body: JSON.stringify({ modell }) },
+      { retries: 0 },
+    ),
   leggTilKlipp: (k: { navn: string; tekst: string; lydBase64: string; mime: string; sekunder?: number }) =>
     call<{ klipp: VoiceClip }>(ROUTES.ttsClips!, { method: "POST", body: JSON.stringify(k) }, { timeoutMs: 120_000, retries: 0 }),
   slettKlipp: (id: string) =>
