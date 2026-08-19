@@ -27,6 +27,7 @@ import { BackendPanel } from "@/components/hud/BackendPanel";
 import { KnowledgePanel } from "@/components/hud/KnowledgePanel";
 import { VoiceSection } from "@/components/hud/VoiceSection";
 import { PersonalitySection } from "@/components/hud/settings/PersonalitySection";
+import { TokenBudsjettSection } from "@/components/hud/settings/TokenBudsjettSection";
 
 
 import {
