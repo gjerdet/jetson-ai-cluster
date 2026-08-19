@@ -28,12 +28,50 @@ aktiver_venv() {
 }
 aktiver_venv
 
-command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det først (apt install ffmpeg)"; exit 1; }
+HER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AUTO="${JARVIS_AUTO_INSTALL:-0}"
+
+# Kan agenten installere selv? Krever passordfri sudo (settes av oppsett.sh).
+kan_sudo() { [ "$(id -u)" -eq 0 ] || sudo -n true >/dev/null 2>&1; }
+som_root() { if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo -n "$@"; fi; }
+
+if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v espeak-ng >/dev/null 2>&1; then
+  if [ "$AUTO" = "1" ] && kan_sudo; then
+    echo "==> Mangler ffmpeg/espeak-ng – installerer automatisk"
+    som_root apt-get update -qq || true
+    som_root apt-get install -y ffmpeg espeak-ng libespeak-ng1
+  fi
+fi
+command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det først (apt install ffmpeg)" >&2; exit 1; }
+
+if ! python3 -m piper_train.preprocess --help >/dev/null 2>&1; then
+  if [ "$AUTO" = "1" ] && kan_sudo && [ -f "$HER/installer-piper.sh" ]; then
+    echo "==> Piper-treningsmiljø mangler – installerer det nå (kan ta 10-20 min)"
+    som_root bash "$HER/installer-piper.sh"
+    aktiver_venv
+  fi
+fi
 python3 -m piper_train.preprocess --help >/dev/null 2>&1 || {
   echo "piper_train mangler – installer Piper-treningsmiljøet først" >&2
-  echo "Tips: bash agent/scripts/installer-piper.sh" >&2
+  echo "Tips: sudo bash agent/scripts/installer-piper.sh" >&2
   exit 1
 }
+
+# Finjustering fra ferdig norsk stemme gir mye bedre resultat med lite data.
+if [ "${PIPER_FINETUNE_NO:-0}" = "1" ] && [ -z "${PIPER_CHECKPOINT:-}" ]; then
+  CKPT_DIR="${PIPER_CKPT_DIR:-/opt/jarvis/piper/checkpoints}"
+  mkdir -p "$CKPT_DIR" 2>/dev/null || CKPT_DIR="$UT/checkpoints" && mkdir -p "$CKPT_DIR"
+  BASE_CKPT="$CKPT_DIR/no_NO-talesyntese-medium.ckpt"
+  if [ ! -f "$BASE_CKPT" ]; then
+    echo "==> Laster ned norsk basismodell for finjustering"
+    URL="https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/no/no_NO/talesyntese/medium/epoch%3D3459-step%3D2052250.ckpt"
+    curl -fL --retry 3 -o "$BASE_CKPT.tmp" "$URL" && mv "$BASE_CKPT.tmp" "$BASE_CKPT" || {
+      echo "  klarte ikke laste ned basismodell – trener fra bunnen i stedet" >&2
+      rm -f "$BASE_CKPT.tmp"
+    }
+  fi
+  [ -f "$BASE_CKPT" ] && export PIPER_CHECKPOINT="$BASE_CKPT"
+fi
 
 echo "==> Bygger datasett for $NAVN"
 while IFS='|' read -r id tekst; do
