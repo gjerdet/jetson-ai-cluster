@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Trash2, Upload, FileAudio, Copy } from "lucide-react";
-import { backend, backendUrl, BackendError, safe, type VoiceClip } from "@/lib/backend";
+import { Trash2, Upload, FileAudio, Copy, Pause, Play, Mic, ShieldCheck } from "lucide-react";
+import { backend, backendUrl, BackendError, safe, type VoiceClip, type VoiceClipStats } from "@/lib/backend";
+import { TrainingQueue } from "./TrainingQueue";
 import { delOppLyd, type Bit } from "@/lib/audio-split";
 
 /** Feiltekst med konkret råd og hvilken adresse som ble forsøkt. */
@@ -16,7 +17,8 @@ const feiltekst = (e: Error) =>
  */
 export function VoiceTraining() {
   const [klipp, setKlipp] = useState<VoiceClip[]>([]);
-  const [stat, setStat] = useState({ antall: 0, sekunder: 0, bytes: 0 });
+  const [stat, setStat] = useState<VoiceClipStats>({ antall: 0, sekunder: 0, bytes: 0 });
+  const [verifisering, setVerifisering] = useState("");
   const [tekst, setTekst] = useState("");
   const [status, setStatus] = useState("");
   const [manifest, setManifest] = useState("");
@@ -104,6 +106,14 @@ export function VoiceTraining() {
     }
 
     if (lagret) setTekst("");
+    const { data: ver } = await safe(() => backend.verifiserKlipp());
+    if (ver) {
+      setVerifisering(
+        ver.ok
+          ? `verifisert: ${ver.antall} klipp på disk, ingen tapt`
+          : `ADVARSEL: ${ver.mangler.length} klipp mangler lydfil på disk`,
+      );
+    }
     setStatus(
       `lagret ${lagret} klipp` +
         (feilet ? ` – ${feilet} feilet` : "") +
@@ -112,6 +122,43 @@ export function VoiceTraining() {
     void last();
   };
 
+
+  const settTekst = async (id: string, ny: string) => {
+    const { error } = await safe(() => backend.oppdaterKlipp(id, { tekst: ny }));
+    if (error) return setStatus(feiltekst(error));
+    void last();
+  };
+
+  const vekslePause = async (k: VoiceClip) => {
+    const { error } = await safe(() => backend.oppdaterKlipp(k.id, { pauset: !k.pauset }));
+    if (error) return setStatus(feiltekst(error));
+    void last();
+  };
+
+  const transkriber = async (id?: string) => {
+    const mål = id ? klipp.filter((k) => k.id === id) : klipp.filter((k) => !k.tekst?.trim());
+    if (!mål.length) return setStatus("alle klipp har allerede transkripsjon");
+    let ok = 0;
+    for (let i = 0; i < mål.length; i++) {
+      setStatus(`transkriberer ${mål[i]!.navn} (${i + 1}/${mål.length})…`);
+      const { error } = await safe(() => backend.transkriberKlipp(mål[i]!.id, Boolean(id)));
+      if (error) setStatus(`transkripsjonsfeil for ${mål[i]!.navn}: ${feiltekst(error)}`);
+      else ok++;
+      void last();
+    }
+    setStatus(`auto-transkriberte ${ok} av ${mål.length} klipp – rett gjerne teksten manuelt`);
+  };
+
+  const verifiser = async () => {
+    const { data, error } = await safe(() => backend.verifiserKlipp());
+    if (error) return setVerifisering(feiltekst(error));
+    setVerifisering(
+      data.ok
+        ? `OK – ${data.antall} klipp, alle lydfiler finnes i ${data.mappe}` +
+            (data.foreldrelose.length ? ` (${data.foreldrelose.length} ubrukte filer på disk)` : "")
+        : `ADVARSEL – mangler lydfil for: ${data.mangler.map((m) => m.navn).join(", ")}`,
+    );
+  };
 
   const slett = async (id: string) => {
     await safe(() => backend.slettKlipp(id));
@@ -175,23 +222,70 @@ export function VoiceTraining() {
         />
       </label>
 
-      <div className="max-h-48 space-y-1 overflow-y-auto">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => void verifiser()}
+          className="flex items-center gap-1 rounded-full border border-primary/20 px-3 py-1 text-[10px] text-muted-foreground hover:text-primary"
+        >
+          <ShieldCheck className="size-3" /> VERIFISER FILER
+        </button>
+        <button
+          onClick={() => void transkriber()}
+          className="flex items-center gap-1 rounded-full border border-primary/20 px-3 py-1 text-[10px] text-muted-foreground hover:text-primary"
+        >
+          <Mic className="size-3" /> AUTO-TRANSKRIBER MANGLENDE
+        </button>
+      </div>
+
+      {verifisering ? <p className="text-[10px] text-primary/80">{verifisering}</p> : null}
+
+      <div className="text-[10px] text-muted-foreground">
+        {stat.antall} filer · {stat.aktive ?? stat.antall} aktive · {stat.pauset ?? 0} pauset ·{" "}
+        {stat.medTekst ?? 0} med tekst
+      </div>
+
+      <div className="max-h-72 space-y-1 overflow-y-auto">
         {klipp.map((k) => (
           <div
             key={k.id}
-            className="flex items-center gap-2 rounded-lg border border-primary/15 bg-primary/[0.03] px-2 py-1.5 text-[10px]"
+            className={`rounded-lg border px-2 py-1.5 text-[10px] ${
+              k.pauset ? "border-primary/10 bg-background/20 opacity-60" : "border-primary/15 bg-primary/[0.03]"
+            }`}
           >
-            <FileAudio className="size-3.5 shrink-0 text-primary/70" />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-foreground/80">{k.navn}</div>
-              <div className="truncate text-muted-foreground">
-                {k.tekst || "— mangler transkripsjon —"}
-              </div>
+            <div className="flex items-center gap-2">
+              <FileAudio className="size-3.5 shrink-0 text-primary/70" />
+              <div className="min-w-0 flex-1 truncate text-foreground/80">{k.navn}</div>
+              <span className="shrink-0 text-muted-foreground">{k.sekunder.toFixed(1)}s</span>
+              <button
+                title="Auto-transkriber dette klippet"
+                onClick={() => void transkriber(k.id)}
+                className="shrink-0 text-muted-foreground hover:text-primary"
+              >
+                <Mic className="size-3.5" />
+              </button>
+              <button
+                title={k.pauset ? "Ta med i trening" : "Pause (utelat fra trening)"}
+                onClick={() => void vekslePause(k)}
+                className="shrink-0 text-muted-foreground hover:text-primary"
+              >
+                {k.pauset ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+              </button>
+              <button onClick={() => void slett(k.id)} className="shrink-0 text-muted-foreground hover:text-destructive">
+                <Trash2 className="size-3.5" />
+              </button>
             </div>
-            <span className="shrink-0 text-muted-foreground">{k.sekunder.toFixed(1)}s</span>
-            <button onClick={() => void slett(k.id)} className="shrink-0 text-muted-foreground hover:text-destructive">
-              <Trash2 className="size-3.5" />
-            </button>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                defaultValue={k.tekst}
+                key={`${k.id}-${k.tekst}`}
+                placeholder="— mangler transkripsjon —"
+                onBlur={(e) => {
+                  if (e.target.value !== k.tekst) void settTekst(k.id, e.target.value);
+                }}
+                className="hud-input w-full text-[10px]"
+              />
+              <span className="shrink-0 text-[9px] text-muted-foreground">{k.tekstKilde || "—"}</span>
+            </div>
           </div>
         ))}
         {!klipp.length ? <p className="text-[10px] text-muted-foreground">Ingen klipp lastet opp enda.</p> : null}
@@ -227,6 +321,10 @@ export function VoiceTraining() {
       ) : null}
 
       {status ? <p className="text-[10px] text-muted-foreground">{status}</p> : null}
+
+      <div className="border-t border-primary/15 pt-3">
+        <TrainingQueue />
+      </div>
     </div>
   );
 }
