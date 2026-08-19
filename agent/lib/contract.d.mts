@@ -148,6 +148,8 @@ export function validateNode(node: unknown): ClusterNode;
 export function validateSettings(input: unknown, current?: BackendSettings): BackendSettings;
 
 export const ROUTES: {
+  ttsClipsVerify: string;
+  ttsTraining: string;
   status: string;
   login: string;
   register: string;
@@ -540,6 +542,10 @@ export interface TtsConfig {
   modell: string;
   lengthScale: number;
   noiseScale: number;
+  sttUrl?: string;
+  sttModell?: string;
+  sttSprak?: string;
+  treningKommando?: string;
 }
 
 export interface VoiceClip {
