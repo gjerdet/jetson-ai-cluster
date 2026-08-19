@@ -87,3 +87,11 @@ export function velgRute(
         : ""),
   };
 }
+
+/** Er noden en sky-tjeneste (betalt, utenfor eget nett)? */
+export function erSkyNode(node: ModelNode): boolean {
+  const url = (node.baseUrl || "").toLowerCase();
+  if (SKY_VERT.test(url) || SKY_VERT.test(node.name) || SKY_VERT.test(node.model || "")) return true;
+  if (!url) return false;
+  return Boolean(node.apiKey) && !/^https?:\/\/(127\.|10\.|192\.168\.|172\.|localhost|\[?::1)/.test(url);
+}

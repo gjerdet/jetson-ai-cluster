@@ -162,3 +162,14 @@ export function bokfor(konsept: Konsept, tokens: number) {
 export function nullstillBruk() {
   skriv(tom());
 }
+
+/**
+ * Har brukeren faktisk satt en grense? Uten grense skal vi spørre før vi
+ * bruker sky-baserte (betalte) noder.
+ */
+export function harTokenGrense(budsjett: TokenBudsjett | undefined): boolean {
+  const b = budsjett ?? standardBudsjett;
+  if (!b.aktiv) return false;
+  if (b.dagligTokens > 0 || b.dagligEskaleringer > 0) return true;
+  return Object.values(b.perKonsept ?? {}).some((v) => (v ?? 0) > 0);
+}
