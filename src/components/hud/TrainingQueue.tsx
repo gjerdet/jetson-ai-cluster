@@ -21,20 +21,43 @@ export function TrainingQueue() {
   const [status, setStatus] = useState("");
   const [cfg, setCfg] = useState<TtsConfig | null>(null);
   const timer = useRef<number | null>(null);
+  const feil = useRef(0);
+  const [offline, setOffline] = useState(false);
+
+  const stoppPolling = () => {
+    if (timer.current) window.clearInterval(timer.current);
+    timer.current = null;
+  };
 
   const last = async () => {
     const { data, error } = await safe(() => backend.treningsko());
-    if (error) return setStatus(feiltekst(error));
+    if (error) {
+      feil.current += 1;
+      // Ikke spam backend-en når den ikke svarer (typisk i Lovable-previewet).
+      if (feil.current >= 3) {
+        stoppPolling();
+        setOffline(true);
+      }
+      return setStatus(feiltekst(error));
+    }
+    feil.current = 0;
+    setOffline(false);
     setJobber(data.jobber);
+  };
+
+  const startPolling = () => {
+    stoppPolling();
+    feil.current = 0;
+    setOffline(false);
+    void last();
+    timer.current = window.setInterval(() => void last(), 4000);
   };
 
   useEffect(() => {
     void last();
     void safe(() => backend.hentTtsConfig()).then(({ data }) => data && setCfg(data));
     timer.current = window.setInterval(() => void last(), 4000);
-    return () => {
-      if (timer.current) window.clearInterval(timer.current);
-    };
+    return stoppPolling;
   }, []);
 
   const lagreCfg = async (endring: Partial<TtsConfig>) => {
@@ -148,7 +171,21 @@ export function TrainingQueue() {
             ) : null}
           </div>
         ))}
-        {!jobber.length ? <p className="text-[10px] text-muted-foreground">Ingen treningsjobber enda.</p> : null}
+        {offline ? (
+          <div className="space-y-2 border border-amber-500/40 p-2">
+            <p className="text-[10px] text-amber-400">
+              Får ikke kontakt med agenten på {backendUrl()} – oppdatering er satt på pause. Opplasting og
+              trening fungerer bare når GUI-et åpnes direkte mot Jetson-en (https://192.168.12.5:8443).
+            </p>
+            <button
+              className="hud-title border border-primary/50 px-2 py-1 text-[10px] text-primary hover:bg-primary/10"
+              onClick={startPolling}
+            >
+              PRØV IGJEN
+            </button>
+          </div>
+        ) : null}
+        {!jobber.length && !offline ? <p className="text-[10px] text-muted-foreground">Ingen treningsjobber enda.</p> : null}
       </div>
 
       {status ? <p className="text-[10px] text-muted-foreground">{status}</p> : null}
