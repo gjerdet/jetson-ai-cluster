@@ -45,47 +45,72 @@ export function VoiceTraining() {
 
   const lastOpp = async (filer: FileList | null) => {
     if (!filer?.length) return;
-    let lagret = 0;
     const alle = Array.from(filer);
-    for (const fil of alle) {
-      setStatus("laster opp " + fil.name + "… (" + (lagret + 1) + "/" + alle.length + ")");
-      let base64 = "";
-      try {
-        base64 = await new Promise<string>((res, rej) => {
-          const r = new FileReader();
-          r.onload = () => res(String(r.result).split(",")[1] ?? "");
-          r.onerror = () => rej(new Error("Klarte ikke lese fila"));
-          r.readAsDataURL(fil);
-        });
-      } catch (e) {
-        setStatus("lesefeil for " + fil.name + ": " + (e instanceof Error ? e.message : String(e)));
-        return;
-      }
-      const sek = await varighet(fil);
-      const { error } = await safe(() =>
-        backend.leggTilKlipp({
-          navn: fil.name,
-          tekst: alle.length === 1 ? tekst : "",
-          lydBase64: base64,
-          mime: fil.type || "audio/wav",
-          sekunder: sek,
-        }),
-      );
-      if (error) {
-        setStatus("opplastingsfeil for " + fil.name + ": " + error.message);
+    let lagret = 0;
+    let feilet = 0;
 
-        return;
+    for (let f = 0; f < alle.length; f++) {
+      const fil = alle[f]!;
+      setStatus(`behandler ${fil.name} (${f + 1}/${alle.length})…`);
+
+      let biter: Bit[] = [];
+      try {
+        biter = await delOppLyd(fil);
+      } catch {
+        // Klarer ikke nettleseren å dekode fila, sender vi den rå til agenten.
+        try {
+          const base64 = await new Promise<string>((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(String(r.result).split(",")[1] ?? "");
+            r.onerror = () => rej(new Error("Klarte ikke lese fila"));
+            r.readAsDataURL(fil);
+          });
+          const sek = await varighet(fil);
+          biter = [{ base64, sekunder: sek, navn: fil.name }];
+        } catch (e) {
+          feilet++;
+          setStatus(`lesefeil for ${fil.name}: ${e instanceof Error ? e.message : String(e)}`);
+          continue;
+        }
       }
-      lagret++;
+
+      for (let b = 0; b < biter.length; b++) {
+        const bit = biter[b]!;
+        setStatus(
+          `laster opp ${bit.navn} (fil ${f + 1}/${alle.length}` +
+            (biter.length > 1 ? `, del ${b + 1}/${biter.length}` : "") +
+            ")…",
+        );
+        const { error } = await safe(() =>
+          backend.leggTilKlipp({
+            navn: bit.navn,
+            // Transkripsjonen gjelder bare når én fil lastes opp udelt.
+            tekst: alle.length === 1 && biter.length === 1 ? tekst : "",
+            lydBase64: bit.base64,
+            mime: bit.navn.endsWith(".wav") ? "audio/wav" : fil.type || "audio/wav",
+            sekunder: bit.sekunder,
+          }),
+        );
+        if (error) {
+          feilet++;
+          setStatus(`opplastingsfeil for ${bit.navn}: ${feiltekst(error)}`);
+        } else {
+          lagret++;
+        }
+      }
+      // Oppdater lista underveis så du ser at klippene legger seg oppå de gamle.
+      void last();
     }
-    setTekst("");
+
+    if (lagret) setTekst("");
     setStatus(
-      "lagret " +
-        lagret +
-        " klipp som treningsdata – klippet blir ikke brukt av TEST STEMME før en Piper-modell er trent og valgt",
+      `lagret ${lagret} klipp` +
+        (feilet ? ` – ${feilet} feilet` : "") +
+        " – klippene legges til i settet og erstatter ikke de gamle. De brukes ikke av TEST STEMME før en Piper-modell er trent og valgt.",
     );
     void last();
   };
+
 
   const slett = async (id: string) => {
     await safe(() => backend.slettKlipp(id));
