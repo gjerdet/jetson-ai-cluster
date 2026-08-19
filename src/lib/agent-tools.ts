@@ -328,6 +328,10 @@ Tilgjengelige verktøy:
 - maskin_kort {"frisk": true} – ferskt maskin-ID-kort: modell, OS, CPU/GPU, IP, subnett, lokale modeller, klyngenoder.
 - verktoy_bygg {"beskrivelse": "...", "runder": 3} – skriv, test og fiks et nytt verktøy i sandkassen til det virker.
 - kollega_diagnose {"node": "Hermes"} – ende-til-ende diagnose av en kollega-node.
+- laer_om {"tema": "Junos BGP-konfigurasjon", "antall": 3} – skaff deg NY kunnskap: søker på nettet,
+  leser kildene og lagrer dem varig i den lokale kunnskapsbasen. Du kan også gi {"urler": ["https://..."]}.
+- web_sok {"sok": "TrueNAS API pools", "antall": 5} – finn kilder (tittel + URL) uten å lagre noe.
+- les_url {"url": "https://..."} – les én side/dokumentasjon som ren tekst.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
 - laer_regel {"tekst": "...", "hvorfor": "..."} – lagrer en varig adferdsregel om HVORDAN du skal jobbe.
   Reglene lastes inn i systemprompten din i alle senere samtaler (selvforbedring).
