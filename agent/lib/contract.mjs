@@ -93,6 +93,8 @@ export const ROUTES = {
   ttsVoices: "/tts/stemmer",
   ttsClips: "/tts/klipp",
   ttsManifest: "/tts/treningssett",
+  ttsClipsVerify: "/tts/klipp/verifiser",
+  ttsTraining: "/tts/trening",
   logs: "/logger",
   logSources: "/logger/kilder",
   clusterLocal: "/klynge/lokal",

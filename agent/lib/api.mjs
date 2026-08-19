@@ -52,7 +52,18 @@ import {
   syntetiser,
   trainingManifest,
   ttsConfig,
+  oppdaterKlipp,
+  verifiserKlipp,
+  transkriberKlipp,
 } from "./tts.mjs";
+import {
+  koLeggTil as treningStart,
+  koStatus as treningStatus,
+  avbryt as treningAvbryt,
+  slettJobb as treningSlett,
+  publiser as treningPubliser,
+  hentJobb as treningJobb,
+} from "./trening.mjs";
 
 import {
   addFeedback as addFeedbackEntry,
@@ -1050,9 +1061,51 @@ export async function handleApi(req, res, route, url, deps = {}) {
       }
     }
 
+    if (path === "/tts/klipp/verifiser" && method === "GET")
+      return json(req, res, 200, await verifiserKlipp());
+
+    if (path.startsWith("/tts/klipp/") && path.endsWith("/transkriber") && method === "POST") {
+      const id = decodeURIComponent(path.slice("/tts/klipp/".length, -"/transkriber".length));
+      const b = await readBody(req);
+      const r = await transkriberKlipp(id, { overskriv: Boolean(b?.overskriv) });
+      return json(req, res, 200, { ...r, statistikk: clipStats() });
+    }
+
+    if (path.startsWith("/tts/klipp/") && method === "PATCH") {
+      const id = decodeURIComponent(path.slice("/tts/klipp/".length));
+      const b = await readBody(req);
+      const k = oppdaterKlipp(id, { tekst: b.tekst, pauset: b.pauset });
+      if (!k) return json(req, res, 404, { error: "Fant ikke klippet" });
+      return json(req, res, 200, { klipp: k, statistikk: clipStats() });
+    }
+
     if (path.startsWith("/tts/klipp/") && method === "DELETE") {
       const id = decodeURIComponent(path.slice("/tts/klipp/".length));
       return json(req, res, 200, { ok: await deleteClip(id), statistikk: clipStats() });
+    }
+
+    if (path === "/tts/trening") {
+      if (method === "GET") return json(req, res, 200, treningStatus());
+      if (method === "POST") {
+        const b = await readBody(req);
+        return json(req, res, 200, { jobb: await treningStart({ navn: b.navn, kommando: b.kommando }) });
+      }
+    }
+
+    if (path.startsWith("/tts/trening/") && path.endsWith("/publiser") && method === "POST") {
+      const id = decodeURIComponent(path.slice("/tts/trening/".length, -"/publiser".length));
+      const b = await readBody(req);
+      return json(req, res, 200, treningPubliser(id, b?.modell));
+    }
+
+    if (path.startsWith("/tts/trening/") && method === "DELETE") {
+      const id = decodeURIComponent(path.slice("/tts/trening/".length));
+      return json(req, res, 200, { ok: treningSlett(id), ...treningStatus() });
+    }
+
+    if (path.startsWith("/tts/trening/") && method === "POST") {
+      const id = decodeURIComponent(path.slice("/tts/trening/".length));
+      return json(req, res, 200, { ok: treningAvbryt(id), jobb: treningJobb(id) });
     }
 
     if (path === "/tts/treningssett" && method === "GET")

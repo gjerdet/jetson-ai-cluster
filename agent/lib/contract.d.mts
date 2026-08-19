@@ -148,6 +148,8 @@ export function validateNode(node: unknown): ClusterNode;
 export function validateSettings(input: unknown, current?: BackendSettings): BackendSettings;
 
 export const ROUTES: {
+  ttsClipsVerify: string;
+  ttsTraining: string;
   status: string;
   login: string;
   register: string;
@@ -540,6 +542,10 @@ export interface TtsConfig {
   modell: string;
   lengthScale: number;
   noiseScale: number;
+  sttUrl?: string;
+  sttModell?: string;
+  sttSprak?: string;
+  treningKommando?: string;
 }
 
 export interface VoiceClip {
@@ -551,6 +557,54 @@ export interface VoiceClip {
   bytes: number;
   sekunder: number;
   opprettet: string;
+  pauset?: boolean;
+  tekstKilde?: "" | "manuell" | "auto";
+  antallFoer?: number;
+  antallEtter?: number;
+}
+
+export interface VoiceClipStats {
+  antall: number;
+  aktive?: number;
+  pauset?: number;
+  medTekst?: number;
+  sekunder: number;
+  aktiveSekunder?: number;
+  bytes: number;
+}
+
+export interface VoiceClipVerify {
+  ok: boolean;
+  antall: number;
+  mangler: { id: string; navn: string; fil: string }[];
+  foreldrelose: string[];
+  mappe: string;
+  statistikk: VoiceClipStats;
+}
+
+export interface TrainingJob {
+  id: string;
+  navn: string;
+  status: "kø" | "kjører" | "ferdig" | "feilet" | "avbrutt";
+  fremdrift: number;
+  klipp: number;
+  sekunder: number;
+  manifest: string;
+  utMappe: string;
+  kommando: string;
+  logg: string[];
+  feil: string;
+  opprettet: string;
+  startet: string;
+  ferdig: string;
+  modellFil?: string;
+  publisert?: string;
+}
+
+export interface TrainingQueue {
+  jobber: TrainingJob[];
+  kjorer: string;
+  iKo: number;
 }
 
 export interface MemoryItem {
