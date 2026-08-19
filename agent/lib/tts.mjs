@@ -7,7 +7,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { DATA_DIR, doc, saveDoc } from "./store.mjs";
+import { DATA_DIR, doc, saveDoc, flushNow } from "./store.mjs";
 
 const CLIP_DIR = path.join(DATA_DIR, "stemmeklipp");
 const MAKS_KLIPP_BYTES = 25 * 1024 * 1024;
@@ -122,6 +122,9 @@ export async function addClip({ navn, tekst, lydBase64, mime = "audio/wav", seku
   };
   const d = klippDoc();
   saveDoc("stemmeklipp", { list: [...(d.list || []), klipp] });
+  // Skriv til disk med en gang: ellers kan et klipp gå tapt hvis agenten
+  // startes på nytt før den utsatte skrivingen kjører.
+  flushNow();
   return klipp;
 }
 
@@ -131,6 +134,7 @@ export async function deleteClip(id) {
   if (!treff) return false;
   await fs.unlink(path.join(CLIP_DIR, treff.fil)).catch(() => {});
   saveDoc("stemmeklipp", { list: (d.list || []).filter((k) => k.id !== id) });
+  flushNow();
   return true;
 }
 
