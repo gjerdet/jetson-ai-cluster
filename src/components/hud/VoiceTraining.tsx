@@ -89,10 +89,22 @@ export function VoiceTraining() {
   };
 
   const hentManifest = async () => {
+    if (!klipp.length) {
+      setStatus("Ingen klipp lastet opp enda – last opp lydfiler først, så lager jeg treningssettet.");
+      return;
+    }
+    setStatus("lager treningssett…");
     const { data, error } = await safe(() => backend.hentTreningssett());
     if (error) return setStatus(feiltekst(error));
     setManifest(data.manifest);
     setMappe(data.mappe);
+    const utenTekst = klipp.filter((k) => !k.tekst?.trim()).length;
+    setStatus(
+      data.manifest.trim()
+        ? `treningssett klart – ${data.manifest.trim().split("\n").length} linjer` +
+            (utenTekst ? ` (${utenTekst} klipp mangler transkripsjon og er utelatt)` : "")
+        : "Ingen klipp har transkripsjon – legg inn tekst på klippene før du lager treningssett.",
+    );
   };
 
   const min = Math.round(stat.sekunder / 6) / 10;
