@@ -64,6 +64,8 @@ import {
   slettJobb as treningSlett,
   publiser as treningPubliser,
   hentJobb as treningJobb,
+  treningPlan,
+  byggKommando,
 } from "./trening.mjs";
 
 import {
@@ -1088,6 +1090,24 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path.startsWith("/tts/klipp/") && method === "DELETE") {
       const id = decodeURIComponent(path.slice("/tts/klipp/".length));
       return json(req, res, 200, { ok: await deleteClip(id), statistikk: clipStats() });
+    }
+
+    if (path === "/tts/trening/plan" && method === "GET") {
+      const q = new URL(req.url, "http://x").searchParams;
+      return json(req, res, 200, await treningPlan({ navn: q.get("navn") || "", preset: q.get("preset") || "" }));
+    }
+
+    if (path === "/tts/trening/installer" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      // Lar Jarvis installere Piper-miljøet på seg selv, som en vanlig jobb med logg.
+      const skript = "/opt/jarvis-agent/scripts/installer-piper.sh";
+      const jobb = await treningStart({
+        navn: "installer-piper",
+        kommando: `sudo -n bash ${skript} || bash ${skript}`,
+        autoTranskriber: false,
+        hoppOverValidering: true,
+      });
+      return json(req, res, 200, { jobb });
     }
 
     if (path === "/tts/trening") {
