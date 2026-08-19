@@ -46,6 +46,7 @@ import {
   type VoiceClipVerify,
   type TrainingJob,
   type TrainingQueue,
+  type TrainingPlan,
   type VoiceClip,
   type MemoryItem,
   type Plan,
@@ -61,6 +62,7 @@ export type {
   VoiceClipVerify,
   TrainingJob,
   TrainingQueue,
+  TrainingPlan,
   AiConfig,
   KnowledgeDoc,
   KnowledgeHit,
@@ -625,6 +627,16 @@ export const backend = {
     return res.blob();
   },
   treningsko: () => call<TrainingQueue>(ROUTES.ttsTraining!),
+  /** Forhåndsviser stier, presets og miljøsjekk før trening startes. */
+  treningPlan: (o: { navn?: string; preset?: string } = {}) =>
+    call<TrainingPlan>(
+      `${ROUTES.ttsTrainingPlan}?navn=${encodeURIComponent(o.navn || "")}&preset=${encodeURIComponent(o.preset || "")}`,
+      {},
+      { timeoutMs: 40_000, retries: 0 },
+    ),
+  /** Ber agenten installere Piper-treningsmiljøet på seg selv. */
+  installerPiper: () =>
+    call<{ jobb: TrainingJob }>(ROUTES.ttsTrainingInstall!, { method: "POST" }, { timeoutMs: 30_000, retries: 0 }),
   startTrening: (v: { navn?: string; kommando?: string }) =>
     call<{ jobb: TrainingJob }>(ROUTES.ttsTraining!, { method: "POST", body: JSON.stringify(v) }, { retries: 0 }),
   avbrytTrening: (id: string) =>
