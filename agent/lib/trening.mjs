@@ -290,6 +290,26 @@ function start(id) {
   }
   prosesser.set(id, p);
 
+  // Sanntids ressursbruk (CPU/GPU/VRAM) mens jobben kjører – vises i GUI-et.
+  const telemetriTimer = setInterval(async () => {
+    const gpu = await gpuStatus().catch(() => null);
+    const fri = os.freemem() / 1048576;
+    const total = os.totalmem() / 1048576;
+    const punkt = {
+      tid: Date.now(),
+      cpu: Math.round((os.loadavg()[0] / Math.max(1, os.cpus().length)) * 100),
+      minneBruktMb: Math.round(total - fri),
+      minneTotalMb: Math.round(total),
+      gpuUtnyttelse: gpu?.utnyttelse ?? null,
+      gpuBruktMb: gpu?.bruktMb ?? null,
+      gpuTotalMb: gpu?.totalMb ?? null,
+      tempC: gpu?.tempC ?? null,
+    };
+    const j2 = hentJobb(id);
+    if (!j2 || j2.status !== "kjører") return;
+    oppdater(id, { telemetri: [...(j2.telemetri || []), punkt].slice(-MAKS_TELEMETRI) });
+  }, 5000);
+
   const lesLinjer = (strom) => {
     let rest = "";
     strom.setEncoding("utf8");
@@ -314,6 +334,7 @@ function start(id) {
   lesLinjer(p.stderr);
 
   p.on("close", async (kode) => {
+    clearInterval(telemetriTimer);
     prosesser.delete(id);
     const gjeldende = hentJobb(id);
     if (gjeldende?.status === "avbrutt") return kjorNeste();
@@ -328,11 +349,30 @@ function start(id) {
       oppdater(id, { status: "ferdig", fremdrift: 100, ferdig: new Date().toISOString(), modellFil });
       logg(id, modellFil ? `ferdig – modell: ${modellFil}` : "ferdig (fant ingen .onnx automatisk)");
     } else {
-      oppdater(id, { status: "feilet", feil: `Prosessen avsluttet med kode ${kode}`, ferdig: new Date().toISOString() });
-      logg(id, `feilet med kode ${kode}`);
+      const siste = (gjeldende?.logg || []).slice(-25).join("\n");
+      const hint = tolkFeil(siste);
+      oppdater(id, {
+        status: "feilet",
+        feil: `Prosessen avsluttet med kode ${kode}${hint ? ` – ${hint}` : ""}`,
+        ferdig: new Date().toISOString(),
+      });
+      logg(id, `feilet med kode ${kode}${hint ? ` (${hint})` : ""}`);
     }
     kjorNeste();
   });
+}
+
+/** Oversetter typiske feil i loggen til noe brukeren kan handle på. */
+function tolkFeil(logg = "") {
+  const t = String(logg);
+  if (/piper_train mangler|No module named .?piper_train/i.test(t))
+    return "Piper-treningsmiljøet mangler. Kjør INSTALLER PIPER (eller sudo bash agent/scripts/installer-piper.sh).";
+  if (/ffmpeg mangler|ffmpeg: not found/i.test(t)) return "ffmpeg mangler – sudo apt install ffmpeg.";
+  if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
+  if (/out of memory|CUDA out of memory|Killed/i.test(t)) return "Tom for minne – velg presetet «Jetson · lav VRAM».";
+  if (/ingen lydfil|No such file/i.test(t)) return "Fant ikke lydfilene som manifestet peker på.";
+  if (/Fant ingen checkpoint/i.test(t)) return "Treningen rakk aldri å lagre et checkpoint – øk epoker eller sjekk loggen over.";
+  return "";
 }
 
 export function koStatus() {
