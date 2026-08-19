@@ -24,9 +24,15 @@ export function VoiceTraining() {
   const [manifest, setManifest] = useState("");
   const [mappe, setMappe] = useState("");
 
+  const [offline, setOffline] = useState(false);
+
   const last = async () => {
     const { data, error } = await safe(() => backend.hentKlipp());
-    if (error) return setStatus(feiltekst(error));
+    if (error) {
+      setOffline(true);
+      return setStatus(feiltekst(error));
+    }
+    setOffline(false);
     setKlipp(data.klipp);
     setStat(data.statistikk);
   };
@@ -288,7 +294,13 @@ export function VoiceTraining() {
             </div>
           </div>
         ))}
-        {!klipp.length ? <p className="text-[10px] text-muted-foreground">Ingen klipp lastet opp enda.</p> : null}
+        {offline ? (
+          <p className="border border-amber-500/40 p-2 text-[10px] text-amber-400">
+            Ingen kontakt med agenten på {backendUrl()} – klipp kan ikke lastes opp herfra. Åpne GUI-et direkte
+            mot Jetson-en (https://192.168.12.5:8443) for å laste opp og trene.
+          </p>
+        ) : null}
+        {!klipp.length && !offline ? <p className="text-[10px] text-muted-foreground">Ingen klipp lastet opp enda.</p> : null}
       </div>
 
       <div className="flex items-center gap-2">
