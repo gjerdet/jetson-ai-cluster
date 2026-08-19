@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Trash2, Upload, FileAudio, Copy } from "lucide-react";
 import { backend, backendUrl, BackendError, safe, type VoiceClip } from "@/lib/backend";
+import { delOppLyd, type Bit } from "@/lib/audio-split";
 
 /** Feiltekst med konkret råd og hvilken adresse som ble forsøkt. */
 const feiltekst = (e: Error) =>
