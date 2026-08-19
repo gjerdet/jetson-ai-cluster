@@ -151,6 +151,8 @@ export const ROUTES: {
   ttsClipsVerify: string;
   ttsClipsTranscribeAll: string;
   ttsTraining: string;
+  ttsTrainingPlan: string;
+  ttsTrainingInstall: string;
   status: string;
   login: string;
   register: string;

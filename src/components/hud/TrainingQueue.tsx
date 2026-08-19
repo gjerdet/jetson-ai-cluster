@@ -214,7 +214,7 @@ export function TrainingQueue() {
               ) : null}
             </div>
             <p>
-              {plan.statistikk.medTekst} klipp med tekst · {Math.round(plan.statistikk.aktiveSekunder / 60)} min lyd
+              {plan.statistikk.medTekst ?? 0} klipp med tekst · {Math.round((plan.statistikk.aktiveSekunder ?? 0) / 60)} min lyd
             </p>
             {plan.problemer.map((pr) => (
               <p key={pr} className={plan.kanStarte ? "text-amber-400" : "text-destructive"}>
