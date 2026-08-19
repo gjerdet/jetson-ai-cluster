@@ -31,14 +31,31 @@ export function VoiceSection() {
   };
 
   const test = async () => {
-    setStatus("spiller av…");
+    setStatus(
+      cfg.engine === "browser"
+        ? "spiller av i nettleseren…"
+        : cfg.engine === "piper"
+          ? `spør piper på ${cfg.piperUrl || "(ingen URL satt)"}…`
+          : "spør agenten på Jetson…",
+    );
     try {
       if (cfg.engine === "piper") await speakPiper(TESTTEKST, cfg);
       else if (cfg.engine === "backend") await speakBackend(TESTTEKST, cfg);
-      else speakBrowser(TESTTEKST, cfg);
-      setStatus("ok");
+      else {
+        if (!voiceSupported()) throw new Error("nettleseren har ingen talesyntese");
+        speakBrowser(TESTTEKST, cfg);
+      }
+      setStatus(`ok – spiller av via ${cfg.engine}`);
     } catch (e) {
-      setStatus(`feil: ${e instanceof Error ? e.message : String(e)}`);
+      const grunn = e instanceof Error ? e.message : String(e);
+      // Faller tilbake til nettleserstemmen så du alltid hører noe, og sier
+      // tydelig hvorfor den valgte motoren ikke svarte.
+      if (cfg.engine !== "browser" && voiceSupported()) {
+        speakBrowser(TESTTEKST, cfg);
+        setStatus(`${cfg.engine} feilet (${grunn}) – spilte av med nettleserstemmen i stedet`);
+      } else {
+        setStatus(`feil: ${grunn}`);
+      }
     }
   };
 
