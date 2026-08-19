@@ -70,7 +70,10 @@ export function velgRute(
   const lokale = aktive.filter((n) => nodeKlasse(n) === "lokal");
   const passer = (n: ModelNode) => !n.duties?.length || n.duties.includes(opts?.verktoyrunde ? "verktoy" : "chat");
 
-  const kandidater = vekt === "tung" ? [...tunge, ...lokale] : [...lokale, ...tunge];
+  // Lokal-først: den lokale modellen prøver alltid selv først for å spare
+  // betalte tokens. Tung node brukes kun hvis selvsjekken underkjenner svaret.
+  const lokalForst = config.lokalForst !== false && lokale.length > 0;
+  const kandidater = vekt === "tung" && !lokalForst ? [...tunge, ...lokale] : [...lokale, ...tunge];
   const valgt = kandidater.find(passer) ?? kandidater[0] ?? primary;
   if (!valgt) return { vekt, grunn: "ingen aktive noder" };
   const klasse = nodeKlasse(valgt);
