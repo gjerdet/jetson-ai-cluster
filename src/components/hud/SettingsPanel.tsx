@@ -21,6 +21,7 @@ import {
   BookOpen,
   Mic,
   User,
+  Coins,
 } from "lucide-react";
 
 import { BackendPanel } from "@/components/hud/BackendPanel";
@@ -94,6 +95,7 @@ type Tab =
   | "kunnskap"
   | "stemme"
   | "evaluator"
+  | "budsjett"
   | "enheter"
   | "minne"
   | "evner"
@@ -111,6 +113,7 @@ const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "kunnskap", label: "KUNNSKAP", icon: BookOpen },
   { id: "stemme", label: "STEMME", icon: Mic },
   { id: "evaluator", label: "EVALUATOR", icon: Scale },
+  { id: "budsjett", label: "BUDSJETT", icon: Coins },
   { id: "enheter", label: "ENHETER", icon: HardDrive },
   { id: "minne", label: "MINNE", icon: Brain },
   { id: "evner", label: "EVNER", icon: Sparkles },
@@ -183,6 +186,7 @@ export function SettingsPanel({
         {tab === "kunnskap" ? <KnowledgePanel /> : null}
         {tab === "stemme" ? <VoiceSection /> : null}
         {tab === "personlighet" ? <PersonalitySection /> : null}
+        {tab === "budsjett" ? <TokenBudsjettSection config={config} update={update} /> : null}
 
 
         {tab === "system" ? (
