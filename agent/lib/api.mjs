@@ -149,6 +149,7 @@ import {
   saveRagConfig,
   search,
 } from "./rag.mjs";
+import { hentUrl, laerOm, sokWeb } from "./laering.mjs";
 
 const json = (req, res, status, body) => {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", ...corsHeaders(req) });
