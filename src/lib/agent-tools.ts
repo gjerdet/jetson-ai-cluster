@@ -759,6 +759,54 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     }
   }
 
+  if (call.name === "laer_om") {
+    const tema = str(call.args["tema"] ?? call.args["emne"] ?? call.args["sporsmal"] ?? call.args["tekst"]);
+    if (!tema) return "Mangler «tema» – si hva jeg skal lære meg.";
+    const urler = Array.isArray(call.args["urler"]) ? (call.args["urler"] as unknown[]).map(String) : [];
+    const antall = Math.max(1, Math.min(Number(call.args["antall"] ?? 3) || 3, 5));
+    try {
+      const r = await backend.laerOm(tema, { urler, antall });
+      if (!r.kilder.length) return `Fant ingen kilder om «${tema}».`;
+      const kilder = r.kilder
+        .map((k) => `- ${k.tittel} (${k.url})${k.feil ? ` – FEIL: ${k.feil}` : ` – ${k.biter} biter lagret`}`)
+        .join("\n");
+      const utdrag = r.kilder
+        .filter((k) => k.utdrag)
+        .map((k) => `[${k.tittel}]\n${k.utdrag}`)
+        .join("\n\n")
+        .slice(0, 6000);
+      return (
+        `Lærte om «${tema}» fra ${r.laerte} kilde(r) og lagret det i kunnskapsbasen.\n${kilder}\n\n` +
+        `UTDRAG FRA KILDENE (bruk dette i svaret, og oppgi kilde):\n${utdrag}`
+      );
+    } catch (e) {
+      return `Klarte ikke lære om «${tema}»: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "web_sok") {
+    const q = str(call.args["sok"] ?? call.args["q"] ?? call.args["tema"] ?? call.args["tekst"]);
+    if (!q) return "Mangler søketekst.";
+    const antall = Math.max(1, Math.min(Number(call.args["antall"] ?? 5) || 5, 10));
+    try {
+      const r = await backend.sokWeb(q, antall);
+      return r.treff.map((t, i) => `${i + 1}. ${t.tittel}\n   ${t.url}`).join("\n");
+    } catch (e) {
+      return `Nettsøk feilet: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "les_url") {
+    const url = str(call.args["url"] ?? call.args["adresse"], 800);
+    if (!url) return "Mangler «url».";
+    try {
+      const r = await backend.hentNettsideTilKunnskap(url);
+      return `${r.tittel} (${r.url}):\n${r.tekst.slice(0, 8000)}`;
+    } catch (e) {
+      return `Klarte ikke lese siden: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
   if (call.name === "verktoy_paa_node") {
     const nodeId = str(call.args["nodeId"] ?? call.args["node"]).trim();
     const navn = str(call.args["navn"] ?? call.args["verktoy"]).trim();
