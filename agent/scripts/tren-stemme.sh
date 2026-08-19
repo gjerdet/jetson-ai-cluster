@@ -60,7 +60,7 @@ python3 -m piper_train.preprocess --help >/dev/null 2>&1 || {
 # Finjustering fra ferdig norsk stemme gir mye bedre resultat med lite data.
 if [ "${PIPER_FINETUNE_NO:-0}" = "1" ] && [ -z "${PIPER_CHECKPOINT:-}" ]; then
   CKPT_DIR="${PIPER_CKPT_DIR:-/opt/jarvis/piper/checkpoints}"
-  mkdir -p "$CKPT_DIR" 2>/dev/null || CKPT_DIR="$UT/checkpoints" && mkdir -p "$CKPT_DIR"
+  mkdir -p "$CKPT_DIR" 2>/dev/null || { CKPT_DIR="$UT/checkpoints"; mkdir -p "$CKPT_DIR"; }
   BASE_CKPT="$CKPT_DIR/no_NO-talesyntese-medium.ckpt"
   if [ ! -f "$BASE_CKPT" ]; then
     echo "==> Laster ned norsk basismodell for finjustering"
