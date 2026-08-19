@@ -27,6 +27,7 @@ import { callBalanced, callTracked } from "@/lib/balancer";
 import { logRouting } from "@/lib/routing-log";
 import { nyTur, trace } from "@/lib/debug-log";
 import { velgRute } from "@/lib/model-router";
+import { erLokaltSvar, selvsjekk, tungNode, STANDARD_TERSKEL } from "@/lib/self-check";
 import { backend, backendToken } from "@/lib/backend";
 import { clearChat, loadChat, loadChatRemote, saveChat, saveChatRemote } from "@/lib/chat-store";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
@@ -531,6 +532,60 @@ export function ChatPanel({
         answer = "";
       }
       if (!answer) answer = "(fikk ikke ferdig svar innen verktøygrensen)";
+
+      // LOKAL-FØRST: svaret kommer fra den lokale modellen. Vi vurderer det
+      // lokalt (gratis) og eskalerer bare til Hermes/OpenRouter når det
+      // faktisk trengs – slik at betalte tokens brukes minst mulig.
+      let selvsjekkNotat = "";
+      if (config.lokalForst !== false && !smaaprat && erLokaltSvar(config, answeredBy)) {
+        setStage("selvsjekk");
+        const sjekk = await selvsjekk({
+          question: text,
+          answer,
+          ...(rutet ? { lokalNode: rutet } : {}),
+          terskel: config.eskalerTerskel ?? STANDARD_TERSKEL,
+        });
+        trace({
+          turId,
+          kind: "ruting",
+          title: `selvsjekk ${sjekk.poeng}/10${sjekk.heuristisk ? " (gratis regelsjekk)" : " (lokal modell)"}`,
+          why: sjekk.grunn,
+        });
+        const tung = sjekk.eskaler ? tungNode(config, rutet) : undefined;
+        if (tung) {
+          setStage(`eskalerer til ${tung.name}`);
+          try {
+            const bedre = await callTracked(tung, [
+              ...thread,
+              {
+                role: "user",
+                content:
+                  `Den lokale modellen svarte, men selvsjekken ga ${sjekk.poeng}/10: ${sjekk.grunn}\n\n` +
+                  `LOKALT UTKAST:\n${answer}\n\n` +
+                  "Gi ett endelig, konkret svar på norsk bokmål. Vær kort og presis – hvert token koster.",
+              },
+            ] as ChatMsg[]);
+            if (bedre.trim()) {
+              answer = bedre.trim();
+              answeredBy = `${tung.name} · eskalert (lokal ${sjekk.poeng}/10)`;
+              selvsjekkNotat = `Lokalt svar fikk ${sjekk.poeng}/10 (${sjekk.grunn}) – eskalerte til ${tung.name}.`;
+            }
+            logRouting({
+              oppgave: "eskalering",
+              nodeNavn: tung.name,
+              ...(tung.id ? { nodeId: tung.id } : {}),
+              ...(tung.model ? { model: tung.model } : {}),
+            });
+          } catch (e) {
+            selvsjekkNotat = `Eskalering til ${tung.name} feilet (${e instanceof Error ? e.message : "ukjent"}) – beholder det lokale svaret.`;
+          }
+        } else if (sjekk.eskaler) {
+          selvsjekkNotat = `Selvsjekk ${sjekk.poeng}/10 (${sjekk.grunn}) – ingen tung node er tilgjengelig, så det lokale svaret står.`;
+        } else {
+          selvsjekkNotat = `Selvsjekk ${sjekk.poeng}/10 – løst lokalt, ingen betalte tokens brukt.`;
+        }
+        setStage("tenker");
+      }
       trace({
         turId,
         kind: "svar",
@@ -547,6 +602,10 @@ export function ChatPanel({
         ...(runs.length ? { runs } : {}),
         ...(sources.length ? { sources } : {}),
       });
+
+      if (selvsjekkNotat)
+        out.push({ role: "assistant", content: selvsjekkNotat, node: "LOKAL-FØRST" });
+
 
 
       // lar modellen styre smarthuset direkte via MQTT-linjer i svaret
