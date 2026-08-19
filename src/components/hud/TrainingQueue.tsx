@@ -101,9 +101,13 @@ export function TrainingQueue() {
         <input
           className="hud-input w-full"
           defaultValue={cfg?.treningKommando ?? ""}
-          placeholder="piper_train --dataset-dir {mappe} --metadata {manifest} --output-dir {ut}"
+          placeholder="bash /opt/jarvis-agent/scripts/tren-stemme.sh {mappe} {manifest} {navn} {ut}"
           onBlur={(e) => void lagreCfg({ treningKommando: e.target.value })}
         />
+        <p className="text-[9px] text-muted-foreground/70">
+          Placeholdere: {`{mappe}`} = lydfiler, {`{manifest}`} = metadata.csv, {`{navn}`} = jobbnavn, {`{ut}`} = resultatmappe.
+          Installer Piper først: {`bash agent/scripts/installer-piper.sh`}
+        </p>
       </div>
 
       <div className="flex items-center gap-2">
