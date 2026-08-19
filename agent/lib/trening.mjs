@@ -180,8 +180,9 @@ function logg(id, linje) {
 const prosesser = new Map();
 
 /** Legger en jobb i køen og starter den hvis ingen kjører. */
-export async function koLeggTil({ navn, kommando, autoTranskriber = true } = {}) {
+export async function koLeggTil({ navn, kommando, autoTranskriber = true, hoppOverValidering = false } = {}) {
   let stat = clipStats();
+  if (hoppOverValidering) return koLeggTilRaa({ navn, kommando, stat });
   // Klipp uten tekst kan ikke trenes på – prøv lokal STT først, slik at
   // brukeren bare trenger å laste opp lyd og trykke start.
   let transkripsjon = null;
@@ -224,6 +225,36 @@ export async function koLeggTil({ navn, kommando, autoTranskriber = true } = {})
     logg: [],
     telemetri: [],
     mangler: plan.mangler,
+    feil: "",
+    opprettet: new Date().toISOString(),
+    startet: "",
+    ferdig: "",
+  };
+  lagre([...(jobbDoc().list || []), jobb]);
+  kjorNeste();
+  return jobb;
+}
+
+/** Kjører en vilkårlig kommando (f.eks. installasjon) som en jobb med logg. */
+async function koLeggTilRaa({ navn, kommando, stat }) {
+  const cmd = String(kommando || "").trim();
+  if (!cmd) throw new Error("Ingen kommando å kjøre.");
+  const id = randomUUID();
+  const jobbNavn = rentNavn(navn);
+  const utMappe = path.join(DATA_DIR, "stemmemodeller", `${jobbNavn}-${id.slice(0, 8)}`);
+  await fs.mkdir(utMappe, { recursive: true });
+  const jobb = {
+    id,
+    navn: jobbNavn,
+    status: "kø",
+    fremdrift: 0,
+    klipp: stat?.medTekst || 0,
+    sekunder: 0,
+    manifest: "",
+    utMappe,
+    kommando: cmd.replaceAll("{ut}", utMappe).replaceAll("{navn}", jobbNavn),
+    logg: [],
+    telemetri: [],
     feil: "",
     opprettet: new Date().toISOString(),
     startet: "",

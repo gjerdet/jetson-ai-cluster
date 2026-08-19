@@ -65,7 +65,6 @@ import {
   publiser as treningPubliser,
   hentJobb as treningJobb,
   treningPlan,
-  byggKommando,
 } from "./trening.mjs";
 
 import {
