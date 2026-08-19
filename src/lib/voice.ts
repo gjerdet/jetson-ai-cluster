@@ -146,7 +146,17 @@ export async function speakBackend(text: string, cfg: VoiceConfig) {
     },
     body: JSON.stringify({ tekst: text, modell: cfg.piperVoice, lengthScale: 1 / cfg.rate }),
   });
-  if (!res.ok) throw new Error(`Backend svarte ${res.status}`);
+  if (!res.ok) {
+    const raw = await res.text();
+    let detalj = raw;
+    try {
+      const parsed = JSON.parse(raw) as { error?: string; message?: string };
+      detalj = parsed.error || parsed.message || raw;
+    } catch {
+      // Piper/backend kan svare med ren tekst.
+    }
+    throw new Error(`Backend svarte ${res.status}${detalj ? `: ${detalj.slice(0, 300)}` : ""}`);
+  }
   const blob = await res.blob();
   stopSpeak();
   const lyd = new Audio(URL.createObjectURL(blob));
