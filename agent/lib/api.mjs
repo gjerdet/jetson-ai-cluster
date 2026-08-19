@@ -1101,15 +1101,14 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path === "/tts/trening/installer" && method === "POST") {
       if (!admin) return json(req, res, 403, { error: "Kun admin" });
       // Lar Jarvis installere Piper-miljøet på seg selv, som en vanlig jobb med logg.
-      const skript = "/opt/jarvis-agent/scripts/installer-piper.sh";
-      const jobb = await treningStart({
-        navn: "installer-piper",
-        kommando: `sudo -n bash ${skript} || bash ${skript}`,
-        autoTranskriber: false,
-        hoppOverValidering: true,
-      });
-      return json(req, res, 200, { jobb });
+      try {
+        const jobb = await startInstallasjonPiper();
+        return json(req, res, 200, { jobb });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
     }
+
 
     if (path === "/tts/trening") {
       if (method === "GET") return json(req, res, 200, treningStatus());
