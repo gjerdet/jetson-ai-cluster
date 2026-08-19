@@ -603,6 +603,10 @@ export function ChatPanel({
         ...(sources.length ? { sources } : {}),
       });
 
+      if (selvsjekkNotat)
+        out.push({ role: "assistant", content: selvsjekkNotat, node: "LOKAL-FØRST" });
+
+
 
       // lar modellen styre smarthuset direkte via MQTT-linjer i svaret
       const cmds = parseAiCommands(answer);
