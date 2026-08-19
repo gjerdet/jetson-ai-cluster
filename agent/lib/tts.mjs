@@ -18,6 +18,12 @@ export const TTS_DEFAULTS = {
   modell: "en_GB-alan-medium",
   lengthScale: 1,
   noiseScale: 0.667,
+  // Lokal tale-til-tekst (OpenAI-kompatibel, f.eks. faster-whisper-server)
+  sttUrl: "http://127.0.0.1:8001/v1/audio/transcriptions",
+  sttModell: "Systran/faster-whisper-small",
+  sttSprak: "no",
+  // Kommando som kjører finetuning. {manifest} {mappe} {navn} {ut} byttes ut.
+  treningKommando: "",
 };
 
 export function ttsConfig() {
@@ -32,6 +38,10 @@ export function saveTtsConfig(inn = {}) {
     modell: String(inn.modell ?? c.modell).trim(),
     lengthScale: Number(inn.lengthScale ?? c.lengthScale) || 1,
     noiseScale: Number(inn.noiseScale ?? c.noiseScale) || 0.667,
+    sttUrl: String(inn.sttUrl ?? c.sttUrl).trim(),
+    sttModell: String(inn.sttModell ?? c.sttModell).trim(),
+    sttSprak: String(inn.sttSprak ?? c.sttSprak).trim(),
+    treningKommando: String(inn.treningKommando ?? c.treningKommando ?? "").trim(),
   };
   saveDoc("tts", ny);
   return ny;
@@ -90,9 +100,14 @@ export function listClips() {
 
 export function clipStats() {
   const l = listClips();
+  const aktive = l.filter((k) => !k.pauset);
   return {
     antall: l.length,
+    aktive: aktive.length,
+    pauset: l.length - aktive.length,
+    medTekst: aktive.filter((k) => (k.tekst || "").trim()).length,
     sekunder: Math.round(l.reduce((s, k) => s + (k.sekunder || 0), 0)),
+    aktiveSekunder: Math.round(aktive.reduce((s, k) => s + (k.sekunder || 0), 0)),
     bytes: l.reduce((s, k) => s + (k.bytes || 0), 0),
   };
 }
@@ -118,14 +133,86 @@ export async function addClip({ navn, tekst, lydBase64, mime = "audio/wav", seku
     mime,
     bytes: buf.length,
     sekunder: Number(sekunder) || 0,
+    pauset: false,
+    tekstKilde: String(tekst || "").trim() ? "manuell" : "",
     opprettet: new Date().toISOString(),
   };
   const d = klippDoc();
+  const foer = (d.list || []).length;
+  // Additivt, alltid: nye klipp legges bakerst, ingen eksisterende røres.
   saveDoc("stemmeklipp", { list: [...(d.list || []), klipp] });
   // Skriv til disk med en gang: ellers kan et klipp gå tapt hvis agenten
   // startes på nytt før den utsatte skrivingen kjører.
   flushNow();
+  const etter = (klippDoc().list || []).length;
+  if (etter !== foer + 1) throw new Error(`Lagring feilet: hadde ${foer} klipp, har ${etter} etter opplasting.`);
+  klipp.antallFoer = foer;
+  klipp.antallEtter = etter;
   return klipp;
+}
+
+/** Endrer transkripsjon eller pause-status på ett klipp. */
+export function oppdaterKlipp(id, inn = {}) {
+  const d = klippDoc();
+  const list = d.list || [];
+  const i = list.findIndex((k) => k.id === id);
+  if (i < 0) return null;
+  const k = { ...list[i] };
+  if (inn.tekst !== undefined) {
+    k.tekst = String(inn.tekst || "").trim().slice(0, 2000);
+    k.tekstKilde = k.tekst ? String(inn.tekstKilde || "manuell") : "";
+  }
+  if (inn.pauset !== undefined) k.pauset = Boolean(inn.pauset);
+  const ny = [...list];
+  ny[i] = k;
+  saveDoc("stemmeklipp", { list: ny });
+  flushNow();
+  return k;
+}
+
+/**
+ * Sjekker at hvert klipp i registeret har fila si på disk, og at ingen filer
+ * ligger igjen som «foreldreløse». Brukes av GUI-et for å bevise at
+ * opplastinger er additive og at ingenting er slettet.
+ */
+export async function verifiserKlipp() {
+  const list = listClips();
+  await fs.mkdir(CLIP_DIR, { recursive: true });
+  const paaDisk = new Set(await fs.readdir(CLIP_DIR).catch(() => []));
+  const mangler = [];
+  for (const k of list) {
+    if (!paaDisk.has(k.fil)) mangler.push({ id: k.id, navn: k.navn, fil: k.fil });
+    paaDisk.delete(k.fil);
+  }
+  return {
+    ok: mangler.length === 0,
+    antall: list.length,
+    mangler,
+    foreldrelose: [...paaDisk],
+    mappe: CLIP_DIR,
+    statistikk: clipStats(),
+  };
+}
+
+/** Auto-transkriberer et klipp med lokal STT-server (OpenAI-kompatibel). */
+export async function transkriberKlipp(id, { overskriv = false } = {}) {
+  const k = listClips().find((x) => x.id === id);
+  if (!k) throw new Error("Fant ikke klippet.");
+  if (!overskriv && (k.tekst || "").trim()) return { klipp: k, hoppetOver: true };
+  const cfg = ttsConfig();
+  const url = String(cfg.sttUrl || "").trim();
+  if (!url) throw new Error("STT-adresse (sttUrl) er ikke satt i tale-innstillingene.");
+  const buf = await fs.readFile(path.join(CLIP_DIR, k.fil));
+  const form = new FormData();
+  form.append("file", new Blob([buf], { type: k.mime || "audio/wav" }), k.fil);
+  if (cfg.sttModell) form.append("model", cfg.sttModell);
+  if (cfg.sttSprak) form.append("language", cfg.sttSprak);
+  const res = await fetch(url, { method: "POST", body: form });
+  if (!res.ok) throw new Error(`STT svarte ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const data = await res.json().catch(() => null);
+  const tekst = String(data?.text ?? data?.transcript ?? "").trim();
+  if (!tekst) throw new Error("STT ga tom transkripsjon.");
+  return { klipp: oppdaterKlipp(id, { tekst, tekstKilde: "auto" }), hoppetOver: false };
 }
 
 export async function deleteClip(id) {
@@ -141,7 +228,7 @@ export async function deleteClip(id) {
 /** LJSpeech-lignende manifest (id|tekst) som piper-train kan bruke. */
 export function trainingManifest() {
   return listClips()
-    .filter((k) => k.tekst)
+    .filter((k) => k.tekst && !k.pauset)
     .map((k) => `${k.fil.replace(/\.[^.]+$/, "")}|${k.tekst.replace(/[\r\n|]+/g, " ")}`)
     .join("\n");
 }
