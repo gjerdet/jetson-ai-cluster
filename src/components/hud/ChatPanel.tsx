@@ -576,10 +576,14 @@ export function ChatPanel({
                   "Gi ett endelig, konkret svar på norsk bokmål. Vær kort og presis – hvert token koster.",
               },
             ] as ChatMsg[]);
+            const brukt = estimerTokens(text, answer, bedre);
+            bokfor(konsept, brukt);
             if (bedre.trim()) {
               answer = bedre.trim();
               answeredBy = `${tung.name} · eskalert (lokal ${sjekk.poeng}/10)`;
-              selvsjekkNotat = `Lokalt svar fikk ${sjekk.poeng}/10 (${sjekk.grunn}) – eskalerte til ${tung.name}.`;
+              selvsjekkNotat =
+                `Lokalt svar fikk ${sjekk.poeng}/10 (${sjekk.grunn}) – eskalerte til ${tung.name}. ` +
+                `Bokført ~${brukt} tokens på «${konsept}».`;
             }
             logRouting({
               oppgave: "eskalering",
