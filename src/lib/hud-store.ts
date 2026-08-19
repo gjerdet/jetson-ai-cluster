@@ -478,6 +478,8 @@ export type HudConfig = {
   lokalForst?: boolean;
   /** poenggrense (0-10) i selvsjekken for å eskalere til tung node */
   eskalerTerskel?: number;
+  /** daglig token-budsjett per konsept for eskalering til betalte noder */
+  tokenBudsjett?: import("./token-budget").TokenBudsjett;
   /** husk samtalen mellom omstart av nettleseren (lokalt) */
   keepHistory: boolean;
   /** send chat-kallet gjennom den lokale backend-en i stedet for rett til noden */
