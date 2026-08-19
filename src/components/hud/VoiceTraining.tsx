@@ -152,7 +152,7 @@ export function VoiceTraining() {
         Last opp ren tale (helst 16 kHz WAV, 3–15 sek per klipp) med nøyaktig transkripsjon.
         10–20 minutter holder til finetuning av en eksisterende Piper-modell; 30–60 minutter gir
         best resultat. Alt lagres lokalt på Jetson-en. Ett opplastet klipp er bare treningsdata og
-        endrer ikke stemmen som brukes av TEST STEMME.
+        endrer ikke stemmen som brukes av TEST STEMME. Du kan velge mange filer på én gang – lange opptak deles automatisk i 3–15 sek biter og konverteres til WAV 22 kHz mono. Nye opplastinger legges til, ingenting slettes.
       </p>
 
       <textarea
