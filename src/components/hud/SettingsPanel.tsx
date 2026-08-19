@@ -669,6 +669,35 @@ export function SettingsPanel({
             <label className="flex items-center gap-2 text-foreground/80">
               <input
                 type="checkbox"
+                checked={config.lokalForst !== false}
+                onChange={(e) => update({ ...config, lokalForst: e.target.checked })}
+                className="accent-[oklch(0.78_0.13_200)]"
+              />
+              Lokal-først – lokal modell svarer og vurderer seg selv, eskalerer kun ved svakt svar
+            </label>
+
+            <label className="flex items-center gap-2 text-foreground/80">
+              Eskaler under poeng
+              <input
+                type="number"
+                min={0}
+                max={10}
+                value={config.eskalerTerskel ?? 6}
+                onChange={(e) =>
+                  update({ ...config, eskalerTerskel: Math.max(0, Math.min(10, Number(e.target.value) || 0)) })
+                }
+                className="hud-input w-16"
+                disabled={config.lokalForst === false}
+              />
+              <span className="text-muted-foreground">
+                lavere = færre betalte tokens
+              </span>
+            </label>
+
+
+            <label className="flex items-center gap-2 text-foreground/80">
+              <input
+                type="checkbox"
                 checked={feilsok}
                 onChange={(e) => {
                   setDebug(e.target.checked);
