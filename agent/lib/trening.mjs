@@ -5,7 +5,9 @@
  * Alt kjører lokalt – ingen sky.
  */
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawn, execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { DATA_DIR, doc, saveDoc, flushNow } from "./store.mjs";
@@ -13,8 +15,67 @@ import { clipDir, trainingManifest, clipStats, ttsConfig, saveTtsConfig, transkr
 import { gpuStatus } from "./gpu.mjs";
 import os from "node:os";
 
+const SKRIPT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "scripts");
+
+/**
+ * Finner et skript uansett om agenten kjører fra /opt/jarvis-agent, fra
+ * git-utsjekken eller i en container. Returnerer første sti som finnes,
+ * ellers standardstien (så feilmeldingen blir forståelig).
+ */
+export function finnSkript(navn, envVerdi = "") {
+  const kandidater = [
+    envVerdi,
+    path.join(SKRIPT_DIR, navn),
+    `/opt/jarvis-agent/scripts/${navn}`,
+    `/opt/jarvis/agent/scripts/${navn}`,
+    path.join(process.cwd(), "agent", "scripts", navn),
+    path.join(process.cwd(), "scripts", navn),
+  ].filter(Boolean);
+  for (const k of kandidater) {
+    try {
+      if (fsSync.existsSync(k)) return k;
+    } catch {
+      /* ignorer */
+    }
+  }
+  return kandidater[1];
+}
+
 /** Skriptet som gjør hele Piper-jobben lokalt (datasett → trening → onnx). */
-export const TRENING_SKRIPT = process.env.JARVIS_TRENING_SKRIPT || "/opt/jarvis-agent/scripts/tren-stemme.sh";
+export const TRENING_SKRIPT = finnSkript("tren-stemme.sh", process.env.JARVIS_TRENING_SKRIPT || "");
+
+/** Skriptet som installerer selve Piper-treningsmiljøet. */
+export const INSTALLER_SKRIPT = finnSkript("installer-piper.sh", process.env.JARVIS_INSTALLER_SKRIPT || "");
+
+/**
+ * Starter installasjon av Piper som en vanlig jobb med logg.
+ * Krever root eller passordfri sudo – ellers gir vi en tydelig feil
+ * i stedet for en kryptisk «kode 1».
+ */
+export async function startInstallasjonPiper() {
+  const skript = INSTALLER_SKRIPT;
+  if (!(await fileFinnes(skript)))
+    throw new Error(`Fant ikke installasjonsskriptet (${skript}). Kjør «git pull» og sudo bash agent/scripts/update-jetson.sh på Jetson-noden.`);
+
+  const erRoot = typeof process.getuid === "function" ? process.getuid() === 0 : false;
+  let prefiks = "";
+  if (!erRoot) {
+    const sudoOk = Boolean(await kjor("bash", ["-lc", "sudo -n true >/dev/null 2>&1 && echo ja"], 8000));
+    if (!sudoOk)
+      throw new Error(
+        `Agenten kjører uten root og har ikke passordfri sudo. Kjør på Jetson: sudo bash ${skript} – eller gi jarvis-brukeren NOPASSWD i sudoers.`,
+      );
+    prefiks = "sudo -n ";
+  }
+
+  return koLeggTil({
+    navn: "installer-piper",
+    kommando: `${prefiks}bash ${skript}`,
+    autoTranskriber: false,
+    hoppOverValidering: true,
+  });
+}
+
 
 /**
  * Ferdige oppsett for Jetson Nano Super (8 GB delt minne).
