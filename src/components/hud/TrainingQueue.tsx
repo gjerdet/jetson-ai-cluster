@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Play, Square, Trash2, Rocket, RefreshCw } from "lucide-react";
+import { Play, Square, Trash2, Rocket, RefreshCw, Volume2 } from "lucide-react";
 import { backend, backendUrl, BackendError, safe, type TrainingJob, type TtsConfig } from "@/lib/backend";
 
 const feiltekst = (e: Error) =>
@@ -67,8 +67,19 @@ export function TrainingQueue() {
     setStatus("innstilling lagret");
   };
 
+  const provelytt = async (modell?: string) => {
+    setStatus("lager prøvelyd…");
+    const { data, error } = await safe(() =>
+      backend.taleLyd("Systemene er tilkoblet. Dette er stemmen min etter trening.", modell),
+    );
+    if (error) return setStatus(`kunne ikke spille av: ${feiltekst(error)}`);
+    const lyd = new Audio(URL.createObjectURL(data));
+    void lyd.play();
+    setStatus(modell ? `spiller av: ${modell}` : "spiller av aktiv stemme");
+  };
+
   const start = async () => {
-    setStatus("starter treningsjobb…");
+    setStatus("transkriberer klipp som mangler tekst og starter trening…");
     const { error } = await safe(() => backend.startTrening({ navn }));
     if (error) return setStatus(feiltekst(error));
     setNavn("");
@@ -103,6 +114,12 @@ export function TrainingQueue() {
           placeholder="jobbnavn (valgfritt)"
         />
         <button
+          onClick={() => void provelytt()}
+          className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10"
+        >
+          <Volume2 className="size-3" /> TEST AKTIV STEMME
+        </button>
+        <button
           onClick={() => void start()}
           className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10"
         >
@@ -119,6 +136,15 @@ export function TrainingQueue() {
                 <span className={STATUSFARGE[j.status] ?? ""}>· {j.status}</span>
                 <span className="text-muted-foreground"> · {j.klipp} klipp</span>
               </button>
+              {j.status === "ferdig" && j.modellFil ? (
+                <button
+                  title="Prøvelytt denne stemmen"
+                  onClick={() => void provelytt(j.modellFil)}
+                  className="text-muted-foreground hover:text-primary"
+                >
+                  <Volume2 className="size-3.5" />
+                </button>
+              ) : null}
               {j.status === "ferdig" && j.modellFil ? (
                 <button
                   title="Bruk som aktiv stemme"
