@@ -27,6 +27,7 @@ import { BackendPanel } from "@/components/hud/BackendPanel";
 import { KnowledgePanel } from "@/components/hud/KnowledgePanel";
 import { VoiceSection } from "@/components/hud/VoiceSection";
 import { PersonalitySection } from "@/components/hud/settings/PersonalitySection";
+import { TokenBudsjettSection } from "@/components/hud/settings/TokenBudsjettSection";
 
 
 import {
@@ -694,6 +695,7 @@ export function SettingsPanel({
               </span>
             </label>
 
+            <TokenBudsjettSection config={config} update={update} />
 
             <label className="flex items-center gap-2 text-foreground/80">
               <input

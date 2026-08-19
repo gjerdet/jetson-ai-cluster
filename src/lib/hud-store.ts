@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { NODE_DUTIES, NODE_DUTY_LABELS, type NodeDuty } from "@/lib/contract";
+import { standardBudsjett } from "@/lib/token-budget";
 
 export { NODE_DUTIES, NODE_DUTY_LABELS };
 export type { NodeDuty };
@@ -478,6 +479,8 @@ export type HudConfig = {
   lokalForst?: boolean;
   /** poenggrense (0-10) i selvsjekken for å eskalere til tung node */
   eskalerTerskel?: number;
+  /** daglig token-budsjett per konsept for eskalering til betalte noder */
+  tokenBudsjett?: import("./token-budget").TokenBudsjett;
   /** husk samtalen mellom omstart av nettleseren (lokalt) */
   keepHistory: boolean;
   /** send chat-kallet gjennom den lokale backend-en i stedet for rett til noden */
@@ -575,6 +578,7 @@ export const defaultConfig: HudConfig = {
   autoRoute: true,
   lokalForst: true,
   eskalerTerskel: 6,
+  tokenBudsjett: standardBudsjett,
   keepHistory: true,
   chatViaBackend: true,
   knowledge: true,

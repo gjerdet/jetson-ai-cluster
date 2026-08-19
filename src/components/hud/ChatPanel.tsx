@@ -28,6 +28,7 @@ import { logRouting } from "@/lib/routing-log";
 import { nyTur, trace } from "@/lib/debug-log";
 import { velgRute } from "@/lib/model-router";
 import { erLokaltSvar, selvsjekk, tungNode, STANDARD_TERSKEL } from "@/lib/self-check";
+import { bokfor, estimerTokens, kanEskalere, konseptFor } from "@/lib/token-budget";
 import { backend, backendToken } from "@/lib/backend";
 import { clearChat, loadChat, loadChatRemote, saveChat, saveChatRemote } from "@/lib/chat-store";
 import { deviceBrief, newMemory, systemPrompt, type HudConfig } from "@/lib/hud-store";
@@ -551,8 +552,18 @@ export function ChatPanel({
           title: `selvsjekk ${sjekk.poeng}/10${sjekk.heuristisk ? " (gratis regelsjekk)" : " (lokal modell)"}`,
           why: sjekk.grunn,
         });
-        const tung = sjekk.eskaler ? tungNode(config, rutet) : undefined;
-        if (tung) {
+        const konsept = konseptFor(text);
+        const anslag = estimerTokens(text, answer) + 300;
+        const budsjett = sjekk.eskaler
+          ? kanEskalere(config.tokenBudsjett, konsept, anslag)
+          : { tillatt: true, grunn: "" };
+        const tung = sjekk.eskaler && budsjett.tillatt ? tungNode(config, rutet) : undefined;
+        if (sjekk.eskaler && !budsjett.tillatt) {
+          selvsjekkNotat =
+            `Selvsjekk ${sjekk.poeng}/10 (${sjekk.grunn}), men token-budsjettet stopper eskalering: ${budsjett.grunn}. ` +
+            "Beholder det lokale svaret – juster budsjettet under SYSTEM → innstillinger om du vil bruke mer.";
+          trace({ turId, kind: "ruting", title: `budsjett blokkerte eskalering (${konsept})`, why: budsjett.grunn });
+        } else if (tung) {
           setStage(`eskalerer til ${tung.name}`);
           try {
             const bedre = await callTracked(tung, [
@@ -565,10 +576,14 @@ export function ChatPanel({
                   "Gi ett endelig, konkret svar på norsk bokmål. Vær kort og presis – hvert token koster.",
               },
             ] as ChatMsg[]);
+            const brukt = estimerTokens(text, answer, bedre);
+            bokfor(konsept, brukt);
             if (bedre.trim()) {
               answer = bedre.trim();
               answeredBy = `${tung.name} · eskalert (lokal ${sjekk.poeng}/10)`;
-              selvsjekkNotat = `Lokalt svar fikk ${sjekk.poeng}/10 (${sjekk.grunn}) – eskalerte til ${tung.name}.`;
+              selvsjekkNotat =
+                `Lokalt svar fikk ${sjekk.poeng}/10 (${sjekk.grunn}) – eskalerte til ${tung.name}. ` +
+                `Bokført ~${brukt} tokens på «${konsept}».`;
             }
             logRouting({
               oppgave: "eskalering",
