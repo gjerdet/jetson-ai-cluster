@@ -323,6 +323,17 @@ EOF
   fi
   systemctl daemon-reload
   ok "Oppdatering fra GUI er aktivert (jarvis-update.service)"
+
+# Lar agenten installere Piper-treningsmiljøet selv (kun disse kommandoene).
+APP_SCRIPTS="$APP_DIR/scripts"
+cat >/etc/sudoers.d/jarvis-stemme <<EOF
+jarvis ALL=(root) NOPASSWD: /usr/bin/apt-get update, /usr/bin/apt-get install -y ffmpeg espeak-ng libespeak-ng1
+jarvis ALL=(root) NOPASSWD: /bin/bash $APP_SCRIPTS/installer-piper.sh
+jarvis ALL=(root) NOPASSWD: /usr/bin/bash $APP_SCRIPTS/installer-piper.sh
+EOF
+chmod 440 /etc/sudoers.d/jarvis-stemme
+visudo -cf /etc/sudoers.d/jarvis-stemme >/dev/null || rm -f /etc/sudoers.d/jarvis-stemme
+
 else
   adv "Fant ikke jarvis-update.service – oppdatering fra GUI blir utilgjengelig"
 fi
