@@ -80,6 +80,10 @@ export function velgRute(
   return {
     node: valgt,
     vekt,
-    grunn: `${vekt} oppgave (${grunn}) → ${klasse === "tung" ? "tung" : "lokal"} node ${valgt.name}`,
+    grunn:
+      `${vekt} oppgave (${grunn}) → ${klasse === "tung" ? "tung" : "lokal"} node ${valgt.name}` +
+      (lokalForst && vekt === "tung" && klasse === "lokal"
+        ? " · lokal-først: eskalerer bare hvis selvsjekken underkjenner svaret"
+        : ""),
   };
 }
