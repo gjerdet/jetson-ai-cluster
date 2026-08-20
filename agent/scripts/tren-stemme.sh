@@ -37,21 +37,27 @@ aktiver_venv
 HER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTO="${JARVIS_AUTO_INSTALL:-0}"
 
-# Kan agenten installere selv? Krever passordfri sudo (settes av oppsett.sh).
-kan_sudo() { [ "$(id -u)" -eq 0 ] || sudo -n true >/dev/null 2>&1; }
+# Kan agenten installere akkurat Piper-skriptet? Sudoers er med vilje begrenset
+# til denne kommandoen, så `sudo -n true` gir falsk negativ.
+kan_installere_piper() {
+  [ "$(id -u)" -eq 0 ] && return 0
+  local bash_sti="/bin/bash"
+  [ -x /usr/bin/bash ] && bash_sti="/usr/bin/bash"
+  sudo -n -l "$bash_sti" "$HER/installer-piper.sh" >/dev/null 2>&1
+}
 som_root() { if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo -n "$@"; fi; }
 
 if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v espeak-ng >/dev/null 2>&1; then
-  if [ "$AUTO" = "1" ] && kan_sudo; then
-    echo "==> Mangler ffmpeg/espeak-ng – installerer automatisk"
-    som_root apt-get update -qq || true
-    som_root apt-get install -y ffmpeg espeak-ng libespeak-ng1
+  if [ "$AUTO" = "1" ] && kan_installere_piper && [ -f "$HER/installer-piper.sh" ]; then
+    echo "==> Mangler ffmpeg/espeak-ng – kjører Piper-installatøren"
+    som_root bash "$HER/installer-piper.sh"
+    aktiver_venv
   fi
 fi
 command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det først (apt install ffmpeg)" >&2; exit 1; }
 
 if ! python3 -m piper_train.preprocess --help >/dev/null 2>&1; then
-  if [ "$AUTO" = "1" ] && kan_sudo && [ -f "$HER/installer-piper.sh" ]; then
+  if [ "$AUTO" = "1" ] && kan_installere_piper && [ -f "$HER/installer-piper.sh" ]; then
     echo "==> Piper-treningsmiljø mangler – installerer det nå (kan ta 10-20 min)"
     som_root bash "$HER/installer-piper.sh"
     aktiver_venv
