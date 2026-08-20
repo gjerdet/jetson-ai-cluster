@@ -21,7 +21,13 @@ mkdir -p "$WAV"
 
 # Aktiver venv hvis det finnes (PIPER_VENV overstyrer alt)
 aktiver_venv() {
-  for v in "${PIPER_VENV:-}" "$HOME/piper/.venv" /opt/jarvis/piper/.venv /opt/piper/.venv; do
+  for v in \
+    "${PIPER_VENV:-}" \
+    /opt/jarvis/piper/src/python/.venv \
+    "$HOME/piper/src/python/.venv" \
+    "$HOME/piper/.venv" \
+    /opt/jarvis/piper/.venv \
+    /opt/piper/.venv; do
     [ -n "$v" ] && [ -f "$v/bin/activate" ] && { source "$v/bin/activate"; echo "venv: $v"; return 0; }
   done
   echo "Ingen Piper venv funnet – bruker system-python"

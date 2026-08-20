@@ -33,22 +33,43 @@ PY_DIR="$PIPER_DIR/src/python"
 [ -d "$PY_DIR" ] || { echo "Fant ikke $PY_DIR"; exit 1; }
 
 si "Oppretter Python-venv i $PY_DIR/.venv"
-python3 -m venv "$PY_DIR/.venv"
+# JetPack leverer normalt en CUDA-tilpasset PyTorch i system-Python. Behold
+# tilgang til den i venv-et; en tilfeldig PyPI-utgave av torch mangler ofte
+# GPU-støtten som stemmetreningen trenger på Jetson.
+python3 -m venv --system-site-packages --clear "$PY_DIR/.venv"
 source "$PY_DIR/.venv/bin/activate"
-pip install --upgrade pip wheel setuptools
+python -m pip install --upgrade "pip<24.1" wheel "setuptools<70"
 
 si "Installerer Python-pakker (dette kan ta flere minutter)"
-# Prøv requirements.txt først; fall tilbake til setup.py hvis den mangler
+# Pipers arkiverte requirements krever torch<2. JetPack kan ha en nyere,
+# NVIDIA-bygget torch som må beholdes. Installer derfor resten av kravene og
+# selve piper_train uten å la pip erstatte JetPack-utgaven av torch.
 if [ -f "$PY_DIR/requirements.txt" ]; then
-  pip install -r "$PY_DIR/requirements.txt" || adv "Noen pakker feilet – fortsetter"
+  grep -vE '^torch([<>=~!]|$)' "$PY_DIR/requirements.txt" >"$PY_DIR/.jarvis-requirements.txt"
+  python -m pip install -r "$PY_DIR/.jarvis-requirements.txt"
 fi
-pip install -e "$PY_DIR" || adv "pip install -e feilet"
+python -m pip install --no-deps -e "$PY_DIR"
 
 si "Bygger monotonic_align"
 if [ -f "$PY_DIR/build_monotonic_align.sh" ]; then
-  (cd "$PY_DIR" && bash build_monotonic_align.sh) || adv "build_monotonic_align feilet"
+  (cd "$PY_DIR" && bash build_monotonic_align.sh)
 else
-  adv "build_monotonic_align.sh ikke funnet"
+  echo "Fant ikke $PY_DIR/build_monotonic_align.sh" >&2
+  exit 1
+fi
+
+si "Verifiserer piper_train"
+if ! "$PY_DIR/.venv/bin/python" -m piper_train.preprocess --help >/dev/null 2>&1; then
+  echo "Piper-installasjonen ble ikke fullført: piper_train kan ikke startes." >&2
+  echo "Python: $($PY_DIR/.venv/bin/python --version 2>&1)" >&2
+  echo "Kjør skriptet på nytt og se den første pip-feilen over." >&2
+  exit 1
+fi
+
+if ! "$PY_DIR/.venv/bin/python" -c 'import torch, pytorch_lightning' >/dev/null 2>&1; then
+  echo "Piper er installert, men PyTorch/PyTorch Lightning kan ikke importeres." >&2
+  echo "Installer NVIDIA PyTorch for din JetPack-versjon og kjør skriptet på nytt." >&2
+  exit 1
 fi
 
 chown -R jarvis:jarvis "$PIPER_DIR" 2>/dev/null || true
@@ -63,7 +84,7 @@ if [ -f "$ENV_FILE" ]; then
   ok "PIPER_VENV lagt til i $ENV_FILE"
 fi
 
-ok "Piper-treningsmiljø klart i $PY_DIR/.venv"
+ok "Piper-treningsmiljø verifisert i $PY_DIR/.venv"
 echo ""
 echo "Neste steg:"
 echo "  1. Last opp stemmeklipp under SYSTEM → STEMME"
