@@ -155,6 +155,14 @@ EOF
   ok "Oppdatering fra GUI er aktivert"
 fi
 
+# Eldre installasjoner hadde NoNewPrivileges=true. Det blokkerer også de
+# eksplisitt hvitelistede sudo-kommandoene for Piper og GUI-oppdatering.
+if [ -f "/etc/systemd/system/$SERVICE.service" ] && grep -q '^NoNewPrivileges=true' "/etc/systemd/system/$SERVICE.service"; then
+  sed -i 's/^NoNewPrivileges=true/NoNewPrivileges=false/' "/etc/systemd/system/$SERVICE.service"
+  systemctl daemon-reload
+  ok "Tillater begrensede, hvitelistede vedlikeholdskommandoer fra GUI"
+fi
+
 # Lar agenten installere Piper-treningsmiljøet selv (kun dette skriptet).
 # Må ikke ligge inni testen for jarvis-update.service; Piper-knappen skal også
 # fungere på installasjoner der den valgfrie oppdateringstjenesten mangler.

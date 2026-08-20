@@ -19,8 +19,10 @@ PREP="$UT/pre"
 WAV="$DATASET/wav"
 mkdir -p "$WAV"
 
-# Aktiver venv hvis det finnes (PIPER_VENV overstyrer alt)
-aktiver_venv() {
+# Finn Python direkte i Piper-miljøet. En absolutt interpreter er mer robust
+# enn å stole på at `source activate` endrer PATH i et systemd/bash-lc-miljø.
+finn_piper_python() {
+  [ -n "${PIPER_PYTHON:-}" ] && [ -x "$PIPER_PYTHON" ] && { echo "$PIPER_PYTHON"; return 0; }
   for v in \
     "${PIPER_VENV:-}" \
     /opt/jarvis/piper/src/python/.venv \
@@ -28,11 +30,12 @@ aktiver_venv() {
     "$HOME/piper/.venv" \
     /opt/jarvis/piper/.venv \
     /opt/piper/.venv; do
-    [ -n "$v" ] && [ -f "$v/bin/activate" ] && { source "$v/bin/activate"; echo "venv: $v"; return 0; }
+    [ -n "$v" ] && [ -x "$v/bin/python" ] && { echo "$v/bin/python"; return 0; }
   done
-  echo "Ingen Piper venv funnet – bruker system-python"
+  command -v python3
 }
-aktiver_venv
+PIPER_PYTHON_BIN="$(finn_piper_python)"
+echo "Piper Python: $PIPER_PYTHON_BIN"
 
 HER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTO="${JARVIS_AUTO_INSTALL:-0}"
@@ -51,20 +54,21 @@ if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v espeak-ng >/dev/null 2>&1
   if [ "$AUTO" = "1" ] && kan_installere_piper && [ -f "$HER/installer-piper.sh" ]; then
     echo "==> Mangler ffmpeg/espeak-ng – kjører Piper-installatøren"
     som_root bash "$HER/installer-piper.sh"
-    aktiver_venv
+    PIPER_PYTHON_BIN="$(finn_piper_python)"
   fi
 fi
 command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det først (apt install ffmpeg)" >&2; exit 1; }
 
-if ! python3 -m piper_train.preprocess --help >/dev/null 2>&1; then
+if ! "$PIPER_PYTHON_BIN" -m piper_train.preprocess --help >/dev/null 2>&1; then
   if [ "$AUTO" = "1" ] && kan_installere_piper && [ -f "$HER/installer-piper.sh" ]; then
     echo "==> Piper-treningsmiljø mangler – installerer det nå (kan ta 10-20 min)"
     som_root bash "$HER/installer-piper.sh"
-    aktiver_venv
+    PIPER_PYTHON_BIN="$(finn_piper_python)"
   fi
 fi
-python3 -m piper_train.preprocess --help >/dev/null 2>&1 || {
+"$PIPER_PYTHON_BIN" -m piper_train.preprocess --help >/dev/null 2>&1 || {
   echo "piper_train mangler – installer Piper-treningsmiljøet først" >&2
+  "$PIPER_PYTHON_BIN" -m piper_train.preprocess --help 2>&1 | tail -n 12 >&2 || true
   echo "Tips: sudo bash agent/scripts/installer-piper.sh" >&2
   exit 1
 }
@@ -99,7 +103,7 @@ done < "$MANIFEST"
 cp "$MANIFEST" "$DATASET/metadata.csv"
 
 echo "==> Pre-prosesserer (espeak-ng + phonemizer)"
-python3 -m piper_train.preprocess \
+"$PIPER_PYTHON_BIN" -m piper_train.preprocess \
   --language no \
   --input-dir "$DATASET" \
   --output-dir "$PREP" \
@@ -113,7 +117,7 @@ BS="${PIPER_BATCH:-8}"
 KVAL="${PIPER_QUALITY:-low}"
 RESUME="${PIPER_CHECKPOINT:+--resume_from_checkpoint $PIPER_CHECKPOINT}"
 
-python3 -m piper_train \
+"$PIPER_PYTHON_BIN" -m piper_train \
   --dataset-dir "$PREP" \
   --accelerator gpu \
   --devices 1 \
@@ -130,7 +134,7 @@ echo "==> Eksporterer ONNX"
 CKPT=$(find "$PREP/lightning_logs" -name '*.ckpt' -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
 [ -n "$CKPT" ] || { echo "Fant ingen checkpoint"; exit 1; }
 
-python3 -m piper_train.export_onnx "$CKPT" "$UT/model.onnx"
+"$PIPER_PYTHON_BIN" -m piper_train.export_onnx "$CKPT" "$UT/model.onnx"
 cp "$PREP/config.json" "$UT/model.onnx.json"
 
 echo "==> FERDIG: $UT/model.onnx"
