@@ -268,7 +268,9 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=jarvis-agent
 
-NoNewPrivileges=true
+# Agenten har kun presise NOPASSWD-regler. `true` blokkerer all sudo før
+# sudoers vurderes, og gjorde derfor INSTALLER PIPER-knappen ubrukelig.
+NoNewPrivileges=false
 ProtectSystem=full
 ProtectKernelTunables=true
 RestrictSUIDSGID=true

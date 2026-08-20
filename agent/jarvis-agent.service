@@ -17,8 +17,10 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=jarvis-agent
 
-# Herding – moderat, slik at systemd alltid får satt opp tjenesten på Jetson
-NoNewPrivileges=true
+# Begrenset sudo brukes bare til eksplisitt hvitelistede vedlikeholdsskript.
+# NoNewPrivileges må derfor være av; ellers blokkerer Linux sudo før sudoers
+# rekker å godkjenne INSTALLER PIPER / GUI-oppdatering.
+NoNewPrivileges=false
 ProtectSystem=full
 ProtectKernelTunables=true
 RestrictSUIDSGID=true

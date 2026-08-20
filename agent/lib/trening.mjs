@@ -132,13 +132,24 @@ async function harKommando(navn) {
   return Boolean(await kjor("bash", ["-lc", `command -v ${navn} >/dev/null 2>&1 && echo ja`]));
 }
 
-async function harPiperTrain() {
-  const ut = await kjor(
-    "bash",
-    ["-lc", `for v in "$PIPER_VENV" "$HOME/piper/.venv" /opt/jarvis/piper/src/python/.venv /opt/jarvis/piper/.venv /opt/piper/.venv; do [ -f "$v/bin/activate" ] && . "$v/bin/activate" && break; done; python3 -m piper_train.preprocess --help >/dev/null 2>&1 && echo ja`],
-    15000,
-  );
-  return Boolean(ut);
+const piperPythonKandidater = () => [
+  process.env.PIPER_PYTHON,
+  process.env.PIPER_VENV ? path.join(process.env.PIPER_VENV, "bin", "python") : "",
+  "/opt/jarvis/piper/src/python/.venv/bin/python",
+  "/opt/jarvis/piper/.venv/bin/python",
+  "/opt/piper/.venv/bin/python",
+  path.join(os.homedir(), "piper", "src", "python", ".venv", "bin", "python"),
+  path.join(os.homedir(), "piper", ".venv", "bin", "python"),
+  "python3",
+].filter(Boolean);
+
+async function finnPiperPython() {
+  for (const python of piperPythonKandidater()) {
+    if (python.includes("/") && !(await fileFinnes(python))) continue;
+    const ut = await kjor(python, ["-m", "piper_train.preprocess", "--help"], 15000);
+    if (ut !== null) return python;
+  }
+  return "";
 }
 
 /**
@@ -152,12 +163,13 @@ export async function treningPlan({ navn = "", preset = "jetson-balansert" } = {
   const mappe = clipDir();
   const manifest = path.join(utMappe, "metadata.csv");
 
-  const [ffmpeg, espeak, piperTrain, gpu] = await Promise.all([
+  const [ffmpeg, espeak, piperPython, gpu] = await Promise.all([
     harKommando("ffmpeg"),
     harKommando("espeak-ng"),
-    harPiperTrain(),
+    finnPiperPython(),
     gpuStatus().catch(() => null),
   ]);
+  const piperTrain = Boolean(piperPython);
 
   const filer = await fs.readdir(mappe).catch(() => null);
   const utenLyd = [];
@@ -190,7 +202,7 @@ export async function treningPlan({ navn = "", preset = "jetson-balansert" } = {
     presets: TRENING_PRESETS,
     preset: valgt.id,
     statistikk: stat,
-    miljo: { ffmpeg, espeak, piperTrain, skript: await fileFinnes(TRENING_SKRIPT), gpu },
+    miljo: { ffmpeg, espeak, piperTrain, piperPython, skript: await fileFinnes(TRENING_SKRIPT), gpu },
     mangler,
     // Kritiske problemer stopper start; advarsler gjør det ikke.
     problemer,
