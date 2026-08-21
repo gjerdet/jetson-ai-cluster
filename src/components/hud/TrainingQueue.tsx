@@ -149,6 +149,10 @@ export function TrainingQueue() {
   };
 
   const siste = (j: TrainingJob) => (j.telemetri || [])[(j.telemetri || []).length - 1];
+  const sisteFeillinjer = (j: TrainingJob) =>
+    (j.logg || [])
+      .filter((linje) => !/starter:|feilet med kode/i.test(linje))
+      .slice(-3);
 
   return (
     <div className="space-y-3">
@@ -330,7 +334,16 @@ export function TrainingQueue() {
                 </p>
               ) : null}
 
-              {j.feil ? <p className="mt-1 text-destructive">{j.feil}</p> : null}
+              {j.feil ? (
+                <div className="mt-1 space-y-0.5 text-destructive">
+                  <p>{j.feil}</p>
+                  {sisteFeillinjer(j).map((linje, indeks) => (
+                    <p key={`${j.id}-feil-${indeks}`} className="break-all font-mono text-[9px] text-destructive/80">
+                      {linje}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
               {j.publisert ? <p className="mt-1 text-emerald-400">aktiv stemme: {j.publisert}</p> : null}
 
               {apen === j.id ? (
