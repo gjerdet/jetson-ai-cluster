@@ -634,7 +634,7 @@ export interface TrainingPlan {
   presets: TrainingPreset[];
   preset: string;
   statistikk: VoiceClipStats;
-  miljo: { ffmpeg: boolean; espeak: boolean; piperTrain: boolean; skript: boolean; gpu: GpuStatus | null };
+  miljo: { ffmpeg: boolean; espeak: boolean; piperTrain: boolean; piperPython?: string; skript: boolean; gpu: GpuStatus | null };
   mangler: string[];
   problemer: string[];
   kanStarte: boolean;

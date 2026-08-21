@@ -146,8 +146,10 @@ const piperPythonKandidater = () => [
 async function finnPiperPython() {
   for (const python of piperPythonKandidater()) {
     if (python.includes("/") && !(await fileFinnes(python))) continue;
-    const ut = await kjor(python, ["-m", "piper_train.preprocess", "--help"], 15000);
-    if (ut !== null) return python;
+    const ny = await kjor(python, ["-m", "piper.train", "fit", "--help"], 15000);
+    if (ny !== null) return python;
+    const gammel = await kjor(python, ["-m", "piper_train.preprocess", "--help"], 15000);
+    if (gammel !== null) return python;
   }
   return "";
 }
@@ -482,7 +484,11 @@ function tolkFeil(logg = "") {
   if (/No such file or directory.*installer-piper|installer-piper\.sh: .*not found/i.test(t))
     return "Fant ikke installer-piper.sh – kjør git pull og sudo bash agent/scripts/update-jetson.sh.";
   if (/piper_train mangler|No module named .?piper_train/i.test(t))
-    return "Piper-treningsmiljøet mangler. Kjør INSTALLER PIPER (eller sudo bash agent/scripts/installer-piper.sh).";
+    return "Det gamle, arkiverte Piper-miljøet kan ikke brukes med nyere JetPack. Kjør INSTALLER PIPER på nytt.";
+  if (/NVIDIA PyTorch 2\.x mangler|CUDA\/PyTorch\/Lightning kan ikke brukes|torch\.cuda\.is_available/i.test(t))
+    return "NVIDIA PyTorch med CUDA mangler eller passer ikke JetPack-versjonen. Se de siste logglinjene.";
+  if (/No module named ['\"]?piper|piper\.train kan ikke startes/i.test(t))
+    return "Den aktive Piper-pakken ble ikke ferdig installert. Se de siste logglinjene for første pip-feil.";
 
   if (/ffmpeg mangler|ffmpeg: not found/i.test(t)) return "ffmpeg mangler – sudo apt install ffmpeg.";
   if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
