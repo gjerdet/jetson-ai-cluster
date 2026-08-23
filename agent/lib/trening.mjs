@@ -462,6 +462,21 @@ function start(id) {
       }
       oppdater(id, { status: "ferdig", fremdrift: 100, ferdig: new Date().toISOString(), modellFil });
       logg(id, modellFil ? `ferdig – modell: ${modellFil}` : "ferdig (fant ingen .onnx automatisk)");
+      // Automatisk systemtest rett etter installasjon, slik at GUI-et viser
+      // svart på hvitt om piper_train faktisk kan startes.
+      if (/installer-piper/i.test(gjeldende?.navn || "")) {
+        logg(id, "kjører automatisk systemtest…");
+        const test = await piperSystemtest().catch((e) => ({
+          ok: false,
+          tidspunkt: new Date().toISOString(),
+          sammendrag: String(e?.message || e),
+          sjekker: [],
+        }));
+        oppdater(id, { systemtest: test });
+        for (const s of test.sjekker || []) logg(id, `${s.ok ? "✓" : "✗"} ${s.navn}${s.detalj ? ` – ${s.detalj}` : ""}`);
+        logg(id, `systemtest: ${test.ok ? "BESTÅTT" : "FEILET"} – ${test.sammendrag}`);
+      }
+
     } else {
       const siste = (gjeldende?.logg || []).slice(-25).join("\n");
       const hint = tolkFeil(siste);
