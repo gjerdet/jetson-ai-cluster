@@ -462,6 +462,21 @@ function start(id) {
       }
       oppdater(id, { status: "ferdig", fremdrift: 100, ferdig: new Date().toISOString(), modellFil });
       logg(id, modellFil ? `ferdig – modell: ${modellFil}` : "ferdig (fant ingen .onnx automatisk)");
+      // Automatisk systemtest rett etter installasjon, slik at GUI-et viser
+      // svart på hvitt om piper_train faktisk kan startes.
+      if (/installer-piper/i.test(gjeldende?.navn || "")) {
+        logg(id, "kjører automatisk systemtest…");
+        const test = await piperSystemtest().catch((e) => ({
+          ok: false,
+          tidspunkt: new Date().toISOString(),
+          sammendrag: String(e?.message || e),
+          sjekker: [],
+        }));
+        oppdater(id, { systemtest: test });
+        for (const s of test.sjekker || []) logg(id, `${s.ok ? "✓" : "✗"} ${s.navn}${s.detalj ? ` – ${s.detalj}` : ""}`);
+        logg(id, `systemtest: ${test.ok ? "BESTÅTT" : "FEILET"} – ${test.sammendrag}`);
+      }
+
     } else {
       const siste = (gjeldende?.logg || []).slice(-25).join("\n");
       const hint = tolkFeil(siste);
@@ -504,5 +519,66 @@ export function koStatus() {
     jobber: list,
     kjorer: list.find((j) => j.status === "kjører")?.id || "",
     iKo: list.filter((j) => j.status === "kø").length,
+  };
+}
+
+/**
+ * Automatisert systemtest etter installasjon.
+ * Sjekker at Piper-miljøet faktisk kan startes, at venv-et og Python-stiene
+ * finnes, og at treningsskript og hjelpeverktøy er på plass. Brukes både
+ * automatisk rett etter «installer-piper» og manuelt fra GUI-et.
+ */
+export async function piperSystemtest() {
+  const sjekker = [];
+  const legg = (navn, ok, detalj = "") => sjekker.push({ navn, ok: Boolean(ok), detalj: String(detalj || "") });
+
+  const python = await finnPiperPython();
+  legg("Python-tolker for Piper", Boolean(python), python || `Sjekket: ${piperPythonKandidater().join(", ")}`);
+
+  const venvKandidater = piperPythonKandidater().filter((p) => p.includes("/"));
+  const funnetVenv = [];
+  for (const p of venvKandidater) if (await fileFinnes(p)) funnetVenv.push(p);
+  legg("Venv-sti finnes", funnetVenv.length > 0, funnetVenv.join(", ") || "Fant ingen .venv med python");
+
+  if (python) {
+    const ny = await kjor(python, ["-m", "piper.train", "fit", "--help"], 20000);
+    const gammel = ny === null ? await kjor(python, ["-m", "piper_train.preprocess", "--help"], 20000) : null;
+    legg(
+      "piper_train kan startes",
+      ny !== null || gammel !== null,
+      ny !== null ? "piper.train fit (aktiv Piper)" : gammel !== null ? "piper_train.preprocess (eldre Piper)" : "Ingen av modulene svarte",
+    );
+    const versjon = await kjor(python, ["--version"], 8000);
+    legg("Python-versjon", Boolean(versjon), versjon || "ukjent");
+    const torch = await kjor(python, ["-c", "import torch;print(torch.__version__, 'cuda', torch.cuda.is_available())"], 30000);
+    legg("PyTorch i miljøet", Boolean(torch), torch || "torch kunne ikke importeres");
+    const lightning = await kjor(python, ["-c", "import lightning;print(lightning.__version__)"], 30000);
+    legg("Lightning i miljøet", Boolean(lightning), lightning || "lightning kunne ikke importeres");
+  } else {
+    legg("piper_train kan startes", false, "Ingen Python-tolker å teste med – kjør INSTALLER PIPER først.");
+  }
+
+  const [ffmpeg, espeak, skript] = await Promise.all([
+    harKommando("ffmpeg"),
+    harKommando("espeak-ng"),
+    fileFinnes(TRENING_SKRIPT),
+  ]);
+  legg("ffmpeg", ffmpeg, ffmpeg ? "" : "sudo apt install ffmpeg");
+  legg("espeak-ng", espeak, espeak ? "" : "sudo apt install espeak-ng");
+  legg("tren-stemme.sh", skript, TRENING_SKRIPT);
+
+  const gpu = await gpuStatus().catch(() => null);
+  legg("GPU tilgjengelig", Boolean(gpu), gpu ? `${gpu.navn} · ${gpu.frittMb} MB ledig` : "Ingen GPU rapportert – trening blir svært treg");
+
+  const kritiske = ["Python-tolker for Piper", "piper_train kan startes", "ffmpeg", "espeak-ng", "tren-stemme.sh"];
+  const ok = sjekker.filter((s) => kritiske.includes(s.navn)).every((s) => s.ok);
+  return {
+    ok,
+    tidspunkt: new Date().toISOString(),
+    python,
+    sammendrag: ok
+      ? "Piper-miljøet er klart til trening."
+      : `Mangler: ${sjekker.filter((s) => !s.ok && kritiske.includes(s.navn)).map((s) => s.navn).join(", ")}`,
+    sjekker,
   };
 }
