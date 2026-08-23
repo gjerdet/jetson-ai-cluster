@@ -59,19 +59,22 @@ if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v espeak-ng >/dev/null 2>&1
 fi
 command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det først (apt install ffmpeg)" >&2; exit 1; }
 
-if ! "$PIPER_PYTHON_BIN" -m piper_train.preprocess --help >/dev/null 2>&1; then
+har_ny_piper() { "$PIPER_PYTHON_BIN" -m piper.train fit --help >/dev/null 2>&1; }
+har_gammel_piper() { "$PIPER_PYTHON_BIN" -m piper_train.preprocess --help >/dev/null 2>&1; }
+
+if ! har_ny_piper && ! har_gammel_piper; then
   if [ "$AUTO" = "1" ] && kan_installere_piper && [ -f "$HER/installer-piper.sh" ]; then
     echo "==> Piper-treningsmiljø mangler – installerer det nå (kan ta 10-20 min)"
     som_root bash "$HER/installer-piper.sh"
     PIPER_PYTHON_BIN="$(finn_piper_python)"
   fi
 fi
-"$PIPER_PYTHON_BIN" -m piper_train.preprocess --help >/dev/null 2>&1 || {
-  echo "piper_train mangler – installer Piper-treningsmiljøet først" >&2
-  "$PIPER_PYTHON_BIN" -m piper_train.preprocess --help 2>&1 | tail -n 12 >&2 || true
+if ! har_ny_piper && ! har_gammel_piper; then
+  echo "Piper-treningsmiljøet mangler – installer Piper først" >&2
+  "$PIPER_PYTHON_BIN" -m piper.train fit --help 2>&1 | tail -n 12 >&2 || true
   echo "Tips: sudo bash agent/scripts/installer-piper.sh" >&2
   exit 1
-}
+fi
 
 # Finjustering fra ferdig norsk stemme gir mye bedre resultat med lite data.
 if [ "${PIPER_FINETUNE_NO:-0}" = "1" ] && [ -z "${PIPER_CHECKPOINT:-}" ]; then
@@ -100,41 +103,53 @@ while IFS='|' read -r id tekst; do
   ffmpeg -y -hide_banner -loglevel error -i "$src" -ar 22050 -ac 1 -c:a pcm_s16le "$WAV/$id.wav"
 done < "$MANIFEST"
 
-cp "$MANIFEST" "$DATASET/metadata.csv"
-
-echo "==> Pre-prosesserer (espeak-ng + phonemizer)"
-"$PIPER_PYTHON_BIN" -m piper_train.preprocess \
-  --language no \
-  --input-dir "$DATASET" \
-  --output-dir "$PREP" \
-  --dataset-format ljspeech \
-  --single-speaker \
-  --sample-rate 22050
-
-echo "==> Tren"
 EPOCHS="${PIPER_EPOCHS:-2000}"
 BS="${PIPER_BATCH:-8}"
 KVAL="${PIPER_QUALITY:-low}"
-RESUME="${PIPER_CHECKPOINT:+--resume_from_checkpoint $PIPER_CHECKPOINT}"
 
-"$PIPER_PYTHON_BIN" -m piper_train \
-  --dataset-dir "$PREP" \
-  --accelerator gpu \
-  --devices 1 \
-  --batch-size "$BS" \
-  --validation-split 0.0 \
-  --num-test-examples 0 \
-  --max_epochs "$EPOCHS" \
-  --checkpoint-epochs 1 \
-  --quality "$KVAL" \
-  --precision 32 \
-  $RESUME
+if har_ny_piper; then
+  # Ny Piper (Open Home Foundation) bruker lydfilnavn i første CSV-kolonne.
+  awk -F'|' 'BEGIN{OFS="|"} NF>=2 {$1=$1 ".wav"; print}' "$MANIFEST" > "$DATASET/metadata.csv"
+  CONFIG="$UT/model.onnx.json"
+  echo "==> Trener med aktiv Piper-CLI"
+  CMD=("$PIPER_PYTHON_BIN" -m piper.train fit
+    --data.voice_name "$NAVN"
+    --data.csv_path "$DATASET/metadata.csv"
+    --data.audio_dir "$WAV"
+    --model.sample_rate 22050
+    --data.espeak_voice no
+    --data.cache_dir "$PREP/cache"
+    --data.config_path "$CONFIG"
+    --data.batch_size "$BS"
+    --trainer.max_epochs "$EPOCHS"
+    --trainer.accelerator gpu
+    --trainer.devices 1
+    --trainer.default_root_dir "$PREP")
+  [ -n "${PIPER_CHECKPOINT:-}" ] && CMD+=(--ckpt_path "$PIPER_CHECKPOINT")
+  "${CMD[@]}"
 
-echo "==> Eksporterer ONNX"
-CKPT=$(find "$PREP/lightning_logs" -name '*.ckpt' -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
-[ -n "$CKPT" ] || { echo "Fant ingen checkpoint"; exit 1; }
-
-"$PIPER_PYTHON_BIN" -m piper_train.export_onnx "$CKPT" "$UT/model.onnx"
-cp "$PREP/config.json" "$UT/model.onnx.json"
+  echo "==> Eksporterer ONNX"
+  CKPT=$(find "$PREP" -name '*.ckpt' -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
+  [ -n "$CKPT" ] || { echo "Fant ingen checkpoint"; exit 1; }
+  "$PIPER_PYTHON_BIN" -m piper.train.export_onnx --checkpoint "$CKPT" --output-file "$UT/model.onnx"
+else
+  # Kompatibilitet for noder som fortsatt har et fungerende eldre miljø.
+  cp "$MANIFEST" "$DATASET/metadata.csv"
+  echo "==> Pre-prosesserer med eldre Piper"
+  "$PIPER_PYTHON_BIN" -m piper_train.preprocess \
+    --language no --input-dir "$DATASET" --output-dir "$PREP" \
+    --dataset-format ljspeech --single-speaker --sample-rate 22050
+  echo "==> Trener med eldre Piper"
+  RESUME="${PIPER_CHECKPOINT:+--resume_from_checkpoint $PIPER_CHECKPOINT}"
+  "$PIPER_PYTHON_BIN" -m piper_train \
+    --dataset-dir "$PREP" --accelerator gpu --devices 1 --batch-size "$BS" \
+    --validation-split 0.0 --num-test-examples 0 --max_epochs "$EPOCHS" \
+    --checkpoint-epochs 1 --quality "$KVAL" --precision 32 $RESUME
+  echo "==> Eksporterer ONNX"
+  CKPT=$(find "$PREP/lightning_logs" -name '*.ckpt' -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
+  [ -n "$CKPT" ] || { echo "Fant ingen checkpoint"; exit 1; }
+  "$PIPER_PYTHON_BIN" -m piper_train.export_onnx "$CKPT" "$UT/model.onnx"
+  cp "$PREP/config.json" "$UT/model.onnx.json"
+fi
 
 echo "==> FERDIG: $UT/model.onnx"
