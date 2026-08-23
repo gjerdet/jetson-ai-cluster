@@ -209,7 +209,7 @@ export function TrainingQueue() {
             <div className="flex flex-wrap gap-3 pt-1">
               <Sjekk ok={plan.miljo.ffmpeg} navn="ffmpeg" />
               <Sjekk ok={plan.miljo.espeak} navn="espeak-ng" />
-              <Sjekk ok={plan.miljo.piperTrain} navn="piper_train" />
+              <Sjekk ok={plan.miljo.piperTrain} navn="Piper trening" />
               <Sjekk ok={plan.miljo.skript} navn="tren-stemme.sh" />
               {plan.miljo.gpu ? (
                 <span className="text-primary/80">
