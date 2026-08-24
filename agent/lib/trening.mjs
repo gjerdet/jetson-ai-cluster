@@ -57,6 +57,11 @@ export async function startInstallasjonPiper() {
   if (!(await fileFinnes(skript)))
     throw new Error(`Fant ikke installasjonsskriptet (${skript}). Kjør «git pull» og sudo bash agent/scripts/update-jetson.sh på Jetson-noden.`);
 
+  const eksisterende = listJobber().find(
+    (jobb) => /installer-piper/i.test(jobb.navn || "") && (jobb.status === "kø" || jobb.status === "kjører"),
+  );
+  if (eksisterende) return eksisterende;
+
   const erRoot = typeof process.getuid === "function" ? process.getuid() === 0 : false;
   let kommando = `/bin/bash ${shellArg(skript)}`;
   if (!erRoot) {
@@ -494,6 +499,10 @@ function start(id) {
 /** Oversetter typiske feil i loggen til noe brukeren kan handle på. */
 function tolkFeil(logg = "") {
   const t = String(logg);
+  if (/Could not get lock .*dpkg|Unable to acquire the dpkg frontend lock|another process using it/i.test(t))
+    return "apt/dpkg brukes av en annen prosess. Jarvis venter automatisk ved neste forsøk – ikke start flere installasjoner samtidig.";
+  if (/Errors were encountered while processing|Sub-process \/usr\/bin\/dpkg returned an error|unexpected end of file.*\.deb/i.test(t))
+    return "En nedlastet systempakke er skadet eller ufullstendig. Installatøren reparerer dpkg og laster pakken ned på nytt ved neste forsøk.";
   if (/Kjør med sudo|sudo: a (terminal|password) is required|must be run as root|Permission denied/i.test(t))
     return "Installasjonen trenger root. Gi jarvis-brukeren passordfri sudo, eller kjør «sudo bash agent/scripts/installer-piper.sh» på noden.";
   if (/No such file or directory.*installer-piper|installer-piper\.sh: .*not found/i.test(t))

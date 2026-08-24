@@ -13,13 +13,51 @@ adv() { echo -e "${GUL}! $*${RST}"; }
 PIPER_DIR="${PIPER_DIR:-/opt/jarvis/piper}"
 ENV_FILE="${ENV_FILE:-/etc/jarvis/agent.env}"
 PIPER_REPO="https://github.com/OHF-Voice/piper1-gpl.git"
+APT_OPTS=(-o DPkg::Lock::Timeout=600 -o Acquire::Retries=3)
+
+# Ikke la GUI-knappen, en treningsjobb og en manuell kjøring endre apt/dpkg
+# samtidig. Vi sletter aldri dpkg-låsefiler; vi venter på den lovlige eieren.
+exec 9>/run/lock/jarvis-piper-installasjon.lock
+if ! flock -w 900 9; then
+  echo "En annen Piper-installasjon kjører fortsatt. Vent til den er ferdig og prøv igjen." >&2
+  exit 75
+fi
+
+vent_paa_dpkg() {
+  local ventet=0
+  while fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock >/dev/null 2>&1; do
+    if [ "$ventet" -ge 600 ]; then
+      echo "apt/dpkg er fortsatt opptatt etter 10 minutter. Kontroller: ps aux | grep -E '[a]pt|[d]pkg'" >&2
+      return 1
+    fi
+    [ $((ventet % 30)) -eq 0 ] && adv "apt/dpkg brukes av en annen prosess – venter (${ventet}s)"
+    sleep 5
+    ventet=$((ventet + 5))
+  done
+}
+
+installer_avhengigheter() {
+  apt-get "${APT_OPTS[@]}" update
+  apt-get "${APT_OPTS[@]}" install -y \
+    git build-essential python3-dev python3-venv python3-pip \
+    espeak-ng libespeak-ng1 ffmpeg cmake ninja-build pkg-config \
+    libsndfile1-dev libespeak-ng-dev
+}
 
 si "Installerer systemavhengigheter"
-apt-get update
-apt-get install -y \
-  git build-essential python3-dev python3-venv python3-pip \
-  espeak-ng libespeak-ng1 ffmpeg cmake ninja-build pkg-config \
-  libsndfile1-dev libespeak-ng-dev
+vent_paa_dpkg
+if ! installer_avhengigheter; then
+  adv "Første apt-forsøk feilet – reparerer pakkestatus og laster pakkene ned på nytt"
+  vent_paa_dpkg
+  dpkg --configure -a || true
+  apt-get "${APT_OPTS[@]}" -f install -y || true
+  # Et avbrutt eller korrupt arkiv (ofte ninja-build på Jetson) må ikke
+  # gjenbrukes ved neste forsøk.
+  rm -f /var/cache/apt/archives/*.deb
+  apt-get clean
+  vent_paa_dpkg
+  installer_avhengigheter
+fi
 
 if [ -d "$PIPER_DIR/.git" ] && ! git -C "$PIPER_DIR" remote get-url origin 2>/dev/null | grep -qi 'OHF-Voice/piper1-gpl'; then
   LEGACY="${PIPER_DIR}.legacy-$(date +%Y%m%d-%H%M%S)"
