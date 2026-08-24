@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Play, Square, Trash2, Rocket, RefreshCw, Volume2, Wand2, Download, CheckCircle2, XCircle } from "lucide-react";
+import { Play, Square, Trash2, Rocket, RefreshCw, Volume2, Wand2, Download, CheckCircle2, XCircle, Stethoscope } from "lucide-react";
 import {
   backend,
   backendUrl,
@@ -7,6 +7,7 @@ import {
   safe,
   type TrainingJob,
   type TrainingPlan,
+  type PiperSelftest,
   type TtsConfig,
 } from "@/lib/backend";
 
@@ -32,6 +33,21 @@ function Sjekk({ ok, navn }: { ok: boolean; navn: string }) {
   );
 }
 
+/** Resultatliste fra den automatiske systemtesten av Piper-miljøet. */
+function Systemtest({ test }: { test: PiperSelftest }) {
+  return (
+    <div className="mt-1 space-y-1 rounded-lg border border-primary/10 bg-background/50 p-2">
+      <p className={`text-[9px] ${test.ok ? "text-emerald-400" : "text-destructive"}`}>{test.sammendrag}</p>
+      {test.sjekker.map((s) => (
+        <div key={s.navn} className="flex flex-wrap items-center gap-2 text-[9px]">
+          <Sjekk ok={s.ok} navn={s.navn} />
+          {s.detalj ? <span className="break-all text-muted-foreground/70">{s.detalj}</span> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Treningskø for Piper-stemmer: kommandogenerator, validering, live logg og prøvelytting. */
 export function TrainingQueue() {
   const [jobber, setJobber] = useState<TrainingJob[]>([]);
@@ -41,6 +57,8 @@ export function TrainingQueue() {
   const [cfg, setCfg] = useState<TtsConfig | null>(null);
   const [plan, setPlan] = useState<TrainingPlan | null>(null);
   const [preset, setPreset] = useState("jetson-balansert");
+  const [systemtest, setSystemtest] = useState<PiperSelftest | null>(null);
+  const [tester, setTester] = useState(false);
   const [kommando, setKommando] = useState("");
   const timer = useRef<number | null>(null);
   const feil = useRef(0);
@@ -148,6 +166,17 @@ export function TrainingQueue() {
     void last();
   };
 
+  const kjorSystemtest = async () => {
+    setTester(true);
+    setStatus("kjører systemtest av Piper-miljøet…");
+    const { data, error } = await safe(() => backend.piperSystemtest());
+    setTester(false);
+    if (error) return setStatus(feiltekst(error));
+    setSystemtest(data);
+    setStatus(data.ok ? "systemtest bestått" : `systemtest feilet: ${data.sammendrag}`);
+    void hentPlan();
+  };
+
   const siste = (j: TrainingJob) => (j.telemetri || [])[(j.telemetri || []).length - 1];
   const sisteFeillinjer = (j: TrainingJob) =>
     (j.logg || [])
@@ -233,6 +262,21 @@ export function TrainingQueue() {
                 <Download className="size-3" /> INSTALLER PIPER AUTOMATISK
               </button>
             ) : null}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                onClick={() => void kjorSystemtest()}
+                disabled={tester}
+                className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10 disabled:opacity-40"
+              >
+                <Stethoscope className="size-3" /> {tester ? "TESTER…" : "KJØR SYSTEMTEST"}
+              </button>
+              {systemtest ? (
+                <span className={systemtest.ok ? "text-emerald-400" : "text-destructive"}>
+                  {systemtest.ok ? "BESTÅTT" : "FEILET"} · {new Date(systemtest.tidspunkt).toLocaleTimeString("nb-NO")}
+                </span>
+              ) : null}
+            </div>
+            {systemtest ? <Systemtest test={systemtest} /> : null}
           </div>
         ) : null}
       </div>
