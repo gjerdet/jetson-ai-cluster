@@ -47,6 +47,7 @@ import {
   type TrainingJob,
   type TrainingQueue,
   type TrainingPlan,
+  type PiperSelftest,
   type VoiceClip,
   type MemoryItem,
   type Plan,
@@ -63,6 +64,7 @@ export type {
   TrainingJob,
   TrainingQueue,
   TrainingPlan,
+  PiperSelftest,
   AiConfig,
   KnowledgeDoc,
   KnowledgeHit,
@@ -637,6 +639,9 @@ export const backend = {
   /** Ber agenten installere Piper-treningsmiljøet på seg selv. */
   installerPiper: () =>
     call<{ jobb: TrainingJob }>(ROUTES.ttsTrainingInstall!, { method: "POST" }, { timeoutMs: 30_000, retries: 0 }),
+  /** Kjører automatisert systemtest av Piper-miljøet (venv, stier, piper_train). */
+  piperSystemtest: () =>
+    call<PiperSelftest>(ROUTES.ttsTrainingSelftest!, { method: "POST" }, { timeoutMs: 120_000, retries: 0 }),
   startTrening: (v: { navn?: string; kommando?: string }) =>
     call<{ jobb: TrainingJob }>(ROUTES.ttsTraining!, { method: "POST", body: JSON.stringify(v) }, { retries: 0 }),
   avbrytTrening: (id: string) =>

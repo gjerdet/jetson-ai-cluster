@@ -153,6 +153,7 @@ export const ROUTES: {
   ttsTraining: string;
   ttsTrainingPlan: string;
   ttsTrainingInstall: string;
+  ttsTrainingSelftest: string;
   status: string;
   login: string;
   register: string;
@@ -604,6 +605,21 @@ export interface TrainingJob {
   publisert?: string;
   mangler?: string[];
   telemetri?: TrainingTelemetry[];
+  systemtest?: PiperSelftest;
+}
+
+export interface PiperSelftestCheck {
+  navn: string;
+  ok: boolean;
+  detalj: string;
+}
+
+export interface PiperSelftest {
+  ok: boolean;
+  tidspunkt: string;
+  python?: string;
+  sammendrag: string;
+  sjekker: PiperSelftestCheck[];
 }
 
 export interface TrainingTelemetry {
