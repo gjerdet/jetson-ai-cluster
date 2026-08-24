@@ -65,6 +65,7 @@ import {
   publiser as treningPubliser,
   hentJobb as treningJobb,
   treningPlan,
+  piperSystemtest,
   startInstallasjonPiper,
 
 } from "./trening.mjs";
@@ -1096,6 +1097,15 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path === "/tts/trening/plan" && method === "GET") {
       const q = new URL(req.url, "http://x").searchParams;
       return json(req, res, 200, await treningPlan({ navn: q.get("navn") || "", preset: q.get("preset") || "" }));
+    }
+
+    if (path === "/tts/trening/systemtest" && method === "POST") {
+      // Automatisert systemtest: kan piper_train startes, finnes venv/Python-stiene?
+      try {
+        return json(req, res, 200, await piperSystemtest());
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
     }
 
     if (path === "/tts/trening/installer" && method === "POST") {
