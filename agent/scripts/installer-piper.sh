@@ -40,21 +40,36 @@ installer_avhengigheter() {
   apt-get "${APT_OPTS[@]}" update
   apt-get "${APT_OPTS[@]}" install -y \
     git build-essential python3-dev python3-venv python3-pip \
-    espeak-ng libespeak-ng1 ffmpeg cmake ninja-build pkg-config \
+    espeak-ng libespeak-ng1 ffmpeg cmake pkg-config \
     libsndfile1-dev libespeak-ng-dev
+}
+
+reparer_pakkesystem() {
+  vent_paa_dpkg
+  # Tøm arkivene før reparasjonen. Ellers forsøker `apt -f install` å bruke
+  # den samme skadde .deb-filen på nytt og stopper med kode 100 igjen.
+  rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb 2>/dev/null || true
+  apt-get clean
+
+  # Eldre utgaver installerte ninja-build fra Ubuntu. Enkelte Jetson-images
+  # har levert en ufullstendig arm64-pakke som låser hele dpkg. Piper får Ninja
+  # fra Python-miljøet nedenfor, så den ødelagte systempakken kan trygt fjernes.
+  if dpkg --audit 2>/dev/null | grep -qi 'ninja-build'; then
+    adv "Fjerner ufullstendig ninja-build-pakke før reparasjon"
+    dpkg --remove --force-remove-reinstreq ninja-build 2>/dev/null || \
+      dpkg --purge --force-all ninja-build 2>/dev/null || true
+  fi
+
+  dpkg --configure -a || true
+  apt-get "${APT_OPTS[@]}" -f install -y
+  dpkg --audit
 }
 
 si "Installerer systemavhengigheter"
 vent_paa_dpkg
 if ! installer_avhengigheter; then
   adv "Første apt-forsøk feilet – reparerer pakkestatus og laster pakkene ned på nytt"
-  vent_paa_dpkg
-  dpkg --configure -a || true
-  apt-get "${APT_OPTS[@]}" -f install -y || true
-  # Et avbrutt eller korrupt arkiv (ofte ninja-build på Jetson) må ikke
-  # gjenbrukes ved neste forsøk.
-  rm -f /var/cache/apt/archives/*.deb
-  apt-get clean
+  reparer_pakkesystem
   vent_paa_dpkg
   installer_avhengigheter
 fi
@@ -89,7 +104,7 @@ si "Oppretter Python-venv i $PY_DIR/.venv"
 # GPU-støtten som stemmetreningen trenger på Jetson.
 python3 -m venv --system-site-packages --clear "$PY_DIR/.venv"
 source "$PY_DIR/.venv/bin/activate"
-python -m pip install --upgrade pip wheel setuptools scikit-build
+python -m pip install --upgrade pip wheel setuptools scikit-build ninja
 
 si "Installerer Python-pakker (dette kan ta flere minutter)"
 # Installer treningsavhengighetene eksplisitt uten torch. Venv-et arver den
