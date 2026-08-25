@@ -181,7 +181,7 @@ export function TrainingQueue() {
   const sisteFeillinjer = (j: TrainingJob) =>
     (j.logg || [])
       .filter((linje) => !/starter:|feilet med kode/i.test(linje))
-      .slice(-3);
+      .slice(-8);
 
   return (
     <div className="space-y-3">
