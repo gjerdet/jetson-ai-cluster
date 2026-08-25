@@ -54,19 +54,30 @@ reparer_pakkesystem() {
   # Eldre utgaver installerte ninja-build fra Ubuntu. Enkelte Jetson-images
   # har levert en ufullstendig arm64-pakke som låser hele dpkg. Piper får Ninja
   # fra Python-miljøet nedenfor, så den ødelagte systempakken kan trygt fjernes.
-  if dpkg --audit 2>/dev/null | grep -qi 'ninja-build'; then
+  local ninja_status=""
+  ninja_status="$(dpkg-query -W -f='${db:Status-Abbrev}' ninja-build 2>/dev/null || true)"
+  if [ -n "$ninja_status" ] && [ "$ninja_status" != "ii " ]; then
     adv "Fjerner ufullstendig ninja-build-pakke før reparasjon"
     dpkg --remove --force-remove-reinstreq ninja-build 2>/dev/null || \
       dpkg --purge --force-all ninja-build 2>/dev/null || true
   fi
 
   dpkg --configure -a || true
+  apt-get "${APT_OPTS[@]}" update --fix-missing
   apt-get "${APT_OPTS[@]}" -f install -y
   dpkg --audit
 }
 
 si "Installerer systemavhengigheter"
 vent_paa_dpkg
+# Reparer en halvinstallert pakke før første apt-kall. Et vanlig `apt install`
+# forsøker ellers å fullføre den skadde ninja-build-pakken før det kommer til
+# avhengighetene våre, og reparasjonsgrenen får aldri et rent utgangspunkt.
+NINJA_STATUS="$(dpkg-query -W -f='${db:Status-Abbrev}' ninja-build 2>/dev/null || true)"
+if [ -n "$NINJA_STATUS" ] && [ "$NINJA_STATUS" != "ii " ]; then
+  adv "Oppdaget ufullstendig ninja-build ($NINJA_STATUS) – reparerer pakkesystemet først"
+  reparer_pakkesystem
+fi
 if ! installer_avhengigheter; then
   adv "Første apt-forsøk feilet – reparerer pakkestatus og laster pakkene ned på nytt"
   reparer_pakkesystem
