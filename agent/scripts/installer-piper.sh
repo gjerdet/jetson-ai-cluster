@@ -103,11 +103,25 @@ fi
 PY_DIR="$PIPER_DIR"
 [ -f "$PY_DIR/setup.py" ] || { echo "Fant ikke $PY_DIR/setup.py"; exit 1; }
 
-if ! python3 -c 'import torch; assert int(torch.__version__.split(".")[0]) >= 2' >/dev/null 2>&1; then
+# Preflight: NVIDIA PyTorch med CUDA må være på plass i system-Python før
+# Piper i det hele tatt prøver å starte. Vi oppdager JetPack-versjonen og
+# installerer riktig hjul automatisk i stedet for bare å feile.
+PYTORCH_SKRIPT="$(dirname "$(readlink -f "$0")")/installer-pytorch.sh"
+if ! python3 -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 and torch.cuda.is_available() else 1)' >/dev/null 2>&1; then
+  if [ "${JARVIS_AUTO_PYTORCH:-1}" = "1" ] && [ -f "$PYTORCH_SKRIPT" ]; then
+    adv "NVIDIA PyTorch med CUDA mangler – installerer riktig versjon for JetPack først"
+    bash "$PYTORCH_SKRIPT"
+  fi
+fi
+if ! python3 -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 else 1)' >/dev/null 2>&1; then
   echo "NVIDIA PyTorch 2.x mangler i system-Python." >&2
-  echo "Installer PyTorch-pakken som hører til JetPack-versjonen din, og prøv igjen." >&2
+  echo "Kjør: sudo bash $PYTORCH_SKRIPT – den oppdager JetPack-versjonen og installerer riktig hjul." >&2
   exit 1
 fi
+if ! python3 -c 'import torch,sys;sys.exit(0 if torch.cuda.is_available() else 1)' >/dev/null 2>&1; then
+  adv "PyTorch er installert, men ser ingen CUDA-enhet. Treningen blir svært treg på CPU."
+fi
+
 
 si "Oppretter Python-venv i $PY_DIR/.venv"
 # JetPack leverer normalt en CUDA-tilpasset PyTorch i system-Python. Behold
