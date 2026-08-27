@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Oppdager JetPack/L4T-versjon og installerer NVIDIA PyTorch med riktig
+# CUDA-kompatibilitet i system-Python. Kjøres av GUI-et (INSTALLER PYTORCH)
+# eller automatisk fra installer-piper.sh. Alt skjer lokalt på noden.
+set -euo pipefail
+
+BLA="\033[36m"; GRN="\033[32m"; GUL="\033[33m"; RST="\033[0m"
+si() { echo -e "${BLA}▸ $*${RST}"; }
+ok() { echo -e "${GRN}✓ $*${RST}"; }
+adv() { echo -e "${GUL}! $*${RST}"; }
+
+[ "$(id -u)" -eq 0 ] || { echo "Kjør med sudo"; exit 1; }
+
+APT_OPTS=(-o DPkg::Lock::Timeout=600 -o Acquire::Retries=3)
+
+exec 9>/run/lock/jarvis-pytorch-installasjon.lock
+if ! flock -w 900 9; then
+  echo "En annen PyTorch-installasjon kjører fortsatt. Vent til den er ferdig." >&2
+  exit 75
+fi
+
+# ---- 1. Oppdag JetPack / L4T ------------------------------------------------
+L4T_MAJOR=""
+L4T_FULL=""
+if [ -f /etc/nv_tegra_release ]; then
+  L4T_FULL="$(head -n1 /etc/nv_tegra_release)"
+  L4T_MAJOR="$(sed -n 's/^# R\([0-9]\+\).*/\1/p' /etc/nv_tegra_release)"
+fi
+if [ -z "$L4T_MAJOR" ]; then
+  L4T_MAJOR="$(dpkg-query -W -f='${Version}' nvidia-l4t-core 2>/dev/null | cut -d. -f1 || true)"
+fi
+JETPACK_PAKKE="$(dpkg-query -W -f='${Version}' nvidia-jetpack 2>/dev/null || true)"
+
+si "L4T: ${L4T_FULL:-ukjent} (major ${L4T_MAJOR:-?}), JetPack-pakke: ${JETPACK_PAKKE:-ukjent}"
+
+case "$L4T_MAJOR" in
+  38) INDEKS="https://pypi.jetson-ai-lab.io/jp7/cu130"; JP="7.x"; CUDA_FORVENTET="13.0" ;;
+  36) INDEKS="https://pypi.jetson-ai-lab.io/jp6/cu126"; JP="6.x"; CUDA_FORVENTET="12.6" ;;
+  35) INDEKS="https://pypi.jetson-ai-lab.io/jp5/cu114"; JP="5.x"; CUDA_FORVENTET="11.4" ;;
+  *)
+    echo "Ukjent eller manglende JetPack/L4T-versjon (major='${L4T_MAJOR:-}')." >&2
+    echo "Denne noden ser ikke ut til å være en Jetson med JetPack 5/6/7." >&2
+    echo "Installer PyTorch manuelt for maskinvaren din og kjør Piper-installasjonen på nytt." >&2
+    exit 2
+    ;;
+esac
+ok "JetPack $JP – bruker PyTorch-indeks $INDEKS (CUDA $CUDA_FORVENTET)"
+
+# ---- 2. Preflight: CUDA på maskinen ----------------------------------------
+CUDA_VERSJON=""
+if command -v nvcc >/dev/null 2>&1; then
+  CUDA_VERSJON="$(nvcc --version | sed -n 's/.*release \([0-9.]*\).*/\1/p')"
+elif [ -f /usr/local/cuda/version.json ]; then
+  CUDA_VERSJON="$(python3 -c 'import json;print(json.load(open("/usr/local/cuda/version.json"))["cuda"]["version"])' 2>/dev/null | cut -d. -f1,2 || true)"
+fi
+if [ -z "$CUDA_VERSJON" ]; then
+  adv "Fant ikke CUDA-verktøykjeden (nvcc). Installerer CUDA-runtime fra JetPack-metapakken."
+  apt-get "${APT_OPTS[@]}" update || true
+  apt-get "${APT_OPTS[@]}" install -y nvidia-jetpack || adv "Klarte ikke installere nvidia-jetpack automatisk – fortsetter."
+else
+  ok "CUDA $CUDA_VERSJON funnet"
+fi
+
+# ---- 3. Avhengigheter -------------------------------------------------------
+si "Installerer systemavhengigheter for PyTorch"
+apt-get "${APT_OPTS[@]}" update
+apt-get "${APT_OPTS[@]}" install -y \
+  python3-pip python3-dev libopenblas-dev libopenmpi-dev libomp-dev
+
+python3 -m pip install --upgrade pip setuptools wheel 'numpy<2'
+
+# ---- 4. Installer NVIDIA PyTorch -------------------------------------------
+si "Installerer PyTorch fra $INDEKS (dette tar noen minutter)"
+if ! python3 -m pip install --no-cache-dir --extra-index-url "$INDEKS" torch torchaudio; then
+  adv "Indeksen svarte ikke – prøver NVIDIAs redist-arkiv"
+  REDIST="https://developer.download.nvidia.com/compute/redist/jp/v${L4T_MAJOR}"
+  python3 -m pip install --no-cache-dir --extra-index-url "$REDIST" torch torchaudio
+fi
+
+# ---- 5. Verifiser ------------------------------------------------------------
+si "Verifiserer installasjonen"
+if ! python3 - <<'PY'
+import sys, torch
+print("torch", torch.__version__, "cuda", torch.version.cuda, "available", torch.cuda.is_available())
+sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 else 1)
+PY
+then
+  echo "PyTorch 2.x ble ikke installert riktig i system-Python." >&2
+  exit 1
+fi
+
+if ! python3 -c 'import torch,sys;sys.exit(0 if torch.cuda.is_available() else 1)'; then
+  echo "PyTorch er installert, men ser ingen CUDA-enhet." >&2
+  echo "Sjekk at brukeren har tilgang til /dev/nvhost* og at JetPack-driverne er installert." >&2
+  exit 3
+fi
+
+ok "NVIDIA PyTorch med CUDA er klar i system-Python"
