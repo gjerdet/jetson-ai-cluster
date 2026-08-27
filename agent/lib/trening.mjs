@@ -47,6 +47,63 @@ export const TRENING_SKRIPT = finnSkript("tren-stemme.sh", process.env.JARVIS_TR
 /** Skriptet som installerer selve Piper-treningsmiljøet. */
 export const INSTALLER_SKRIPT = finnSkript("installer-piper.sh", process.env.JARVIS_INSTALLER_SKRIPT || "");
 
+/** Skriptet som oppdager JetPack og installerer NVIDIA PyTorch. */
+export const PYTORCH_SKRIPT = finnSkript("installer-pytorch.sh", process.env.JARVIS_PYTORCH_SKRIPT || "");
+
+/**
+ * Preflight før Piper: JetPack, CUDA og NVIDIA PyTorch.
+ * Legger til en sjekk for selve installasjonsskriptet, slik at GUI-et kan
+ * si tydelig fra om noden i det hele tatt kan installere torch selv.
+ */
+export async function piperPreflight() {
+  const resultat = await pytorchPreflight();
+  const skript = await fileFinnes(PYTORCH_SKRIPT);
+  return {
+    ...resultat,
+    skript: PYTORCH_SKRIPT,
+    kanInstallere: resultat.kanInstallere && skript,
+    sjekker: [
+      ...resultat.sjekker,
+      {
+        navn: "installer-pytorch.sh",
+        ok: skript,
+        detalj: skript ? PYTORCH_SKRIPT : "Fant ikke skriptet – kjør git pull og sudo bash agent/scripts/update-jetson.sh",
+        kritisk: true,
+      },
+    ],
+  };
+}
+
+/**
+ * Installerer NVIDIA PyTorch for riktig JetPack-versjon som en vanlig jobb
+ * med logg, på samme måte som Piper-installasjonen.
+ */
+export async function startInstallasjonPytorch() {
+  const skript = PYTORCH_SKRIPT;
+  if (!(await fileFinnes(skript)))
+    throw new Error(`Fant ikke installer-pytorch.sh (${skript}). Kjør «git pull» og sudo bash agent/scripts/update-jetson.sh på noden.`);
+
+  const eksisterende = listJobber().find(
+    (jobb) => /installer-pytorch/i.test(jobb.navn || "") && (jobb.status === "kø" || jobb.status === "kjører"),
+  );
+  if (eksisterende) return eksisterende;
+
+  const erRoot = typeof process.getuid === "function" ? process.getuid() === 0 : false;
+  const bashSti = fsSync.existsSync("/usr/bin/bash") ? "/usr/bin/bash" : "/bin/bash";
+  let kommando = `/bin/bash ${shellArg(skript)}`;
+  if (!erRoot) {
+    const sudoOk = Boolean(await kjor("sudo", ["-n", "-l", bashSti, skript], 8000));
+    if (!sudoOk)
+      throw new Error(
+        "PyTorch-installasjonen er ikke autorisert for agentbrukeren. Kjør én gang på Jetson: sudo bash agent/scripts/update-jetson.sh",
+      );
+    kommando = `sudo -n ${bashSti} ${shellArg(skript)}`;
+  }
+
+  return koLeggTil({ navn: "installer-pytorch", kommando, autoTranskriber: false, hoppOverValidering: true });
+}
+
+
 /**
  * Starter installasjon av Piper som en vanlig jobb med logg.
  * Krever root eller passordfri sudo – ellers gir vi en tydelig feil
