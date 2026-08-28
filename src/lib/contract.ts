@@ -62,6 +62,7 @@ export type {
   TrainingQueue,
   TrainingPlan,
   PiperSelftest,
+  PiperPreflight,
   TrainingPreset,
   TrainingTelemetry,
   RagConfig,

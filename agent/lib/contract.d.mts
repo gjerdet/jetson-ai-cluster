@@ -154,6 +154,8 @@ export const ROUTES: {
   ttsTrainingPlan: string;
   ttsTrainingInstall: string;
   ttsTrainingSelftest: string;
+  ttsTrainingPreflight: string;
+  ttsTrainingPytorch: string;
   status: string;
   login: string;
   register: string;
@@ -620,6 +622,35 @@ export interface PiperSelftest {
   python?: string;
   sammendrag: string;
   sjekker: PiperSelftestCheck[];
+}
+
+export interface PiperPreflightCheck {
+  navn: string;
+  ok: boolean;
+  detalj: string;
+  kritisk: boolean;
+}
+
+export interface PiperPreflight {
+  ok: boolean;
+  tidspunkt: string;
+  jetpack: {
+    erJetson: boolean;
+    modell: string;
+    l4t: string;
+    l4tMajor: number;
+    jetpack: string;
+    cuda: string;
+    forventetCuda: string;
+    pipIndeks: string;
+    gpu: string;
+    stottet: boolean;
+  };
+  torch: { finnes: boolean; versjon: string; cuda: boolean; major: number };
+  sjekker: PiperPreflightCheck[];
+  kanInstallere: boolean;
+  skript: string;
+  anbefaling: string;
 }
 
 export interface TrainingTelemetry {

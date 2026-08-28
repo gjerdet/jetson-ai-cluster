@@ -48,6 +48,7 @@ import {
   type TrainingQueue,
   type TrainingPlan,
   type PiperSelftest,
+  type PiperPreflight,
   type VoiceClip,
   type MemoryItem,
   type Plan,
@@ -65,6 +66,7 @@ export type {
   TrainingQueue,
   TrainingPlan,
   PiperSelftest,
+  PiperPreflight,
   AiConfig,
   KnowledgeDoc,
   KnowledgeHit,
@@ -642,6 +644,12 @@ export const backend = {
   /** Kjører automatisert systemtest av Piper-miljøet (venv, stier, piper_train). */
   piperSystemtest: () =>
     call<PiperSelftest>(ROUTES.ttsTrainingSelftest!, { method: "POST" }, { timeoutMs: 120_000, retries: 0 }),
+  /** Sjekker JetPack, CUDA og NVIDIA PyTorch før Piper installeres. */
+  piperPreflight: () =>
+    call<PiperPreflight>(ROUTES.ttsTrainingPreflight!, {}, { timeoutMs: 60_000, retries: 0 }),
+  /** Installerer NVIDIA PyTorch for riktig JetPack-versjon som jobb med logg. */
+  installerPytorch: () =>
+    call<{ jobb: TrainingJob }>(ROUTES.ttsTrainingPytorch!, { method: "POST" }, { timeoutMs: 30_000, retries: 0 }),
   startTrening: (v: { navn?: string; kommando?: string }) =>
     call<{ jobb: TrainingJob }>(ROUTES.ttsTraining!, { method: "POST", body: JSON.stringify(v) }, { retries: 0 }),
   avbrytTrening: (id: string) =>
