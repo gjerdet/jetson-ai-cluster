@@ -8,6 +8,7 @@ import {
   type TrainingJob,
   type TrainingPlan,
   type PiperSelftest,
+  type PiperPreflight,
   type TtsConfig,
 } from "@/lib/backend";
 
@@ -58,6 +59,7 @@ export function TrainingQueue() {
   const [plan, setPlan] = useState<TrainingPlan | null>(null);
   const [preset, setPreset] = useState("jetson-balansert");
   const [systemtest, setSystemtest] = useState<PiperSelftest | null>(null);
+  const [preflight, setPreflight] = useState<PiperPreflight | null>(null);
   const [tester, setTester] = useState(false);
   const [kommando, setKommando] = useState("");
   const timer = useRef<number | null>(null);
@@ -163,6 +165,22 @@ export function TrainingQueue() {
     const { error } = await safe(() => backend.installerPiper());
     if (error) return setStatus(feiltekst(error));
     setStatus("installasjonsjobb lagt i kø – følg loggen under");
+    void last();
+  };
+
+  const kjorPreflight = async () => {
+    setStatus("sjekker JetPack, CUDA og PyTorch…");
+    const { data, error } = await safe(() => backend.piperPreflight());
+    if (error) return setStatus(feiltekst(error));
+    setPreflight(data);
+    setStatus(data.ok ? "PyTorch med CUDA er klar" : data.anbefaling);
+  };
+
+  const installerPytorch = async () => {
+    setStatus("starter installasjon av NVIDIA PyTorch…");
+    const { error } = await safe(() => backend.installerPytorch());
+    if (error) return setStatus(feiltekst(error));
+    setStatus("PyTorch-installasjon lagt i kø – følg loggen under");
     void last();
   };
 
@@ -277,6 +295,33 @@ export function TrainingQueue() {
               ) : null}
             </div>
             {systemtest ? <Systemtest test={systemtest} /> : null}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                onClick={() => void kjorPreflight()}
+                className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10"
+              >
+                <Stethoscope className="size-3" /> SJEKK PYTORCH/CUDA
+              </button>
+              {preflight && !preflight.ok && preflight.kanInstallere ? (
+                <button
+                  onClick={() => void installerPytorch()}
+                  className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10"
+                >
+                  <Download className="size-3" /> INSTALLER PYTORCH
+                </button>
+              ) : null}
+            </div>
+            {preflight ? (
+              <div className="mt-1 space-y-1 rounded-lg border border-primary/10 bg-background/50 p-2">
+                <p className={`text-[9px] ${preflight.ok ? "text-emerald-400" : "text-destructive"}`}>{preflight.anbefaling}</p>
+                {preflight.sjekker.map((s) => (
+                  <div key={s.navn} className="flex flex-wrap items-center gap-2 text-[9px]">
+                    <Sjekk ok={s.ok} navn={s.navn} />
+                    {s.detalj ? <span className="break-all text-muted-foreground/70">{s.detalj}</span> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
