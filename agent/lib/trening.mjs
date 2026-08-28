@@ -13,6 +13,7 @@ import { randomUUID } from "node:crypto";
 import { DATA_DIR, doc, saveDoc, flushNow } from "./store.mjs";
 import { clipDir, trainingManifest, clipStats, ttsConfig, saveTtsConfig, transkriberAlle, listClips } from "./tts.mjs";
 import { gpuStatus } from "./gpu.mjs";
+import { pytorchPreflight } from "./jetpack.mjs";
 import os from "node:os";
 
 const SKRIPT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "scripts");
