@@ -67,7 +67,8 @@ import {
   treningPlan,
   piperSystemtest,
   startInstallasjonPiper,
-
+  piperPreflight,
+  startInstallasjonPytorch,
 } from "./trening.mjs";
 
 import {
@@ -1103,6 +1104,26 @@ export async function handleApi(req, res, route, url, deps = {}) {
       // Automatisert systemtest: kan piper_train startes, finnes venv/Python-stiene?
       try {
         return json(req, res, 200, await piperSystemtest());
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/tts/trening/preflight" && method === "GET") {
+      // Sjekker JetPack, CUDA og om NVIDIA PyTorch er på plass før trening.
+      try {
+        return json(req, res, 200, await piperPreflight());
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/tts/trening/pytorch" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      // Installerer NVIDIA PyTorch med riktig CUDA-støtte, som en jobb med logg.
+      try {
+        const jobb = await startInstallasjonPytorch();
+        return json(req, res, 200, { jobb });
       } catch (e) {
         return json(req, res, 400, { error: String(e?.message || e) });
       }
