@@ -99,6 +99,8 @@ export const ROUTES = {
   ttsTrainingPlan: "/tts/trening/plan",
   ttsTrainingInstall: "/tts/trening/installer",
   ttsTrainingSelftest: "/tts/trening/systemtest",
+  ttsTrainingPreflight: "/tts/trening/preflight",
+  ttsTrainingPytorch: "/tts/trening/pytorch",
   logs: "/logger",
   logSources: "/logger/kilder",
   clusterLocal: "/klynge/lokal",
