@@ -170,6 +170,8 @@ APP_SCRIPTS="$APP_DIR/scripts"
 cat >/etc/sudoers.d/jarvis-stemme <<EOF
 jarvis ALL=(root) NOPASSWD: /bin/bash $APP_SCRIPTS/installer-piper.sh
 jarvis ALL=(root) NOPASSWD: /usr/bin/bash $APP_SCRIPTS/installer-piper.sh
+jarvis ALL=(root) NOPASSWD: /bin/bash $APP_SCRIPTS/installer-pytorch.sh
+jarvis ALL=(root) NOPASSWD: /usr/bin/bash $APP_SCRIPTS/installer-pytorch.sh
 EOF
 chmod 440 /etc/sudoers.d/jarvis-stemme
 if visudo -cf /etc/sudoers.d/jarvis-stemme >/dev/null; then
