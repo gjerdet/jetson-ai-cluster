@@ -129,7 +129,8 @@ si "Kopierer ny agentkode til $APP_DIR …"
 mkdir -p "$APP_DIR"
 cp -a "$SOURCE_DIR/agent/." "$APP_DIR/"
 chmod +x "$APP_DIR/scripts/update-jetson.sh" "$APP_DIR/scripts/run-update-service.sh" \
-  "$APP_DIR/scripts/tren-stemme.sh" "$APP_DIR/scripts/installer-piper.sh" 2>/dev/null || true
+  "$APP_DIR/scripts/tren-stemme.sh" "$APP_DIR/scripts/installer-piper.sh" \
+  "$APP_DIR/scripts/installer-pytorch.sh" "$APP_DIR/scripts/apt-felles.sh" 2>/dev/null || true
 if [ -f "$APP_DIR/package.json" ]; then
   (cd "$APP_DIR" && npm ci --omit=dev --no-audit --no-fund 2>/dev/null) ||
     (cd "$APP_DIR" && npm install --omit=dev --no-audit --no-fund)
