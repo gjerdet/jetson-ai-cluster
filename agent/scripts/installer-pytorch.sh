@@ -64,17 +64,23 @@ elif [ -f /usr/local/cuda/version.json ]; then
 fi
 if [ -z "$CUDA_VERSJON" ]; then
   adv "Fant ikke CUDA-verktøykjeden (nvcc). Installerer CUDA-runtime fra JetPack-metapakken."
-  apt-get "${APT_OPTS[@]}" update || true
-  apt-get "${APT_OPTS[@]}" install -y nvidia-jetpack || adv "Klarte ikke installere nvidia-jetpack automatisk – fortsetter."
+  apt_installer_robust nvidia-jetpack || adv "Klarte ikke installere nvidia-jetpack automatisk – fortsetter."
 else
   ok "CUDA $CUDA_VERSJON funnet"
 fi
 
 # ---- 3. Avhengigheter -------------------------------------------------------
 si "Installerer systemavhengigheter for PyTorch"
-apt-get "${APT_OPTS[@]}" update
-apt-get "${APT_OPTS[@]}" install -y \
-  python3-pip python3-dev libopenblas-dev libopenmpi-dev libomp-dev
+if ! apt_installer_robust python3-pip python3-dev libopenblas-dev libopenmpi-dev libomp-dev; then
+  # Siste utvei: installer pakkene én for én, slik at én skadet .deb ikke
+  # river med seg hele settet.
+  adv "Samlet installasjon feilet – installerer pakkene enkeltvis"
+  MANGLER=""
+  for p in python3-pip python3-dev libopenblas-dev libopenmpi-dev libomp-dev; do
+    apt_installer_robust "$p" || MANGLER="$MANGLER $p"
+  done
+  [ -n "$MANGLER" ] && adv "Disse pakkene kunne ikke installeres:$MANGLER – fortsetter, PyTorch-hjulet er ofte selvforsynt"
+fi
 
 python3 -m pip install --upgrade pip setuptools wheel 'numpy<2'
 
