@@ -84,7 +84,12 @@ export async function jetpackInfo() {
     kjor("bash", ["-lc", "nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null | head -n 1"]),
     les("/proc/device-tree/model"),
   ]);
-  const treff = JETPACK_KART.find((k) => k.l4t === l4t.major) || null;
+  // Nyere L4T-utgaver enn kartet (f.eks. R39) skal ikke stoppe installasjonen.
+  // Vi faller tilbake til nyeste kjente serie som er ≤ maskinens L4T-versjon.
+  const treff =
+    JETPACK_KART.find((k) => k.l4t === l4t.major) ||
+    (l4t.major ? JETPACK_KART.find((k) => l4t.major > k.l4t) : null) ||
+    null;
   const jetpack = (jetpackPakke || "").split("-")[0] || treff?.jetpack || "";
   return {
     erJetson: Boolean(l4t.major) || /jetson|tegra/i.test(modell),

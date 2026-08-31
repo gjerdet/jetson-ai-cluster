@@ -34,14 +34,22 @@ JETPACK_PAKKE="$(dpkg-query -W -f='${Version}' nvidia-jetpack 2>/dev/null || tru
 si "L4T: ${L4T_FULL:-ukjent} (major ${L4T_MAJOR:-?}), JetPack-pakke: ${JETPACK_PAKKE:-ukjent}"
 
 case "$L4T_MAJOR" in
-  38) INDEKS="https://pypi.jetson-ai-lab.io/jp7/cu130"; JP="7.x"; CUDA_FORVENTET="13.0" ;;
   36) INDEKS="https://pypi.jetson-ai-lab.io/jp6/cu126"; JP="6.x"; CUDA_FORVENTET="12.6" ;;
   35) INDEKS="https://pypi.jetson-ai-lab.io/jp5/cu114"; JP="5.x"; CUDA_FORVENTET="11.4" ;;
   *)
-    echo "Ukjent eller manglende JetPack/L4T-versjon (major='${L4T_MAJOR:-}')." >&2
-    echo "Denne noden ser ikke ut til å være en Jetson med JetPack 5/6/7." >&2
-    echo "Installer PyTorch manuelt for maskinvaren din og kjør Piper-installasjonen på nytt." >&2
-    exit 2
+    # Nyere L4T-utgaver (38, 39 …) er ikke i kartet ennå. I stedet for å stoppe
+    # faller vi tilbake til nyeste kjente serie, JetPack 7 / CUDA 13.
+    if [ -n "$L4T_MAJOR" ] && [ "$L4T_MAJOR" -ge 38 ] 2>/dev/null; then
+      INDEKS="https://pypi.jetson-ai-lab.io/jp7/cu130"; JP="7.x (antatt for L4T R$L4T_MAJOR)"; CUDA_FORVENTET="13.0"
+      adv "L4T R$L4T_MAJOR er nyere enn kartet – bruker JetPack 7-hjulene"
+    elif [ -n "$L4T_MAJOR" ] && [ "$L4T_MAJOR" -ge 36 ] 2>/dev/null; then
+      INDEKS="https://pypi.jetson-ai-lab.io/jp6/cu126"; JP="6.x (antatt)"; CUDA_FORVENTET="12.6"
+    else
+      echo "Ukjent eller manglende JetPack/L4T-versjon (major='${L4T_MAJOR:-}')." >&2
+      echo "Denne noden ser ikke ut til å være en Jetson med JetPack 5/6/7." >&2
+      echo "Installer PyTorch manuelt for maskinvaren din og kjør Piper-installasjonen på nytt." >&2
+      exit 2
+    fi
     ;;
 esac
 ok "JetPack $JP – bruker PyTorch-indeks $INDEKS (CUDA $CUDA_FORVENTET)"
