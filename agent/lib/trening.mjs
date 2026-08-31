@@ -572,6 +572,8 @@ function tolkFeil(logg = "") {
   if (/No module named ['\"]?piper|piper\.train kan ikke startes/i.test(t))
     return "Den aktive Piper-pakken ble ikke ferdig installert. Se de siste logglinjene for første pip-feil.";
 
+  if (/Ukjent eller manglende JetPack\/L4T-versjon|ikke ut til å være en Jetson med JetPack/i.test(t))
+    return "JetPack/L4T-versjonen på noden er nyere enn kartet i skriptet. Kjør git pull + update-jetson.sh; nyeste versjon faller tilbake til JetPack 7-hjulene.";
   if (/ffmpeg mangler|ffmpeg: not found/i.test(t)) return "ffmpeg mangler – sudo apt install ffmpeg.";
   if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
   if (/out of memory|CUDA out of memory|Killed/i.test(t)) return "Tom for minne – velg presetet «Jetson · lav VRAM».";
