@@ -11,7 +11,8 @@ adv() { echo -e "${GUL}! $*${RST}"; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Kjør med sudo"; exit 1; }
 
-APT_OPTS=(-o DPkg::Lock::Timeout=600 -o Acquire::Retries=3)
+# shellcheck source=/dev/null
+source "$(dirname "$(readlink -f "$0")")/apt-felles.sh"
 
 exec 9>/run/lock/jarvis-pytorch-installasjon.lock
 if ! flock -w 900 9; then
