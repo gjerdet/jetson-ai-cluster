@@ -32,21 +32,14 @@ installer_avhengigheter() {
 }
 
 si "Installerer systemavhengigheter"
-vent_paa_dpkg
-# Reparer en halvinstallert pakke før første apt-kall. Et vanlig `apt install`
-# forsøker ellers å fullføre den skadde ninja-build-pakken før det kommer til
-# avhengighetene våre, og reparasjonsgrenen får aldri et rent utgangspunkt.
-NINJA_STATUS="$(dpkg-query -W -f='${db:Status-Abbrev}' ninja-build 2>/dev/null || true)"
-if [ -n "$NINJA_STATUS" ] && [ "$NINJA_STATUS" != "ii " ]; then
-  adv "Oppdaget ufullstendig ninja-build ($NINJA_STATUS) – reparerer pakkesystemet først"
+vent_paa_dpkg || true
+# Halvinstallerte pakker (typisk ninja-build på enkelte Jetson-images) blokkerer
+# alle videre apt-kall. Rydd opp før første forsøk.
+if dpkg-query -W -f='${Package} ${db:Status-Abbrev}\n' 2>/dev/null | grep -qv ' ii$'; then
+  adv "Oppdaget halvinstallerte pakker – reparerer pakkesystemet først"
   reparer_pakkesystem
 fi
-if ! installer_avhengigheter; then
-  adv "Første apt-forsøk feilet – reparerer pakkestatus og laster pakkene ned på nytt"
-  reparer_pakkesystem
-  vent_paa_dpkg
-  installer_avhengigheter
-fi
+installer_avhengigheter
 
 if [ -d "$PIPER_DIR/.git" ] && ! git -C "$PIPER_DIR" remote get-url origin 2>/dev/null | grep -qi 'OHF-Voice/piper1-gpl'; then
   LEGACY="${PIPER_DIR}.legacy-$(date +%Y%m%d-%H%M%S)"
