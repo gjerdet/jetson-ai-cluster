@@ -13,7 +13,8 @@ adv() { echo -e "${GUL}! $*${RST}"; }
 PIPER_DIR="${PIPER_DIR:-/opt/jarvis/piper}"
 ENV_FILE="${ENV_FILE:-/etc/jarvis/agent.env}"
 PIPER_REPO="https://github.com/OHF-Voice/piper1-gpl.git"
-APT_OPTS=(-o DPkg::Lock::Timeout=600 -o Acquire::Retries=3)
+# shellcheck source=/dev/null
+source "$(dirname "$(readlink -f "$0")")/apt-felles.sh"
 
 # Ikke la GUI-knappen, en treningsjobb og en manuell kjøring endre apt/dpkg
 # samtidig. Vi sletter aldri dpkg-låsefiler; vi venter på den lovlige eieren.
@@ -23,67 +24,22 @@ if ! flock -w 900 9; then
   exit 75
 fi
 
-vent_paa_dpkg() {
-  local ventet=0
-  while fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock >/dev/null 2>&1; do
-    if [ "$ventet" -ge 600 ]; then
-      echo "apt/dpkg er fortsatt opptatt etter 10 minutter. Kontroller: ps aux | grep -E '[a]pt|[d]pkg'" >&2
-      return 1
-    fi
-    [ $((ventet % 30)) -eq 0 ] && adv "apt/dpkg brukes av en annen prosess – venter (${ventet}s)"
-    sleep 5
-    ventet=$((ventet + 5))
-  done
-}
-
 installer_avhengigheter() {
-  apt-get "${APT_OPTS[@]}" update
-  apt-get "${APT_OPTS[@]}" install -y \
+  apt_installer_robust \
     git build-essential python3-dev python3-venv python3-pip \
     espeak-ng libespeak-ng1 ffmpeg cmake pkg-config \
     libsndfile1-dev libespeak-ng-dev
 }
 
-reparer_pakkesystem() {
-  vent_paa_dpkg
-  # Tøm arkivene før reparasjonen. Ellers forsøker `apt -f install` å bruke
-  # den samme skadde .deb-filen på nytt og stopper med kode 100 igjen.
-  rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb 2>/dev/null || true
-  apt-get clean
-
-  # Eldre utgaver installerte ninja-build fra Ubuntu. Enkelte Jetson-images
-  # har levert en ufullstendig arm64-pakke som låser hele dpkg. Piper får Ninja
-  # fra Python-miljøet nedenfor, så den ødelagte systempakken kan trygt fjernes.
-  local ninja_status=""
-  ninja_status="$(dpkg-query -W -f='${db:Status-Abbrev}' ninja-build 2>/dev/null || true)"
-  if [ -n "$ninja_status" ] && [ "$ninja_status" != "ii " ]; then
-    adv "Fjerner ufullstendig ninja-build-pakke før reparasjon"
-    dpkg --remove --force-remove-reinstreq ninja-build 2>/dev/null || \
-      dpkg --purge --force-all ninja-build 2>/dev/null || true
-  fi
-
-  dpkg --configure -a || true
-  apt-get "${APT_OPTS[@]}" update --fix-missing
-  apt-get "${APT_OPTS[@]}" -f install -y
-  dpkg --audit
-}
-
 si "Installerer systemavhengigheter"
-vent_paa_dpkg
-# Reparer en halvinstallert pakke før første apt-kall. Et vanlig `apt install`
-# forsøker ellers å fullføre den skadde ninja-build-pakken før det kommer til
-# avhengighetene våre, og reparasjonsgrenen får aldri et rent utgangspunkt.
-NINJA_STATUS="$(dpkg-query -W -f='${db:Status-Abbrev}' ninja-build 2>/dev/null || true)"
-if [ -n "$NINJA_STATUS" ] && [ "$NINJA_STATUS" != "ii " ]; then
-  adv "Oppdaget ufullstendig ninja-build ($NINJA_STATUS) – reparerer pakkesystemet først"
+vent_paa_dpkg || true
+# Halvinstallerte pakker (typisk ninja-build på enkelte Jetson-images) blokkerer
+# alle videre apt-kall. Rydd opp før første forsøk.
+if dpkg-query -W -f='${Package} ${db:Status-Abbrev}\n' 2>/dev/null | grep -qv ' ii$'; then
+  adv "Oppdaget halvinstallerte pakker – reparerer pakkesystemet først"
   reparer_pakkesystem
 fi
-if ! installer_avhengigheter; then
-  adv "Første apt-forsøk feilet – reparerer pakkestatus og laster pakkene ned på nytt"
-  reparer_pakkesystem
-  vent_paa_dpkg
-  installer_avhengigheter
-fi
+installer_avhengigheter
 
 if [ -d "$PIPER_DIR/.git" ] && ! git -C "$PIPER_DIR" remote get-url origin 2>/dev/null | grep -qi 'OHF-Voice/piper1-gpl'; then
   LEGACY="${PIPER_DIR}.legacy-$(date +%Y%m%d-%H%M%S)"
