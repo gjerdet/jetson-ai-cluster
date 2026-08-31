@@ -24,49 +24,11 @@ if ! flock -w 900 9; then
   exit 75
 fi
 
-vent_paa_dpkg() {
-  local ventet=0
-  while fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock >/dev/null 2>&1; do
-    if [ "$ventet" -ge 600 ]; then
-      echo "apt/dpkg er fortsatt opptatt etter 10 minutter. Kontroller: ps aux | grep -E '[a]pt|[d]pkg'" >&2
-      return 1
-    fi
-    [ $((ventet % 30)) -eq 0 ] && adv "apt/dpkg brukes av en annen prosess – venter (${ventet}s)"
-    sleep 5
-    ventet=$((ventet + 5))
-  done
-}
-
 installer_avhengigheter() {
-  apt-get "${APT_OPTS[@]}" update
-  apt-get "${APT_OPTS[@]}" install -y \
+  apt_installer_robust \
     git build-essential python3-dev python3-venv python3-pip \
     espeak-ng libespeak-ng1 ffmpeg cmake pkg-config \
     libsndfile1-dev libespeak-ng-dev
-}
-
-reparer_pakkesystem() {
-  vent_paa_dpkg
-  # Tøm arkivene før reparasjonen. Ellers forsøker `apt -f install` å bruke
-  # den samme skadde .deb-filen på nytt og stopper med kode 100 igjen.
-  rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb 2>/dev/null || true
-  apt-get clean
-
-  # Eldre utgaver installerte ninja-build fra Ubuntu. Enkelte Jetson-images
-  # har levert en ufullstendig arm64-pakke som låser hele dpkg. Piper får Ninja
-  # fra Python-miljøet nedenfor, så den ødelagte systempakken kan trygt fjernes.
-  local ninja_status=""
-  ninja_status="$(dpkg-query -W -f='${db:Status-Abbrev}' ninja-build 2>/dev/null || true)"
-  if [ -n "$ninja_status" ] && [ "$ninja_status" != "ii " ]; then
-    adv "Fjerner ufullstendig ninja-build-pakke før reparasjon"
-    dpkg --remove --force-remove-reinstreq ninja-build 2>/dev/null || \
-      dpkg --purge --force-all ninja-build 2>/dev/null || true
-  fi
-
-  dpkg --configure -a || true
-  apt-get "${APT_OPTS[@]}" update --fix-missing
-  apt-get "${APT_OPTS[@]}" -f install -y
-  dpkg --audit
 }
 
 si "Installerer systemavhengigheter"
