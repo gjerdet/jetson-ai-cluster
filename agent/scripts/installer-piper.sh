@@ -13,7 +13,8 @@ adv() { echo -e "${GUL}! $*${RST}"; }
 PIPER_DIR="${PIPER_DIR:-/opt/jarvis/piper}"
 ENV_FILE="${ENV_FILE:-/etc/jarvis/agent.env}"
 PIPER_REPO="https://github.com/OHF-Voice/piper1-gpl.git"
-APT_OPTS=(-o DPkg::Lock::Timeout=600 -o Acquire::Retries=3)
+# shellcheck source=/dev/null
+source "$(dirname "$(readlink -f "$0")")/apt-felles.sh"
 
 # Ikke la GUI-knappen, en treningsjobb og en manuell kjøring endre apt/dpkg
 # samtidig. Vi sletter aldri dpkg-låsefiler; vi venter på den lovlige eieren.
