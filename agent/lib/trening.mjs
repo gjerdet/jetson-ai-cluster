@@ -504,7 +504,9 @@ function start(id) {
         else if (pros) oppdater(id, { fremdrift: Math.min(99, Number(pros[1])) });
         const onnx = linje.match(/([\w./\-]+\.onnx)/);
         if (onnx) oppdater(id, { modellFil: onnx[1] });
+        registrerResultat(id, linje);
       }
+
     });
   };
   lesLinjer(p.stdout);
