@@ -47,6 +47,9 @@ import {
   type TrainingJob,
   type TrainingQueue,
   type TrainingPlan,
+  type TrainingResult,
+  type TrainingNodes,
+  type TrainingDistribution,
   type PiperSelftest,
   type PiperPreflight,
   type VoiceClip,
@@ -65,6 +68,9 @@ export type {
   TrainingJob,
   TrainingQueue,
   TrainingPlan,
+  TrainingResult,
+  TrainingNodes,
+  TrainingDistribution,
   PiperSelftest,
   PiperPreflight,
   AiConfig,
@@ -650,6 +656,18 @@ export const backend = {
   /** Installerer NVIDIA PyTorch for riktig JetPack-versjon som jobb med logg. */
   installerPytorch: () =>
     call<{ jobb: TrainingJob }>(ROUTES.ttsTrainingPytorch!, { method: "POST" }, { timeoutMs: 30_000, retries: 0 }),
+  /** Resultatsammendrag per treningsjobb (skår, epoketid, CPU/CUDA). */
+  treningResultater: () =>
+    call<{ resultater: TrainingResult[] }>(ROUTES.ttsTrainingResults!, {}, { timeoutMs: 30_000, retries: 0 }),
+  /** Alle koblede Jetson-noder med JetPack-versjon og treningsstatus. */
+  treningNoder: () => call<TrainingNodes>(ROUTES.ttsTrainingNodes!, {}, { timeoutMs: 60_000, retries: 0 }),
+  /** Jobbmodus «fordel»: starter samme trening på flere noder samtidig. */
+  fordelTrening: (v: { navn?: string; kommando?: string; noder?: string[] }) =>
+    call<TrainingDistribution>(
+      ROUTES.ttsTrainingDistribute!,
+      { method: "POST", body: JSON.stringify(v) },
+      { timeoutMs: 120_000, retries: 0 },
+    ),
   startTrening: (v: { navn?: string; kommando?: string }) =>
     call<{ jobb: TrainingJob }>(ROUTES.ttsTraining!, { method: "POST", body: JSON.stringify(v) }, { retries: 0 }),
   avbrytTrening: (id: string) =>

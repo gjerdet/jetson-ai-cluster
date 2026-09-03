@@ -504,7 +504,9 @@ function start(id) {
         else if (pros) oppdater(id, { fremdrift: Math.min(99, Number(pros[1])) });
         const onnx = linje.match(/([\w./\-]+\.onnx)/);
         if (onnx) oppdater(id, { modellFil: onnx[1] });
+        registrerResultat(id, linje);
       }
+
     });
   };
   lesLinjer(p.stdout);
@@ -650,4 +652,198 @@ export async function piperSystemtest() {
       : `Mangler: ${sjekker.filter((s) => !s.ok && kritiske.includes(s.navn)).map((s) => s.navn).join(", ")}`,
     sjekker,
   };
+}
+
+// ============ treningsresultat, klyngenoder og fordelt trening ============
+
+/**
+ * Plukker skår (tap) og epoketider ut av treningsloggen mens jobben kjører,
+ * slik at GUI-et kan vise en resultatside uten å parse loggen selv.
+ */
+function registrerResultat(id, linje) {
+  const jobb = hentJobb(id);
+  if (!jobb) return;
+  const res = jobb.resultat || { node: os.hostname(), epoker: [], besteTap: null, sisteTap: null, snittEpokeSek: null };
+  const epoke = linje.match(/epoch[^\d]*(\d+)\s*(?:\/\s*(\d+))?/i);
+  const tap = linje.match(/(?:val[_ ]?loss|loss)\s*[=:]?\s*([\d.]+(?:e-?\d+)?)/i);
+  if (!epoke && !tap) return;
+
+  const na = Date.now();
+  const nummer = epoke ? Number(epoke[1]) : (res.epoker.at(-1)?.nummer ?? 0);
+  const tapVerdi = tap ? Number(tap[1]) : null;
+  const forrige = res.epoker.at(-1);
+  let epoker = res.epoker;
+
+  if (!forrige || forrige.nummer !== nummer) {
+    const start = new Date(jobb.startet || jobb.opprettet || na).getTime();
+    const sekunder = Math.max(0, Math.round((na - (forrige?.tid ?? start)) / 1000));
+    epoker = [...epoker, { nummer, tid: na, sekunder, tap: tapVerdi }].slice(-200);
+  } else if (Number.isFinite(tapVerdi)) {
+    epoker = [...epoker.slice(0, -1), { ...forrige, tap: tapVerdi }];
+  }
+
+  const tapListe = epoker.map((e) => e.tap).filter((t) => Number.isFinite(t));
+  const tider = epoker.map((e) => e.sekunder).filter((s) => s > 0);
+  oppdater(id, {
+    resultat: {
+      node: res.node || os.hostname(),
+      epoker,
+      totaltEpoker: epoke?.[2] ? Number(epoke[2]) : (res.totaltEpoker ?? null),
+      besteTap: tapListe.length ? Math.min(...tapListe) : null,
+      sisteTap: tapListe.length ? tapListe.at(-1) : null,
+      snittEpokeSek: tider.length ? Math.round(tider.reduce((a, b) => a + b, 0) / tider.length) : null,
+    },
+  });
+}
+
+const snitt = (liste) => (liste.length ? Math.round(liste.reduce((a, b) => a + b, 0) / liste.length) : null);
+
+/** Resultatsammendrag per jobb: skår, tid per epoke og CPU/CUDA-bruk. */
+export function treningResultater() {
+  return listJobber()
+    .filter((j) => !/^installer-/i.test(j.navn || ""))
+    .map((j) => {
+      const t = j.telemetri || [];
+      const r = j.resultat || {};
+      const varighet =
+        j.startet && j.ferdig ? Math.round((new Date(j.ferdig).getTime() - new Date(j.startet).getTime()) / 1000) : null;
+      return {
+        id: j.id,
+        navn: j.navn,
+        node: r.node || os.hostname(),
+        status: j.status,
+        fremdrift: j.fremdrift,
+        klipp: j.klipp,
+        modellFil: j.modellFil || "",
+        varighetSek: varighet,
+        epoker: r.epoker || [],
+        totaltEpoker: r.totaltEpoker ?? null,
+        besteTap: r.besteTap ?? null,
+        sisteTap: r.sisteTap ?? null,
+        snittEpokeSek: r.snittEpokeSek ?? null,
+        cpuSnitt: snitt(t.map((p) => p.cpu).filter(Number.isFinite)),
+        cpuTopp: t.length ? Math.max(...t.map((p) => p.cpu || 0)) : null,
+        gpuSnitt: snitt(t.map((p) => p.gpuUtnyttelse).filter((v) => Number.isFinite(v))),
+        vramToppMb: t.length ? Math.max(...t.map((p) => p.gpuBruktMb || 0)) : null,
+        tempToppC: t.length ? Math.max(...t.map((p) => p.tempC || 0)) : null,
+      };
+    });
+}
+
+const nodeBase = (n) => String(n?.agentUrl || "").replace(/\/+$/, "");
+
+async function nodeKall(node, sti, { token = "", method = "GET", body = null, timeout = 15_000 } = {}) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const r = await fetch(`${nodeBase(node)}/api${sti}`, {
+      method,
+      signal: ctrl.signal,
+      headers: {
+        "content-type": "application/json",
+        ...(node.agentToken || token ? { authorization: `Bearer ${node.agentToken || token}`, "x-agent-token": node.agentToken || token } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    const tekst = await r.text();
+    const data = tekst ? JSON.parse(tekst) : null;
+    if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+    return data;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function nodeSammendrag({ id, navn, agentUrl, online, feil, preflight, ko }) {
+  const jobber = (ko?.jobber || []).filter((j) => !/^installer-/i.test(j.navn || ""));
+  const aktiv = jobber.find((j) => j.status === "kjører") || null;
+  return {
+    id,
+    navn,
+    agentUrl,
+    online,
+    feil: feil || null,
+    jetpack: preflight?.jetpack?.jetpack || "",
+    l4t: preflight?.jetpack?.l4t || "",
+    cuda: preflight?.jetpack?.cuda || "",
+    gpu: preflight?.jetpack?.gpu || "",
+    torch: preflight?.torch || null,
+    klar: Boolean(preflight?.ok),
+    anbefaling: preflight?.anbefaling || "",
+    iKo: jobber.filter((j) => j.status === "kø").length,
+    aktivJobb: aktiv ? { id: aktiv.id, navn: aktiv.navn, fremdrift: aktiv.fremdrift, status: aktiv.status } : null,
+    sisteJobber: jobber.slice(-4).map((j) => ({ id: j.id, navn: j.navn, status: j.status, fremdrift: j.fremdrift })),
+  };
+}
+
+/** Admin-oversikt: alle koblede noder med JetPack-versjon og treningsstatus. */
+export async function treningNoder(noder = [], { token = "" } = {}) {
+  const lokal = nodeSammendrag({
+    id: "lokal",
+    navn: `${os.hostname()} (denne noden)`,
+    agentUrl: "",
+    online: true,
+    preflight: await piperPreflight().catch(() => null),
+    ko: koStatus(),
+  });
+
+  const eksterne = await Promise.all(
+    (Array.isArray(noder) ? noder : [])
+      .filter((n) => nodeBase(n))
+      .map(async (n) => {
+        try {
+          const [preflight, ko] = await Promise.all([
+            nodeKall(n, "/tts/trening/preflight", { token, timeout: 20_000 }),
+            nodeKall(n, "/tts/trening", { token }),
+          ]);
+          return nodeSammendrag({ id: n.id, navn: n.navn, agentUrl: nodeBase(n), online: true, preflight, ko });
+        } catch (e) {
+          return nodeSammendrag({
+            id: n.id,
+            navn: n.navn,
+            agentUrl: nodeBase(n),
+            online: false,
+            feil: String(e?.message || e),
+          });
+        }
+      }),
+  );
+
+  const alle = [lokal, ...eksterne];
+  return { tid: Date.now(), antall: alle.length, klare: alle.filter((n) => n.klar).length, noder: alle };
+}
+
+/**
+ * Jobbmodus «fordel»: starter samme treningsjobb på flere noder samtidig,
+ * slik at hele klyngen kan trene parallelt. Rapporterer status per node.
+ */
+export async function fordelTrening({ navn = "", kommando = "", noder = [], nodeIder = [], token = "" } = {}) {
+  const valgt = (Array.isArray(noder) ? noder : []).filter(
+    (n) => nodeBase(n) && (!nodeIder.length || nodeIder.includes(n.id)),
+  );
+  const taMedLokal = !nodeIder.length || nodeIder.includes("lokal");
+
+  const resultater = [];
+  if (taMedLokal) {
+    try {
+      const jobb = await koLeggTil({ navn, kommando });
+      resultater.push({ id: "lokal", navn: `${os.hostname()} (denne noden)`, ok: true, jobbId: jobb.id, feil: null });
+    } catch (e) {
+      resultater.push({ id: "lokal", navn: `${os.hostname()} (denne noden)`, ok: false, jobbId: "", feil: String(e?.message || e) });
+    }
+  }
+
+  const eksterne = await Promise.all(
+    valgt.map(async (n) => {
+      try {
+        const svar = await nodeKall(n, "/tts/trening", { token, method: "POST", body: { navn, kommando }, timeout: 60_000 });
+        return { id: n.id, navn: n.navn, ok: true, jobbId: svar?.jobb?.id || "", feil: null };
+      } catch (e) {
+        return { id: n.id, navn: n.navn, ok: false, jobbId: "", feil: String(e?.message || e) };
+      }
+    }),
+  );
+
+  const alle = [...resultater, ...eksterne];
+  return { modus: "fordel", startet: alle.filter((r) => r.ok).length, antall: alle.length, resultater: alle };
 }

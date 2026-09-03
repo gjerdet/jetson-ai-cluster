@@ -156,6 +156,9 @@ export const ROUTES: {
   ttsTrainingSelftest: string;
   ttsTrainingPreflight: string;
   ttsTrainingPytorch: string;
+  ttsTrainingResults: string;
+  ttsTrainingNodes: string;
+  ttsTrainingDistribute: string;
   status: string;
   login: string;
   register: string;
@@ -607,6 +610,14 @@ export interface TrainingJob {
   publisert?: string;
   mangler?: string[];
   telemetri?: TrainingTelemetry[];
+  resultat?: {
+    node: string;
+    epoker: TrainingEpoch[];
+    totaltEpoker?: number | null;
+    besteTap: number | null;
+    sisteTap: number | null;
+    snittEpokeSek: number | null;
+  };
   systemtest?: PiperSelftest;
 }
 
@@ -651,6 +662,73 @@ export interface PiperPreflight {
   kanInstallere: boolean;
   skript: string;
   anbefaling: string;
+}
+
+export interface TrainingEpoch {
+  nummer: number;
+  tid: number;
+  sekunder: number;
+  tap: number | null;
+}
+
+export interface TrainingResult {
+  id: string;
+  navn: string;
+  node: string;
+  status: TrainingJob["status"];
+  fremdrift: number;
+  klipp: number;
+  modellFil: string;
+  varighetSek: number | null;
+  epoker: TrainingEpoch[];
+  totaltEpoker: number | null;
+  besteTap: number | null;
+  sisteTap: number | null;
+  snittEpokeSek: number | null;
+  cpuSnitt: number | null;
+  cpuTopp: number | null;
+  gpuSnitt: number | null;
+  vramToppMb: number | null;
+  tempToppC: number | null;
+}
+
+export interface TrainingNodeJob {
+  id: string;
+  navn: string;
+  status: TrainingJob["status"];
+  fremdrift: number;
+}
+
+export interface TrainingNode {
+  id: string;
+  navn: string;
+  agentUrl: string;
+  online: boolean;
+  feil: string | null;
+  jetpack: string;
+  l4t: string;
+  cuda: string;
+  gpu: string;
+  torch: { finnes: boolean; versjon: string; cuda: boolean; major: number } | null;
+  klar: boolean;
+  anbefaling: string;
+  iKo: number;
+  aktivJobb: TrainingNodeJob | null;
+  sisteJobber: TrainingNodeJob[];
+}
+
+export interface TrainingNodes {
+  tid: number;
+  antall: number;
+  klare: number;
+  noder: TrainingNode[];
+}
+
+export interface TrainingDistribution {
+  modus: "fordel";
+  startet: number;
+  antall: number;
+  resultater: { id: string; navn: string; ok: boolean; jobbId: string; feil: string | null }[];
 }
 
 export interface TrainingTelemetry {

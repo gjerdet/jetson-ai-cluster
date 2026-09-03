@@ -1,5 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { Play, Square, Trash2, Rocket, RefreshCw, Volume2, Wand2, Download, CheckCircle2, XCircle, Stethoscope } from "lucide-react";
+import {
+  Play,
+  Square,
+  Trash2,
+  Rocket,
+  RefreshCw,
+  Volume2,
+  Wand2,
+  Download,
+  CheckCircle2,
+  XCircle,
+  Stethoscope,
+  Share2,
+  Server,
+  BarChart3,
+} from "lucide-react";
 import {
   backend,
   backendUrl,
@@ -10,6 +25,9 @@ import {
   type PiperSelftest,
   type PiperPreflight,
   type TtsConfig,
+  type TrainingResult,
+  type TrainingNodes,
+  type TrainingDistribution,
 } from "@/lib/backend";
 
 const feiltekst = (e: Error) =>
@@ -62,6 +80,12 @@ export function TrainingQueue() {
   const [preflight, setPreflight] = useState<PiperPreflight | null>(null);
   const [tester, setTester] = useState(false);
   const [kommando, setKommando] = useState("");
+  const [fane, setFane] = useState<"ko" | "resultat" | "noder">("ko");
+  const [resultater, setResultater] = useState<TrainingResult[]>([]);
+  const [noder, setNoder] = useState<TrainingNodes | null>(null);
+  const [modus, setModus] = useState<"enkel" | "fordel">("enkel");
+  const [valgteNoder, setValgteNoder] = useState<string[]>(["lokal"]);
+  const [fordeling, setFordeling] = useState<TrainingDistribution | null>(null);
   const timer = useRef<number | null>(null);
   const feil = useRef(0);
   const [offline, setOffline] = useState(false);
@@ -149,7 +173,41 @@ export function TrainingQueue() {
     setStatus(modell ? `spiller av: ${modell}` : "spiller av aktiv stemme");
   };
 
+  const lastResultater = async () => {
+    const { data, error } = await safe(() => backend.treningResultater());
+    if (error) return setStatus(feiltekst(error));
+    setResultater(data.resultater);
+  };
+
+  const lastNoder = async () => {
+    setStatus("henter nodeoversikt…");
+    const { data, error } = await safe(() => backend.treningNoder());
+    if (error) return setStatus(feiltekst(error));
+    setNoder(data);
+    setStatus(`${data.klare} av ${data.antall} noder er klare for trening`);
+  };
+
+  const byttFane = (ny: "ko" | "resultat" | "noder") => {
+    setFane(ny);
+    if (ny === "resultat") void lastResultater();
+    if (ny === "noder" && !noder) void lastNoder();
+  };
+
+  const velgNode = (id: string) =>
+    setValgteNoder((forrige) => (forrige.includes(id) ? forrige.filter((n) => n !== id) : [...forrige, id]));
+
+  const startFordelt = async () => {
+    setStatus("fordeler treningsjobben til valgte noder…");
+    const { data, error } = await safe(() => backend.fordelTrening({ navn, kommando, noder: valgteNoder }));
+    if (error) return setStatus(feiltekst(error));
+    setFordeling(data);
+    setStatus(`startet på ${data.startet} av ${data.antall} noder`);
+    void last();
+    void lastNoder();
+  };
+
   const start = async () => {
+    if (modus === "fordel") return startFordelt();
     const p = await hentPlan(preset, navn);
     if (p && !p.kanStarte) return setStatus(`kan ikke starte: ${p.problemer[0]}`);
     setStatus("validerer, transkriberer og starter trening…");

@@ -69,6 +69,9 @@ import {
   startInstallasjonPiper,
   piperPreflight,
   startInstallasjonPytorch,
+  treningResultater,
+  treningNoder,
+  fordelTrening,
 } from "./trening.mjs";
 
 import {
@@ -1140,6 +1143,42 @@ export async function handleApi(req, res, route, url, deps = {}) {
       }
     }
 
+
+    if (path === "/tts/trening/resultater" && method === "GET") {
+      return json(req, res, 200, { resultater: treningResultater() });
+    }
+
+    if (path === "/tts/trening/noder" && method === "GET") {
+      // Admin-oversikt over alle koblede Jetson-noder med JetPack og status.
+      const db = doc("nodes", { list: [] });
+      try {
+        return json(req, res, 200, await treningNoder(db.list, { token: process.env.AGENT_TOKEN || "" }));
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/tts/trening/fordel" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      const b = await readBody(req);
+      const db = doc("nodes", { list: [] });
+      try {
+        return json(
+          req,
+          res,
+          200,
+          await fordelTrening({
+            navn: b.navn,
+            kommando: b.kommando,
+            noder: db.list,
+            nodeIder: Array.isArray(b.noder) ? b.noder : [],
+            token: process.env.AGENT_TOKEN || "",
+          }),
+        );
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
 
     if (path === "/tts/trening") {
       if (method === "GET") return json(req, res, 200, treningStatus());
