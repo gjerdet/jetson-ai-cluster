@@ -103,9 +103,31 @@ while IFS='|' read -r id tekst; do
   ffmpeg -y -hide_banner -loglevel error -i "$src" -ar 22050 -ac 1 -c:a pcm_s16le "$WAV/$id.wav"
 done < "$MANIFEST"
 
+# Tomt datasett gir en kryptisk Python-feil langt inne i treningen.
+# Stopp tidlig med en forklarende melding i stedet.
+ANTALL_WAV=$(find "$WAV" -maxdepth 1 -type f -name '*.wav' | wc -l)
+if [ "$ANTALL_WAV" -eq 0 ]; then
+  echo "Ingen lydfiler ble bygget fra $MAPPE og $MANIFEST." >&2
+  echo "Sjekk at klippene er lastet opp og at metadata.csv har linjer på formen id|tekst." >&2
+  exit 1
+fi
+echo "==> $ANTALL_WAV klipp klare i $WAV"
+
 EPOCHS="${PIPER_EPOCHS:-2000}"
 BS="${PIPER_BATCH:-8}"
 KVAL="${PIPER_QUALITY:-low}"
+
+# Velg akselerator ut fra hva torch faktisk ser. Uten dette krasjer Lightning
+# med "No supported gpu backend found" når CUDA-hjulet mangler.
+if "$PIPER_PYTHON_BIN" -c 'import torch,sys;sys.exit(0 if torch.cuda.is_available() else 1)' >/dev/null 2>&1; then
+  AKSEL="gpu"
+else
+  AKSEL="cpu"
+  echo "! Fant ingen CUDA-enhet – trener på CPU (mye tregere)." >&2
+  echo "  Kjør INSTALLER PYTORCH i GUI-et for GPU-trening." >&2
+fi
+
+
 
 if har_ny_piper; then
   # Ny Piper (Open Home Foundation) bruker lydfilnavn i første CSV-kolonne.
