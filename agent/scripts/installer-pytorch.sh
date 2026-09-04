@@ -82,14 +82,47 @@ if ! apt_installer_robust python3-pip python3-dev libopenblas-dev libopenmpi-dev
   [ -n "$MANGLER" ] && adv "Disse pakkene kunne ikke installeres:$MANGLER – fortsetter, PyTorch-hjulet er ofte selvforsynt"
 fi
 
-python3 -m pip install --upgrade pip setuptools wheel 'numpy<2'
+# PEP 668: nyere Ubuntu (JetPack 7) merker system-Python som "externally managed".
+# Da må pip få lov til å skrive dit likevel.
+PIPFLAGG=(--no-cache-dir)
+if python3 -m pip install --dry-run --quiet wheel >/dev/null 2>&1; then
+  :
+else
+  PIPFLAGG+=(--break-system-packages)
+  adv "System-Python er externally managed – bruker --break-system-packages"
+fi
+
+python3 -m pip install "${PIPFLAGG[@]}" --upgrade pip setuptools wheel || \
+  adv "Klarte ikke oppgradere pip/setuptools – fortsetter"
+
+# numpy 1.x kreves kun for JetPack 5/6-hjulene. JetPack 7 bruker numpy 2.
+if [ "$JP" = "5.x" ] || [ "${JP:0:3}" = "6.x" ]; then
+  python3 -m pip install "${PIPFLAGG[@]}" 'numpy<2' || adv "numpy<2 feilet – fortsetter"
+fi
 
 # ---- 4. Installer NVIDIA PyTorch -------------------------------------------
-si "Installerer PyTorch fra $INDEKS (dette tar noen minutter)"
-if ! python3 -m pip install --no-cache-dir --extra-index-url "$INDEKS" torch torchaudio; then
-  adv "Indeksen svarte ikke – prøver NVIDIAs redist-arkiv"
-  REDIST="https://developer.download.nvidia.com/compute/redist/jp/v${L4T_MAJOR}"
-  python3 -m pip install --no-cache-dir --extra-index-url "$REDIST" torch torchaudio
+INDEKSER=("$INDEKS")
+case "$JP" in
+  7.x*) INDEKSER+=("https://pypi.jetson-ai-lab.io/jp7/cu129" "https://pypi.jetson-ai-lab.io/jp7/cu128") ;;
+  6.x*) INDEKSER+=("https://pypi.jetson-ai-lab.io/jp6/cu129" "https://pypi.jetson-ai-lab.io/jp6/cu128") ;;
+esac
+INDEKSER+=("https://developer.download.nvidia.com/compute/redist/jp/v${L4T_MAJOR}")
+
+INSTALLERT=0
+for idx in "${INDEKSER[@]}"; do
+  si "Prøver PyTorch-indeks $idx (dette tar noen minutter)"
+  if python3 -m pip install "${PIPFLAGG[@]}" --extra-index-url "$idx" torch torchaudio; then
+    INSTALLERT=1
+    ok "PyTorch installert fra $idx"
+    break
+  fi
+  adv "Indeksen $idx ga ingen brukbar pakke – prøver neste"
+done
+
+if [ "$INSTALLERT" -ne 1 ]; then
+  echo "Fant ingen PyTorch-hjul som passer denne Jetson-en (L4T R${L4T_MAJOR:-?})." >&2
+  echo "Sjekk nettilgang til pypi.jetson-ai-lab.io og prøv igjen." >&2
+  exit 4
 fi
 
 # ---- 5. Verifiser ------------------------------------------------------------
