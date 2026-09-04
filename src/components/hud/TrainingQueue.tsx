@@ -268,6 +268,26 @@ export function TrainingQueue() {
         </button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-1 text-[10px]">
+        {([
+          ["ko", "KØ", <Play key="a" className="size-3" />],
+          ["resultat", "RESULTATER", <BarChart3 key="b" className="size-3" />],
+          ["noder", "NODER", <Server key="c" className="size-3" />],
+        ] as const).map(([id, tekst, ikon]) => (
+          <button
+            key={id}
+            onClick={() => byttFane(id as "ko" | "resultat" | "noder")}
+            className={`flex items-center gap-1 rounded-full border px-3 py-1 ${
+              fane === id ? "border-primary/50 bg-primary/10 text-primary" : "border-primary/20 text-muted-foreground hover:text-primary"
+            }`}
+          >
+            {ikon} {tekst}
+          </button>
+        ))}
+      </div>
+
+      {fane === "ko" ? (
+      <>
       {/* --- kommandogenerator --- */}
       <div className="space-y-2 rounded-lg border border-primary/15 bg-primary/[0.03] p-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -397,14 +417,53 @@ export function TrainingQueue() {
         >
           <Volume2 className="size-3" /> TEST AKTIV STEMME
         </button>
+        <select
+          className="hud-input w-[150px]"
+          value={modus}
+          onChange={(e) => setModus(e.target.value as "enkel" | "fordel")}
+          title="Jobbmodus"
+        >
+          <option value="enkel">Modus: én node</option>
+          <option value="fordel">Modus: fordel</option>
+        </select>
         <button
           onClick={() => void start()}
-          disabled={plan ? !plan.kanStarte : false}
+          disabled={modus === "enkel" && plan ? !plan.kanStarte : false}
           className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10 disabled:opacity-40"
         >
-          <Play className="size-3" /> START TRENING
+          {modus === "fordel" ? <Share2 className="size-3" /> : <Play className="size-3" />}{" "}
+          {modus === "fordel" ? "FORDEL TRENING" : "START TRENING"}
         </button>
       </div>
+
+      {modus === "fordel" ? (
+        <div className="space-y-2 rounded-lg border border-primary/15 bg-primary/[0.03] p-2 text-[10px]">
+          <div className="flex items-center justify-between">
+            <span className="hud-title text-[9px] text-primary/80">VELG NODER SOM SKAL TRENE SAMTIDIG</span>
+            <button onClick={() => void lastNoder()} className="flex items-center gap-1 text-muted-foreground hover:text-primary">
+              <RefreshCw className="size-3" /> OPPDATER
+            </button>
+          </div>
+          {(noder?.noder || []).map((n) => (
+            <label key={n.id} className="flex flex-wrap items-center gap-2">
+              <input type="checkbox" checked={valgteNoder.includes(n.id)} onChange={() => velgNode(n.id)} />
+              <span className="text-foreground/80">{n.navn}</span>
+              <span className={n.klar ? "text-emerald-400" : "text-amber-400"}>{n.klar ? "klar" : "ikke klar"}</span>
+              {n.aktivJobb ? <span className="text-primary/80">kjører {n.aktivJobb.navn} ({n.aktivJobb.fremdrift}%)</span> : null}
+            </label>
+          ))}
+          {!noder ? <p className="text-muted-foreground">Trykk OPPDATER for å hente nodene.</p> : null}
+          {fordeling ? (
+            <div className="space-y-0.5 border-t border-primary/10 pt-1">
+              {fordeling.resultater.map((r) => (
+                <p key={r.id} className={r.ok ? "text-emerald-400" : "text-destructive"}>
+                  {r.navn}: {r.ok ? `startet (${r.jobbId.slice(0, 8)})` : r.feil}
+                </p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="space-y-1">
         {jobber.map((j) => {
@@ -517,6 +576,101 @@ export function TrainingQueue() {
         ) : null}
         {!jobber.length && !offline ? <p className="text-[10px] text-muted-foreground">Ingen treningsjobber enda.</p> : null}
       </div>
+      </>
+      ) : null}
+
+      {fane === "resultat" ? (
+        <div className="space-y-2">
+          <button
+            onClick={() => void lastResultater()}
+            className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10"
+          >
+            <RefreshCw className="size-3" /> OPPDATER RESULTATER
+          </button>
+          {resultater.map((r) => (
+            <div key={r.id} className="space-y-1 rounded-lg border border-primary/15 bg-primary/[0.03] p-2 text-[10px]">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-foreground/80">{r.navn}</span>
+                <span className={STATUSFARGE[r.status] ?? ""}>· {r.status}</span>
+                <span className="text-muted-foreground">· node: {r.node}</span>
+              </div>
+              <div className="flex flex-wrap gap-3 text-[9px] text-primary/80">
+                <span>skår (beste tap): {r.besteTap ?? "–"}</span>
+                <span>siste tap: {r.sisteTap ?? "–"}</span>
+                <span>
+                  epoker: {r.epoker.length}
+                  {r.totaltEpoker ? ` / ${r.totaltEpoker}` : ""}
+                </span>
+                <span>tid per epoke: {r.snittEpokeSek != null ? `${r.snittEpokeSek}s` : "–"}</span>
+                <span>total tid: {r.varighetSek != null ? `${Math.round(r.varighetSek / 60)} min` : "–"}</span>
+              </div>
+              <div className="flex flex-wrap gap-3 text-[9px] text-muted-foreground">
+                <span>CPU snitt {r.cpuSnitt ?? "–"}% · topp {r.cpuTopp ?? "–"}%</span>
+                <span>CUDA snitt {r.gpuSnitt ?? "–"}%</span>
+                <span>VRAM topp {r.vramToppMb ?? "–"} MB</span>
+                <span>temp topp {r.tempToppC ?? "–"}°C</span>
+              </div>
+              {r.epoker.length ? (
+                <div className="max-h-28 overflow-auto rounded-lg border border-primary/10 bg-background/40 p-1 font-mono text-[9px] text-foreground/70">
+                  {r.epoker.slice(-20).map((e) => (
+                    <p key={`${r.id}-${e.nummer}-${e.tid}`}>
+                      epoke {e.nummer} · {e.sekunder}s · tap {e.tap ?? "–"}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+              {r.modellFil ? <p className="break-all text-emerald-400">{r.modellFil}</p> : null}
+            </div>
+          ))}
+          {!resultater.length ? <p className="text-[10px] text-muted-foreground">Ingen treningsresultater enda.</p> : null}
+        </div>
+      ) : null}
+
+      {fane === "noder" ? (
+        <div className="space-y-2">
+          <button
+            onClick={() => void lastNoder()}
+            className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10"
+          >
+            <RefreshCw className="size-3" /> OPPDATER NODER
+          </button>
+          {(noder?.noder || []).map((n) => (
+            <div key={n.id} className="space-y-1 rounded-lg border border-primary/15 bg-primary/[0.03] p-2 text-[10px]">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-foreground/80">{n.navn}</span>
+                <span className={n.online ? "text-emerald-400" : "text-destructive"}>{n.online ? "online" : "offline"}</span>
+                {n.agentUrl ? <span className="break-all text-muted-foreground/70">{n.agentUrl}</span> : null}
+              </div>
+              <div className="flex flex-wrap gap-3 text-[9px] text-muted-foreground">
+                <span>JetPack {n.jetpack || "ukjent"}</span>
+                <span>L4T {n.l4t || "–"}</span>
+                <span>CUDA {n.cuda || "–"}</span>
+                <span>{n.gpu || "GPU ukjent"}</span>
+                <span>torch {n.torch?.finnes ? `${n.torch.versjon}${n.torch.cuda ? " (CUDA)" : ""}` : "mangler"}</span>
+              </div>
+              <div className="flex flex-wrap gap-3 text-[9px]">
+                <Sjekk ok={n.klar} navn={n.klar ? "klar for trening" : "ikke klar"} />
+                <span className="text-muted-foreground">i kø: {n.iKo}</span>
+                {n.aktivJobb ? (
+                  <span className="text-primary/80">
+                    kjører {n.aktivJobb.navn} · {n.aktivJobb.fremdrift}%
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">ingen aktiv jobb</span>
+                )}
+              </div>
+              {n.feil ? <p className="text-destructive">{n.feil}</p> : null}
+              {!n.klar && n.anbefaling ? <p className="text-amber-400">{n.anbefaling}</p> : null}
+              {n.sisteJobber.length ? (
+                <p className="text-[9px] text-muted-foreground/80">
+                  siste: {n.sisteJobber.map((j) => `${j.navn} (${j.status})`).join(" · ")}
+                </p>
+              ) : null}
+            </div>
+          ))}
+          {!noder ? <p className="text-[10px] text-muted-foreground">Henter nodeoversikt…</p> : null}
+        </div>
+      ) : null}
 
       {status ? <p className="text-[10px] text-muted-foreground">{status}</p> : null}
       {cfg && !cfg.treningKommando ? (
