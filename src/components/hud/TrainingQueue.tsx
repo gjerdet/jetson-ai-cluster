@@ -351,55 +351,54 @@ export function TrainingQueue() {
               </p>
             ))}
             {!plan.miljo.piperTrain ? (
-              <button
-                onClick={() => void installerPiper()}
-                className="mt-1 flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10"
-              >
-                <Download className="size-3" /> INSTALLER PIPER AUTOMATISK
-              </button>
+              <p className="text-amber-400">• Piper-treningsmiljø mangler – installer via knappene under</p>
             ) : null}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button
-                onClick={() => void kjorSystemtest()}
-                disabled={tester}
-                className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10 disabled:opacity-40"
-              >
-                <Stethoscope className="size-3" /> {tester ? "TESTER…" : "KJØR SYSTEMTEST"}
-              </button>
-              {systemtest ? (
-                <span className={systemtest.ok ? "text-emerald-400" : "text-destructive"}>
-                  {systemtest.ok ? "BESTÅTT" : "FEILET"} · {new Date(systemtest.tidspunkt).toLocaleTimeString("nb-NO")}
-                </span>
-              ) : null}
-            </div>
-            {systemtest ? <Systemtest test={systemtest} /> : null}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button
-                onClick={() => void kjorPreflight()}
-                className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10"
-              >
-                <Stethoscope className="size-3" /> SJEKK PYTORCH/CUDA
-              </button>
-              <button
-                onClick={() => void installerPytorch()}
-                disabled={preflight?.kanInstallere === false}
-                title={preflight && !preflight.kanInstallere ? "PyTorch kan ikke auto-installeres på denne noden" : undefined}
-                className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10 disabled:opacity-40"
-              >
-                <Download className="size-3" /> INSTALLER PYTORCH
-              </button>
-            </div>
-            {preflight ? (
-              <div className="mt-1 space-y-1 rounded-lg border border-primary/10 bg-background/50 p-2">
-                <p className={`text-[9px] ${preflight.ok ? "text-emerald-400" : "text-destructive"}`}>{preflight.anbefaling}</p>
-                {preflight.sjekker.map((s) => (
-                  <div key={s.navn} className="flex flex-wrap items-center gap-2 text-[9px]">
-                    <Sjekk ok={s.ok} navn={s.navn} />
-                    {s.detalj ? <span className="break-all text-muted-foreground/70">{s.detalj}</span> : null}
-                  </div>
-                ))}
+          </div>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2 pt-1 text-[10px]">
+          <button
+            onClick={() => void installerPiper()}
+            className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-primary hover:bg-primary/10"
+          >
+            <Download className="size-3" /> INSTALLER PIPER AUTOMATISK
+          </button>
+          <button
+            onClick={() => void kjorSystemtest()}
+            disabled={tester}
+            className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-primary hover:bg-primary/10 disabled:opacity-40"
+          >
+            <Stethoscope className="size-3" /> {tester ? "TESTER…" : "KJØR SYSTEMTEST"}
+          </button>
+          <button
+            onClick={() => void kjorPreflight()}
+            className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-primary hover:bg-primary/10"
+          >
+            <Stethoscope className="size-3" /> SJEKK PYTORCH/CUDA
+          </button>
+          <button
+            onClick={() => void installerPytorch()}
+            disabled={preflight?.kanInstallere === false}
+            title={preflight && !preflight.kanInstallere ? "PyTorch kan ikke auto-installeres på denne noden" : undefined}
+            className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-primary hover:bg-primary/10 disabled:opacity-40"
+          >
+            <Download className="size-3" /> INSTALLER PYTORCH
+          </button>
+          {systemtest ? (
+            <span className={systemtest.ok ? "text-emerald-400" : "text-destructive"}>
+              {systemtest.ok ? "SYSTEMTEST BESTÅTT" : "SYSTEMTEST FEILET"} · {new Date(systemtest.tidspunkt).toLocaleTimeString("nb-NO")}
+            </span>
+          ) : null}
+        </div>
+        {systemtest ? <Systemtest test={systemtest} /> : null}
+        {preflight ? (
+          <div className="mt-1 space-y-1 rounded-lg border border-primary/10 bg-background/50 p-2">
+            <p className={`text-[9px] ${preflight.ok ? "text-emerald-400" : "text-destructive"}`}>{preflight.anbefaling}</p>
+            {preflight.sjekker.map((s) => (
+              <div key={s.navn} className="flex flex-wrap items-center gap-2 text-[9px]">
+                <Sjekk ok={s.ok} navn={s.navn} />
+                {s.detalj ? <span className="break-all text-muted-foreground/70">{s.detalj}</span> : null}
               </div>
-            ) : null}
+            ))}
           </div>
         ) : null}
       </div>
