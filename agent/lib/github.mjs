@@ -219,7 +219,7 @@ export async function githubIndekser({ repo }) {
     deler.push(`### FIL: ${f.sti}\n${innhold}`);
     filer++;
     tegn += innhold.length;
-193:  }
+  }
   const tittel = `GitHub: ${meta.navn}`;
   const r = await addDocument({
     tittel,
