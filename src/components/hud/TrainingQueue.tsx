@@ -380,14 +380,14 @@ export function TrainingQueue() {
               >
                 <Stethoscope className="size-3" /> SJEKK PYTORCH/CUDA
               </button>
-              {preflight && !preflight.ok && preflight.kanInstallere ? (
-                <button
-                  onClick={() => void installerPytorch()}
-                  className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10"
-                >
-                  <Download className="size-3" /> INSTALLER PYTORCH
-                </button>
-              ) : null}
+              <button
+                onClick={() => void installerPytorch()}
+                disabled={preflight?.kanInstallere === false}
+                title={preflight && !preflight.kanInstallere ? "PyTorch kan ikke auto-installeres på denne noden" : undefined}
+                className="flex items-center gap-1 rounded-full border border-primary/30 px-3 py-1 text-[10px] text-primary hover:bg-primary/10 disabled:opacity-40"
+              >
+                <Download className="size-3" /> INSTALLER PYTORCH
+              </button>
             </div>
             {preflight ? (
               <div className="mt-1 space-y-1 rounded-lg border border-primary/10 bg-background/50 p-2">
