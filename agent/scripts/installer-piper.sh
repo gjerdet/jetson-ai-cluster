@@ -39,7 +39,21 @@ if dpkg-query -W -f='${Package} ${db:Status-Abbrev}\n' 2>/dev/null | grep -qv ' 
   adv "Oppdaget halvinstallerte pakker – reparerer pakkesystemet først"
   reparer_pakkesystem
 fi
-installer_avhengigheter
+if ! installer_avhengigheter; then
+  # En skadet systempakke (typisk libc-bin) skal ikke stoppe Piper når
+  # verktøyene vi faktisk trenger allerede ligger på maskinen.
+  MANGLENDE=""
+  for verktoy in git gcc make cmake pkg-config espeak-ng ffmpeg python3; do
+    command -v "$verktoy" >/dev/null 2>&1 || MANGLENDE="$MANGLENDE $verktoy"
+  done
+  python3 -c 'import venv' >/dev/null 2>&1 || MANGLENDE="$MANGLENDE python3-venv"
+  if [ -n "$MANGLENDE" ]; then
+    echo "Pakkeinstallasjonen feilet og disse mangler fortsatt:$MANGLENDE" >&2
+    echo "Reparer systempakkene med: sudo apt-get --fix-broken install" >&2
+    exit 1
+  fi
+  adv "apt feilet, men alle nødvendige verktøy finnes allerede – fortsetter"
+fi
 
 if [ -d "$PIPER_DIR/.git" ] && ! git -C "$PIPER_DIR" remote get-url origin 2>/dev/null | grep -qi 'OHF-Voice/piper1-gpl'; then
   LEGACY="${PIPER_DIR}.legacy-$(date +%Y%m%d-%H%M%S)"
