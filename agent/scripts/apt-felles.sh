@@ -30,23 +30,33 @@ reparer_pakkesystem() {
   apt-get clean || true
   rm -rf /var/lib/apt/lists/* 2>/dev/null || true
 
+  apt-get "${APT_OPTS[@]}" update --fix-missing || true
+
   # Halvinstallerte pakker (status ikke "ii") blokkerer alle videre apt-kall.
-  local pakke status
+  # VIKTIG: essensielle systempakker (f.eks. libc-bin) må ALDRI fjernes –
+  # de skal lastes ned på nytt og konfigureres.
+  local pakke status prioritet essensiell
   while read -r pakke status; do
     [ -n "$pakke" ] || continue
-    case "$status" in
-      ii) ;;
-      *)
-        _af_adv "Fjerner halvinstallert pakke: $pakke ($status)"
-        dpkg --remove --force-remove-reinstreq "$pakke" 2>/dev/null || \
-          dpkg --purge --force-all "$pakke" 2>/dev/null || true
-        ;;
-    esac
+    [ "$status" = "ii" ] && continue
+    essensiell="$(dpkg-query -W -f='${Essential}' "$pakke" 2>/dev/null || echo no)"
+    prioritet="$(dpkg-query -W -f='${Priority}' "$pakke" 2>/dev/null || echo optional)"
+    if [ "$essensiell" = "yes" ] || [ "$prioritet" = "required" ] || [ "$prioritet" = "important" ] || \
+       case "$pakke" in libc6|libc-bin|libc6-dev|dpkg|apt|bash|coreutils|perl-base) true ;; *) false ;; esac; then
+      _af_adv "Reparerer systempakke uten å fjerne den: $pakke ($status)"
+      rm -f "/var/cache/apt/archives/${pakke}"_*.deb 2>/dev/null || true
+      apt-get "${APT_OPTS[@]}" install -y --reinstall -o Dpkg::Options::=--force-confold "$pakke" 2>/dev/null || true
+      dpkg --configure --force-confold "$pakke" 2>/dev/null || true
+    else
+      _af_adv "Fjerner halvinstallert pakke: $pakke ($status)"
+      dpkg --remove --force-remove-reinstreq "$pakke" 2>/dev/null || \
+        dpkg --purge --force-all "$pakke" 2>/dev/null || true
+    fi
   done < <(dpkg-query -W -f='${Package} ${db:Status-Abbrev}\n' 2>/dev/null | awk '{print $1, $2}' | grep -v ' ii$' || true)
 
   dpkg --configure -a || true
-  apt-get "${APT_OPTS[@]}" update --fix-missing || true
   apt-get "${APT_OPTS[@]}" -f install -y || true
+
   dpkg --audit || true
 }
 
