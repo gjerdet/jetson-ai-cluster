@@ -45,6 +45,16 @@ reparer_pakkesystem() {
        case "$pakke" in libc6|libc-bin|libc6-dev|dpkg|apt|bash|coreutils|perl-base) true ;; *) false ;; esac; then
       _af_adv "Reparerer systempakke uten å fjerne den: $pakke ($status)"
       rm -f "/var/cache/apt/archives/${pakke}"_*.deb 2>/dev/null || true
+      # Last ned en fersk .deb og legg den inn direkte. apt-get install klarer
+      # ofte ikke å komme forbi en «half-installed» essensiell pakke, mens
+      # dpkg -i på en nylastet fil pakker den ut på nytt og konfigurerer den.
+      (
+        cd /var/cache/apt/archives 2>/dev/null || cd /tmp
+        if apt-get "${APT_OPTS[@]}" download "$pakke" 2>/dev/null; then
+          dpkg --install --force-confold --force-depends ./"${pakke}"_*.deb 2>/dev/null || true
+          rm -f ./"${pakke}"_*.deb 2>/dev/null || true
+        fi
+      ) || true
       apt-get "${APT_OPTS[@]}" install -y --reinstall -o Dpkg::Options::=--force-confold "$pakke" 2>/dev/null || true
       dpkg --configure --force-confold "$pakke" 2>/dev/null || true
     else
