@@ -104,12 +104,41 @@ python -m pip install --upgrade pip wheel setuptools scikit-build ninja
 si "Installerer Python-pakker (dette kan ta flere minutter)"
 # Installer treningsavhengighetene eksplisitt uten torch. Venv-et arver den
 # CUDA-tilpassede NVIDIA-utgaven fra JetPack; pip må aldri erstatte den.
+# NumPy 2 kan ikke laste eldre matplotlib-utvidelser fra JetPack-systemet og
+# gir da «numpy.core.multiarray failed to import». En lokal NumPy 1.26 og en
+# samsvarende matplotlib i venv-et overstyrer systemkopiene uten å røre CUDA-
+# PyTorch i system-Python.
 python -m pip install \
+  'numpy>=1.24,<2' 'matplotlib>=3.8,<4' \
   'lightning>=2,<3' 'tensorboard>=2,<3' 'tensorboardX>=2,<3' \
   'jsonargparse[signatures]>=4.27.7' 'onnx>=1,<2' \
   'pysilero-vad>=2.1,<3' 'cython>=3,<4' 'librosa<1' \
   'onnxruntime>=1,<2' 'pathvalidate>=3,<4'
 python -m pip install --no-deps -e "$PY_DIR"
+
+si "Kontrollerer NumPy, matplotlib, PyTorch og Lightning"
+if ! python - <<'PY'
+import matplotlib
+import numpy
+import torch
+import lightning
+
+numpy_major = int(numpy.__version__.split(".")[0])
+if numpy_major >= 2:
+    raise RuntimeError(f"Piper krever NumPy 1.x i dette miljøet, fant {numpy.__version__}")
+print(
+    "Python-pakker OK:",
+    f"numpy={numpy.__version__}",
+    f"matplotlib={matplotlib.__version__}",
+    f"torch={torch.__version__}",
+    f"lightning={lightning.__version__}",
+)
+PY
+then
+  echo "Python-pakkene i Piper-miljøet er inkompatible." >&2
+  echo "Slettingen og nyopprettingen av $PY_DIR/.venv lyktes ikke fullt ut." >&2
+  exit 1
+fi
 
 si "Bygger monotonic_align"
 if [ -f "$PY_DIR/build_monotonic_align.sh" ]; then
