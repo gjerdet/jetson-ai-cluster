@@ -24,7 +24,7 @@ NoNewPrivileges=false
 ProtectSystem=full
 ProtectKernelTunables=true
 RestrictSUIDSGID=true
-ReadWritePaths=/var/lib/jarvis /var/log/jarvis
+ReadWritePaths=/var/lib/jarvis /var/log/jarvis /etc/jarvis /opt/jarvis
 LimitNOFILE=8192
 
 [Install]
