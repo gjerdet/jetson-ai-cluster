@@ -195,9 +195,23 @@ async function harKommando(navn) {
   return Boolean(await kjor("bash", ["-lc", `command -v ${navn} >/dev/null 2>&1 && echo ja`]));
 }
 
+/**
+ * Installasjonsskriptet kan ikke alltid skrive til /etc/jarvis/agent.env
+ * (systemd gjør /etc skrivebeskyttet). Da legger det venv-stien her i stedet.
+ */
+function venvFraReservefil() {
+  try {
+    const sti = fsSync.readFileSync(path.join(DATA_DIR, "piper-venv.sti"), "utf8").trim();
+    return sti ? path.join(sti, "bin", "python") : "";
+  } catch {
+    return "";
+  }
+}
+
 const piperPythonKandidater = () => [
   process.env.PIPER_PYTHON,
   process.env.PIPER_VENV ? path.join(process.env.PIPER_VENV, "bin", "python") : "",
+  venvFraReservefil(),
   "/opt/jarvis/piper/src/python/.venv/bin/python",
   "/opt/jarvis/piper/.venv/bin/python",
   "/opt/piper/.venv/bin/python",
