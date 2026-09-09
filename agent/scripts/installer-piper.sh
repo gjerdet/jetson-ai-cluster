@@ -164,14 +164,38 @@ fi
 
 chown -R jarvis:jarvis "$PIPER_DIR" 2>/dev/null || true
 
-# Lagre venv-sti i agent.env så tren-stemme.sh finner den automatisk
-if [ -f "$ENV_FILE" ]; then
-  if grep -q "^PIPER_VENV=" "$ENV_FILE"; then
-    sed -i "s|^PIPER_VENV=.*|PIPER_VENV=$PY_DIR/.venv|" "$ENV_FILE"
-  else
-    echo "PIPER_VENV=$PY_DIR/.venv" >> "$ENV_FILE"
+# Lagre venv-sti i agent.env så tren-stemme.sh finner den automatisk.
+# Under systemd kan /etc være skrivebeskyttet (ProtectSystem). Da skal ikke
+# hele installasjonen feile – vi legger stien i datamappen i stedet.
+lagre_venv_sti() {
+  local sti="$PY_DIR/.venv"
+  if [ -f "$ENV_FILE" ] && [ -w "$ENV_FILE" ]; then
+    local tmp
+    tmp="$(mktemp /tmp/jarvis-env.XXXXXX)" || return 1
+    if grep -q "^PIPER_VENV=" "$ENV_FILE"; then
+      sed "s|^PIPER_VENV=.*|PIPER_VENV=$sti|" "$ENV_FILE" > "$tmp" || return 1
+    else
+      cat "$ENV_FILE" > "$tmp" || return 1
+      echo "PIPER_VENV=$sti" >> "$tmp"
+    fi
+    cat "$tmp" > "$ENV_FILE" && rm -f "$tmp" && return 0
+    rm -f "$tmp"
+    return 1
   fi
+  return 1
+}
+
+if lagre_venv_sti; then
   ok "PIPER_VENV lagt til i $ENV_FILE"
+else
+  RESERVE="${AGENT_DATA:-/var/lib/jarvis/data}/piper-venv.sti"
+  mkdir -p "$(dirname "$RESERVE")" 2>/dev/null || true
+  if echo "$PY_DIR/.venv" > "$RESERVE" 2>/dev/null; then
+    chown jarvis:jarvis "$RESERVE" 2>/dev/null || true
+    adv "Kunne ikke skrive til $ENV_FILE – lagret venv-stien i $RESERVE i stedet"
+  else
+    adv "Kunne ikke lagre venv-stien automatisk. Legg til PIPER_VENV=$PY_DIR/.venv i $ENV_FILE manuelt."
+  fi
 fi
 
 ok "Piper-treningsmiljø verifisert i $PY_DIR/.venv"
