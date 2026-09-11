@@ -1268,6 +1268,50 @@ export async function handleApi(req, res, route, url, deps = {}) {
       return json(req, res, 200, { ok: treningAvbryt(id), jobb: treningJobb(id) });
     }
 
+    // ---- AirLLM (stor modell lokalt, lag for lag) ------------------------
+
+    if (path === "/airllm/status" && method === "GET") {
+      try {
+        return json(req, res, 200, await airllmStatus());
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/airllm/config" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      const b = await readBody(req);
+      return json(req, res, 200, { config: lagreAirllmConfig(b || {}) });
+    }
+
+    if (path === "/airllm/installer" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      try {
+        const b = await readBody(req);
+        return json(req, res, 200, { jobb: await startInstallasjonAirllm({ modell: b?.modell || "" }) });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/airllm/start" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      try {
+        return json(req, res, 200, await startAirllm());
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/airllm/stopp" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      try {
+        return json(req, res, 200, await stoppAirllm());
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
     if (path === "/tts/treningssett" && method === "GET")
       return json(req, res, 200, { manifest: trainingManifest(), mappe: clipDir(), statistikk: clipStats() });
 
