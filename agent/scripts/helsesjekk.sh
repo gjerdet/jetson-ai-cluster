@@ -14,7 +14,7 @@ set -uo pipefail
 GRN="\033[32m"; GUL="\033[33m"; RED="\033[31m"; BLA="\033[36m"; RST="\033[0m"
 
 JSON=0
-AGENT_PORT="${AGENT_PORT:-8787}"
+AGENT_PORT="${AGENT_PORT:-}"
 GUI_PORT="${JARVIS_GUI_PORT:-8080}"
 OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}"
 KREVDE_MODELLER="${JARVIS_MODELS:-${JARVIS_CHAT_MODEL:-llama3.2:3b} ${JARVIS_HERMES_MODEL:-hermes3:8b} ${JARVIS_EMBED_MODEL:-nomic-embed-text}}"
@@ -29,14 +29,6 @@ if [ -z "$AGENT_TOKEN_LOCAL" ] && [ -r "$AGENT_ENV_FILE" ]; then
   AGENT_TOKEN_LOCAL="$(grep -E '^AGENT_TOKEN=' "$AGENT_ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)"
 fi
 
-# Porten står i agent.env (f.eks. 8443 ved TLS). Uten dette sjekket helsesjekken
-# standardporten 8787 og meldte en frisk backend som nede.
-if [ -z "${AGENT_PORT_SATT:-}" ] && [ -z "${AGENT_PORT:-}" ] && [ -r "$AGENT_ENV_FILE" ]; then
-  PORT_FRA_ENV="$(grep -E '^AGENT_PORT=' "$AGENT_ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'")"
-  [ -n "$PORT_FRA_ENV" ] && AGENT_PORT="$PORT_FRA_ENV"
-fi
-
-
 while [ $# -gt 0 ]; do
   case "$1" in
     --json) JSON=1 ;;
@@ -47,6 +39,23 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+
+# Porten står i agent.env (f.eks. 8443 når TLS er på). Uten dette sjekket
+# helsesjekken standardporten 8787 og meldte en frisk backend som nede.
+if [ -z "$AGENT_PORT" ] && [ -r "$AGENT_ENV_FILE" ]; then
+  AGENT_PORT="$(grep -E '^AGENT_PORT=' "$AGENT_ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "\"'" | tr -d '[:space:]')"
+fi
+# Siste utvei: prøv de vanlige portene.
+if [ -z "$AGENT_PORT" ]; then
+  for p in 8787 8443; do
+    if curl -sSk --max-time 4 -o /dev/null "http://127.0.0.1:$p/api/status" 2>/dev/null ||
+       curl -sSk --max-time 4 -o /dev/null "https://127.0.0.1:$p/api/status" 2>/dev/null; then
+      AGENT_PORT="$p"; break
+    fi
+  done
+fi
+AGENT_PORT="${AGENT_PORT:-8787}"
+
 
 ANTALL_OK=0; ANTALL_ADV=0; ANTALL_FEIL=0
 JSON_RADER=()
