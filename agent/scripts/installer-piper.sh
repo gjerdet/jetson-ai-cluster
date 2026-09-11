@@ -73,44 +73,54 @@ fi
 PY_DIR="$PIPER_DIR"
 [ -f "$PY_DIR/setup.py" ] || { echo "Fant ikke $PY_DIR/setup.py"; exit 1; }
 
-# Preflight: NVIDIA PyTorch med CUDA må være på plass i system-Python før
-# Piper i det hele tatt prøver å starte. Vi oppdager JetPack-versjonen og
-# installerer riktig hjul automatisk i stedet for bare å feile.
+# Preflight: prøv system-Python først, men ikke gjør Piper avhengig av at akkurat
+# denne tolken kan bruke torch. På JetPack 7 kan system-Python og Piper-venv-et
+# ha ulike pakkestier. Den avgjørende installasjonen gjøres derfor direkte i
+# Piper-tolken nedenfor.
 PYTORCH_SKRIPT="$(dirname "$(readlink -f "$0")")/installer-pytorch.sh"
 if ! python3 -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 and torch.cuda.is_available() else 1)' >/dev/null 2>&1; then
   if [ "${JARVIS_AUTO_PYTORCH:-1}" = "1" ] && [ -f "$PYTORCH_SKRIPT" ]; then
-    adv "NVIDIA PyTorch med CUDA mangler – installerer riktig versjon for JetPack først"
-    bash "$PYTORCH_SKRIPT"
+    adv "NVIDIA PyTorch med CUDA mangler i system-Python – prøver automatisk installasjon"
+    bash "$PYTORCH_SKRIPT" || adv "System-Python kunne ikke klargjøres – fortsetter med direkte installasjon i Piper-miljøet"
   fi
 fi
-if ! python3 -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 else 1)' >/dev/null 2>&1; then
-  echo "NVIDIA PyTorch 2.x mangler i system-Python." >&2
-  echo "Kjør: sudo bash $PYTORCH_SKRIPT – den oppdager JetPack-versjonen og installerer riktig hjul." >&2
-  exit 1
-fi
-if ! python3 -c 'import torch,sys;sys.exit(0 if torch.cuda.is_available() else 1)' >/dev/null 2>&1; then
+if python3 -c 'import torch' >/dev/null 2>&1 && ! python3 -c 'import torch,sys;sys.exit(0 if torch.cuda.is_available() else 1)' >/dev/null 2>&1; then
   adv "PyTorch er installert, men ser ingen CUDA-enhet. Treningen blir svært treg på CPU."
 fi
 
 
 si "Oppretter Python-venv i $PY_DIR/.venv"
-# JetPack leverer normalt en CUDA-tilpasset PyTorch i system-Python. Behold
-# tilgang til den i venv-et; en tilfeldig PyPI-utgave av torch mangler ofte
-# GPU-støtten som stemmetreningen trenger på Jetson.
-python3 -m venv --system-site-packages --clear "$PY_DIR/.venv"
+# Piper får et isolert miljø og NVIDIA-hjulet installeres eksplisitt der. Dette
+# unngår kollisjon mellom en arvet system-torch og en lokal CUDA-utgave.
+VENV_BACKUP=""
+if [ -d "$PY_DIR/.venv" ]; then
+  VENV_BACKUP="$PY_DIR/.venv.jarvis-backup"
+  rm -rf "$VENV_BACKUP"
+  mv "$PY_DIR/.venv" "$VENV_BACKUP"
+fi
+gjenopprett_venv() {
+  local kode=$?
+  if [ "$kode" -ne 0 ] && [ -n "$VENV_BACKUP" ] && [ -d "$VENV_BACKUP" ]; then
+    rm -rf "$PY_DIR/.venv"
+    mv "$VENV_BACKUP" "$PY_DIR/.venv"
+    echo "Gjenopprettet forrige Piper-miljø etter installasjonsfeil." >&2
+  fi
+  exit "$kode"
+}
+trap gjenopprett_venv EXIT
+python3 -m venv "$PY_DIR/.venv"
 source "$PY_DIR/.venv/bin/activate"
 python -m pip install --upgrade pip wheel setuptools scikit-build ninja
 
-# --system-site-packages er ikke tilstrekkelig på alle JetPack 7-images. Hvis
-# venv-et fortsatt ikke kan importere CUDA-PyTorch, installer samme NVIDIA-hjul
-# direkte i tolken Piper faktisk skal bruke. Dette fjerner avviket mellom en
-# grønn systemtest for python3 og «No module named torch» under trening.
+# Installer NVIDIA-hjulet direkte i tolken Piper faktisk skal bruke. Dette
+# fjerner avviket mellom system-Python og «No module named torch» under trening.
 if ! python -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 and torch.cuda.is_available() else 1)' >/dev/null 2>&1; then
   si "PyTorch mangler i Piper-miljøet – installerer NVIDIA-hjulet direkte i venv-et"
   PYTORCH_PYTHON="$PY_DIR/.venv/bin/python" bash "$PYTORCH_SKRIPT"
 fi
-if ! python -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 else 1)' >/dev/null 2>&1; then
-  echo "PyTorch kunne ikke installeres i Piper-miljøet: $PY_DIR/.venv/bin/python" >&2
+if ! python -c 'import torch,sys;print("torch", torch.__version__, "cuda", torch.version.cuda, "available", torch.cuda.is_available());sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 and torch.cuda.is_available() else 1)' 2>&1; then
+  echo "NVIDIA PyTorch med CUDA kunne ikke installeres i Piper-miljøet: $PY_DIR/.venv/bin/python" >&2
+  echo "Se linjene over for hvilken PyTorch-indeks eller pakke som feilet." >&2
   exit 1
 fi
 
@@ -212,6 +222,8 @@ else
 fi
 
 ok "Piper-treningsmiljø verifisert i $PY_DIR/.venv"
+[ -z "$VENV_BACKUP" ] || rm -rf "$VENV_BACKUP"
+trap - EXIT
 echo ""
 echo "Neste steg:"
 echo "  1. Last opp stemmeklipp under SYSTEM → STEMME"

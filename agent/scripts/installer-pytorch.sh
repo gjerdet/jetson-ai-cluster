@@ -17,6 +17,10 @@ if ! command -v "$PYTHON_BIN" >/dev/null 2>&1 && [ ! -x "$PYTHON_BIN" ]; then
   exit 1
 fi
 si "Installerer PyTorch i $PYTHON_BIN"
+ER_VENV=0
+if "$PYTHON_BIN" -c 'import sys;sys.exit(0 if sys.prefix != sys.base_prefix else 1)' >/dev/null 2>&1; then
+  ER_VENV=1
+fi
 
 # shellcheck source=/dev/null
 source "$(dirname "$(readlink -f "$0")")/apt-felles.sh"
@@ -71,7 +75,7 @@ if command -v nvcc >/dev/null 2>&1; then
 elif [ -f /usr/local/cuda/version.json ]; then
   CUDA_VERSJON="$(python3 -c 'import json;print(json.load(open("/usr/local/cuda/version.json"))["cuda"]["version"])' 2>/dev/null | cut -d. -f1,2 || true)"
 fi
-if [ -z "$CUDA_VERSJON" ]; then
+if [ -z "$CUDA_VERSJON" ] && [ "$ER_VENV" -eq 0 ]; then
   adv "Fant ikke CUDA-verktøykjeden (nvcc). Installerer CUDA-runtime fra JetPack-metapakken."
   apt_installer_robust nvidia-jetpack || adv "Klarte ikke installere nvidia-jetpack automatisk – fortsetter."
 else
@@ -79,24 +83,31 @@ else
 fi
 
 # ---- 3. Avhengigheter -------------------------------------------------------
-si "Installerer systemavhengigheter for PyTorch"
-if ! apt_installer_robust python3-pip python3-dev libopenblas-dev libopenmpi-dev libomp-dev; then
+if [ "$ER_VENV" -eq 1 ]; then
+  ok "Målet er et isolert Python-miljø – bruker eksisterende JetPack/CUDA og hopper over apt"
+else
+  si "Installerer systemavhengigheter for PyTorch"
+  if ! apt_installer_robust python3-pip python3-dev libopenblas-dev libopenmpi-dev libomp-dev; then
   # Siste utvei: installer pakkene én for én, slik at én skadet .deb ikke
   # river med seg hele settet.
-  adv "Samlet installasjon feilet – installerer pakkene enkeltvis"
-  MANGLER=""
-  for p in python3-pip python3-dev libopenblas-dev libopenmpi-dev libomp-dev; do
-    apt_installer_robust "$p" || MANGLER="$MANGLER $p"
-  done
-  [ -n "$MANGLER" ] && adv "Disse pakkene kunne ikke installeres:$MANGLER – fortsetter, PyTorch-hjulet er ofte selvforsynt"
+    adv "Samlet installasjon feilet – installerer pakkene enkeltvis"
+    MANGLER=""
+    for p in python3-pip python3-dev libopenblas-dev libopenmpi-dev libomp-dev; do
+      apt_installer_robust "$p" || MANGLER="$MANGLER $p"
+    done
+    [ -n "$MANGLER" ] && adv "Disse pakkene kunne ikke installeres:$MANGLER – fortsetter, PyTorch-hjulet er ofte selvforsynt"
+  fi
 fi
 
 # PEP 668: nyere Ubuntu (JetPack 7) merker system-Python som "externally managed".
 # Da må pip få lov til å skrive dit likevel.
 PIPFLAGG=(--no-cache-dir)
-if "$PYTHON_BIN" -m pip install --dry-run --quiet wheel >/dev/null 2>&1; then
-  :
-else
+if [ "$ER_VENV" -eq 0 ] && "$PYTHON_BIN" - <<'PY' | grep -q '^1$'
+import os, sysconfig
+stdlib = sysconfig.get_path("stdlib")
+print("1" if os.path.exists(os.path.join(stdlib, "EXTERNALLY-MANAGED")) else "0")
+PY
+then
   PIPFLAGG+=(--break-system-packages)
   adv "System-Python er externally managed – bruker --break-system-packages"
 fi
@@ -124,14 +135,19 @@ for idx in "${INDEKSER[@]}"; do
   si "Prøver PyTorch-indeks $idx (dette tar noen minutter)"
   # Indeksen må være primær. Med --extra-index-url kunne pip velge den vanlige
   # PyPI-utgaven uten Jetson/SBSA-CUDA selv om NVIDIA-hjulet var tilgjengelig.
-  if "$PYTHON_BIN" -m pip install "${PIPFLAGG[@]}" --upgrade --index-url "$idx" torch; then
+  PIP_LOGG="$(mktemp /tmp/jarvis-pytorch-pip.XXXXXX)"
+  if "$PYTHON_BIN" -m pip install "${PIPFLAGG[@]}" --upgrade --index-url "$idx" torch 2>&1 | tee "$PIP_LOGG"; then
     if "$PYTHON_BIN" -c 'import torch,sys; print("torch", torch.__version__, "cuda", torch.version.cuda, "available", torch.cuda.is_available()); sys.exit(0 if torch.cuda.is_available() else 1)'; then
       INSTALLERT=1
       ok "PyTorch med CUDA installert fra $idx"
+      rm -f "$PIP_LOGG"
       break
     fi
     adv "Pakken fra $idx kan importeres, men mangler CUDA – prøver neste kilde"
   fi
+  adv "Siste pip-meldinger fra $idx:"
+  tail -n 12 "$PIP_LOGG" >&2 || true
+  rm -f "$PIP_LOGG"
   adv "Indeksen $idx ga ingen brukbar pakke – prøver neste"
 done
 
