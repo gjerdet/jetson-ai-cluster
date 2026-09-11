@@ -206,9 +206,14 @@ if [ "${HOPP_OVER_STEMME:-0}" != "1" ]; then
     ok "PyTorch er allerede på plass"
   fi
 
+  PIPER_OK=0
   if [ -n "$PIPER_VENV_STI" ] && [ -x "$PIPER_VENV_STI/bin/python" ]; then
-    ok "Piper-treningsmiljøet er allerede på plass"
+    "$PIPER_VENV_STI/bin/python" -c 'import torch,lightning,piper.train; assert torch.cuda.is_available()' >/dev/null 2>&1 && PIPER_OK=1
+  fi
+  if [ "$PIPER_OK" -eq 1 ]; then
+    ok "Piper-treningsmiljøet er allerede på plass og ser CUDA"
   elif [ "$TORCH_OK" -eq 1 ]; then
+    [ -n "$PIPER_VENV_STI" ] && adv "Eksisterende Piper-miljø er ufullstendig – bygger det på nytt"
     si "Installerer Piper-treningsmiljø …"
     if bash "$APP_DIR/scripts/installer-piper.sh"; then
       ok "Piper installert"

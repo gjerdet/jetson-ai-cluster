@@ -42,6 +42,7 @@ kandidat_python() {
 
 har_piper() { "$1" -c 'import piper.train' >/dev/null 2>&1 || "$1" -m piper_train.preprocess --help >/dev/null 2>&1; }
 har_torch() { "$1" -c 'import torch' >/dev/null 2>&1; }
+har_cuda_torch() { "$1" -c 'import torch,sys;sys.exit(0 if torch.cuda.is_available() else 1)' >/dev/null 2>&1; }
 
 # Velg først en tolker som har både Piper og torch. Et venv uten torch gir
 # ellers «ModuleNotFoundError: No module named torch» langt inne i treningen.
@@ -50,7 +51,7 @@ finn_piper_python() {
   while read -r p; do
     [ -n "$p" ] || continue
     if har_piper "$p"; then
-      if har_torch "$p"; then beste="$p"; break; fi
+      if har_torch "$p" && har_cuda_torch "$p"; then beste="$p"; break; fi
       [ -z "$delvis" ] && delvis="$p"
     fi
   done < <(kandidat_python)
@@ -104,10 +105,14 @@ if ! har_torch "$PIPER_PYTHON_BIN"; then
   echo "==> PyTorch mangler i $PIPER_PYTHON_BIN – installerer NVIDIA PyTorch og Piper på nytt"
   kjor_installasjon || true
 fi
+if har_torch "$PIPER_PYTHON_BIN" && ! har_cuda_torch "$PIPER_PYTHON_BIN"; then
+  echo "PyTorch i Piper-miljøet mangler CUDA-støtte – installerer riktig NVIDIA-utgave og bygger Piper-miljøet på nytt" >&2
+  kjor_installasjon || true
+fi
 if ! har_torch "$PIPER_PYTHON_BIN"; then
   echo "PyTorch (torch) mangler i Piper-miljøet: $PIPER_PYTHON_BIN" >&2
   "$PIPER_PYTHON_BIN" -c 'import sys; print("sys.executable:", sys.executable); print("sys.path:", sys.path)' >&2 2>/dev/null || true
-  echo "Kjør på noden: sudo bash agent/scripts/installer-pytorch.sh && sudo bash agent/scripts/installer-piper.sh" >&2
+  echo "Kjør én vanlig Jarvis-oppdatering; den installerer PyTorch og bygger Piper-miljøet automatisk." >&2
   exit 1
 fi
 
