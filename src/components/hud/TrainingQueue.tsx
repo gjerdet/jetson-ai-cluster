@@ -254,6 +254,13 @@ export function TrainingQueue() {
   };
 
   const siste = (j: TrainingJob) => (j.telemetri || [])[(j.telemetri || []).length - 1];
+  const kjoretid = (j: TrainingJob) => {
+    if (!j.startet) return "";
+    const slutt = j.ferdig ? Date.parse(j.ferdig) : Date.now();
+    const sekunder = Math.max(0, Math.floor((slutt - Date.parse(j.startet)) / 1000));
+    if (!Number.isFinite(sekunder)) return "";
+    return sekunder < 60 ? `${sekunder} sek` : `${Math.floor(sekunder / 60)} min ${sekunder % 60} sek`;
+  };
   const sisteFeillinjer = (j: TrainingJob) =>
     (j.logg || [])
       .filter((linje) => !/starter:|feilet med kode/i.test(linje))
@@ -473,6 +480,7 @@ export function TrainingQueue() {
                 <button className="min-w-0 flex-1 text-left" onClick={() => setApen(apen === j.id ? "" : j.id)}>
                   <span className="truncate text-foreground/80">{j.navn}</span>{" "}
                   <span className={STATUSFARGE[j.status] ?? ""}>· {j.status}</span>
+                  {j.status === "kjører" ? <span className="text-muted-foreground"> · {kjoretid(j)}</span> : null}
                   <span className="text-muted-foreground"> · {j.klipp} klipp</span>
                 </button>
                 {j.status === "ferdig" && j.modellFil ? (
@@ -551,7 +559,7 @@ export function TrainingQueue() {
               ) : null}
               {j.publisert ? <p className="mt-1 text-emerald-400">aktiv stemme: {j.publisert}</p> : null}
 
-              {apen === j.id ? (
+              {apen === j.id || j.status === "kjører" ? (
                 <pre className="mt-1 max-h-40 overflow-auto rounded-lg border border-primary/15 bg-background/40 p-2 text-[9px] text-foreground/70">
                   {(j.logg || []).join("\n") || "ingen logg enda"}
                 </pre>
