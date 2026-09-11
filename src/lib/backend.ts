@@ -52,6 +52,7 @@ import {
   type TrainingDistribution,
   type PiperSelftest,
   type PiperPreflight,
+  type AirllmStatus,
   type VoiceClip,
   type MemoryItem,
   type Plan,
