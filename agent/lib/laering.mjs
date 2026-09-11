@@ -58,6 +58,14 @@ export async function hentUrl(url, { timeoutMs = 20_000, maksTegn = 200_000 } = 
   }
 }
 
+/** Kort utdrag som hører til treffet like etter posisjonen i søkeresultatet. */
+function utdragEtter(html, fra) {
+  const bit = html.slice(fra, fra + 4000);
+  const m = /class="result-snippet"[^>]*>([\s\S]*?)<\/td>/i.exec(bit);
+  if (!m) return "";
+  return tekstFraHtml(m[1]).replace(/\s+/g, " ").trim().slice(0, 320);
+}
+
 /** Fritekstsøk på nettet via DuckDuckGo (ingen API-nøkkel). */
 export async function sokWeb(sporsmal, antall = 5) {
   const q = String(sporsmal || "").trim();
@@ -87,7 +95,7 @@ export async function sokWeb(sporsmal, antall = 5) {
       const tittel = tekstFraHtml(m[2]).slice(0, 200);
       if (!tittel || sett.has(href)) continue;
       sett.add(href);
-      treff.push({ tittel, url: href });
+      treff.push({ tittel, url: href, utdrag: utdragEtter(html, m.index + m[0].length) });
     }
     if (!treff.length) throw new Error("Fant ingen treff. Prøv andre søkeord.");
     return { sporsmal: q, treff };
