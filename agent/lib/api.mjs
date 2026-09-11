@@ -777,14 +777,28 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const sisteBrukerMelding = meldinger
         .filter((m) => m && m.role === "user" && typeof m.content === "string")
         .pop()?.content;
-      const minneKontekst = sisteBrukerMelding ? memoryContext(sisteBrukerMelding, { topK: 5, maksLengde: 1200 }) : "";
+      const minneKontekst = sisteBrukerMelding ? memoryContext(sisteBrukerMelding, { topK: 6, maksLengde: 1200 }) : "";
       const memoryMessage = minneKontekst
         ? [{ role: "system", content: `Relevant minne fra tidligere:\n${minneKontekst}` }]
         : [];
+      // Utstyrsprofiler og verktøyerfaring gir konkret, lokal kunnskap.
+      let utstyrMelding = [];
+      let erfaringMelding = [];
+      try {
+        const u = sisteBrukerMelding ? utstyrKontekst(sisteBrukerMelding) : "";
+        if (u) utstyrMelding = [{ role: "system", content: `Kjent utstyr hos brukeren (bruk dette, ikke gjett):\n${u}` }];
+        const h = sisteBrukerMelding ? verktoyHint(sisteBrukerMelding) : "";
+        if (h) erfaringMelding = [{ role: "system", content: `Egen verktøyerfaring:\n${h}` }];
+      } catch {
+        /* kontekst er valgfri – chatten skal aldri falle på dette */
+      }
 
       const messages = [
         ...systemMelding,
         ...memoryMessage,
+        ...utstyrMelding,
+        ...erfaringMelding,
+
         ...meldinger
           .filter((m) => m && typeof m.content === "string")
           .slice(-40)
