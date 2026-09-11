@@ -183,6 +183,42 @@ else
 fi
 chown jarvis:jarvis /var/log/jarvis 2>/dev/null || true
 
+# ── 3b. Stemmemiljø (PyTorch + Piper) installeres automatisk ─────────────────
+# Idempotent: hopper over alt som allerede er på plass. HOPP_OVER_STEMME=1 slår av.
+if [ "${HOPP_OVER_STEMME:-0}" != "1" ]; then
+  PIPER_VENV_STI=""
+  [ -f "$ENV_FILE" ] && PIPER_VENV_STI="$(grep -E '^PIPER_VENV=' "$ENV_FILE" | tail -1 | cut -d= -f2- || true)"
+  [ -z "$PIPER_VENV_STI" ] && [ -f /var/lib/jarvis/data/piper-venv.sti ] &&
+    PIPER_VENV_STI="$(cat /var/lib/jarvis/data/piper-venv.sti 2>/dev/null || true)"
+
+  TORCH_OK=0
+  python3 -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0])>=2 else 1)' >/dev/null 2>&1 && TORCH_OK=1
+
+  if [ "$TORCH_OK" -eq 0 ]; then
+    si "Installerer NVIDIA PyTorch (kan ta 5–20 min) …"
+    if bash "$APP_DIR/scripts/installer-pytorch.sh"; then
+      ok "PyTorch installert"
+      TORCH_OK=1
+    else
+      adv "PyTorch-installasjonen feilet – stemmetrening blir utilgjengelig inntil videre"
+    fi
+  else
+    ok "PyTorch er allerede på plass"
+  fi
+
+  if [ -n "$PIPER_VENV_STI" ] && [ -x "$PIPER_VENV_STI/bin/python" ]; then
+    ok "Piper-treningsmiljøet er allerede på plass"
+  elif [ "$TORCH_OK" -eq 1 ]; then
+    si "Installerer Piper-treningsmiljø …"
+    if bash "$APP_DIR/scripts/installer-piper.sh"; then
+      ok "Piper installert"
+    else
+      adv "Piper-installasjonen feilet – prøv «INSTALLER PIPER AUTOMATISK» i GUI-et"
+    fi
+  fi
+fi
+
+
 
 # ── 4. Bygg GUI ───────────────────────────────────────────────────────────────
 if [ -f "$SOURCE_DIR/package.json" ] && [ "${HOPP_GUI:-0}" -eq 0 ]; then
