@@ -708,6 +708,26 @@ export const backend = {
   /** Installerer NVIDIA PyTorch for riktig JetPack-versjon som jobb med logg. */
   installerPytorch: () =>
     call<{ jobb: TrainingJob }>(ROUTES.ttsTrainingPytorch!, { method: "POST" }, { timeoutMs: 30_000, retries: 0 }),
+  /** Status for AirLLM-motoren: installert, kjører, modell og siste svartid. */
+  airllmStatus: () => call<AirllmStatus>(ROUTES.airllmStatus!, {}, { timeoutMs: 30_000, retries: 0 }),
+  /** Lagrer modell, port og maks tokens for AirLLM. */
+  airllmLagre: (v: { modell?: string; port?: number; maksTokens?: number; komprimering?: string }) =>
+    call<{ config: AirllmStatus["config"] }>(
+      ROUTES.airllmConfig!,
+      { method: "POST", body: JSON.stringify(v) },
+      { timeoutMs: 20_000, retries: 0 },
+    ),
+  /** Installerer AirLLM og laster ned valgt modell som jobb med logg. */
+  installerAirllm: (modell = "") =>
+    call<{ jobb: TrainingJob }>(
+      ROUTES.airllmInstall!,
+      { method: "POST", body: JSON.stringify({ modell }) },
+      { timeoutMs: 30_000, retries: 0 },
+    ),
+  /** Starter den lokale AirLLM-tjenesten. */
+  airllmStart: () => call<AirllmStatus>(ROUTES.airllmStart!, { method: "POST" }, { timeoutMs: 120_000, retries: 0 }),
+  /** Stopper tjenesten og frigjør minnet. */
+  airllmStopp: () => call<AirllmStatus>(ROUTES.airllmStop!, { method: "POST" }, { timeoutMs: 60_000, retries: 0 }),
   /** Resultatsammendrag per treningsjobb (skår, epoketid, CPU/CUDA). */
   treningResultater: () =>
     call<{ resultater: TrainingResult[] }>(ROUTES.ttsTrainingResults!, {}, { timeoutMs: 30_000, retries: 0 }),
