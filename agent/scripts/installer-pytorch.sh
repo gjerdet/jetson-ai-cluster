@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Oppdager JetPack/L4T-versjon og installerer NVIDIA PyTorch med riktig
-# CUDA-kompatibilitet i system-Python. Kjøres av GUI-et (INSTALLER PYTORCH)
-# eller automatisk fra installer-piper.sh. Alt skjer lokalt på noden.
+# CUDA-kompatibilitet i valgt Python. Standard er system-Python, men Piper kan
+# sette PYTORCH_PYTHON til sin egen venv slik at samme interpreter får torch.
 set -euo pipefail
 
 BLA="\033[36m"; GRN="\033[32m"; GUL="\033[33m"; RST="\033[0m"
@@ -10,6 +10,13 @@ ok() { echo -e "${GRN}✓ $*${RST}"; }
 adv() { echo -e "${GUL}! $*${RST}"; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Kjør med sudo"; exit 1; }
+
+PYTHON_BIN="${PYTORCH_PYTHON:-python3}"
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1 && [ ! -x "$PYTHON_BIN" ]; then
+  echo "Fant ikke Python-tolk: $PYTHON_BIN" >&2
+  exit 1
+fi
+si "Installerer PyTorch i $PYTHON_BIN"
 
 # shellcheck source=/dev/null
 source "$(dirname "$(readlink -f "$0")")/apt-felles.sh"
@@ -87,19 +94,19 @@ fi
 # PEP 668: nyere Ubuntu (JetPack 7) merker system-Python som "externally managed".
 # Da må pip få lov til å skrive dit likevel.
 PIPFLAGG=(--no-cache-dir)
-if python3 -m pip install --dry-run --quiet wheel >/dev/null 2>&1; then
+if "$PYTHON_BIN" -m pip install --dry-run --quiet wheel >/dev/null 2>&1; then
   :
 else
   PIPFLAGG+=(--break-system-packages)
   adv "System-Python er externally managed – bruker --break-system-packages"
 fi
 
-python3 -m pip install "${PIPFLAGG[@]}" --upgrade pip setuptools wheel || \
+"$PYTHON_BIN" -m pip install "${PIPFLAGG[@]}" --upgrade pip setuptools wheel || \
   adv "Klarte ikke oppgradere pip/setuptools – fortsetter"
 
 # numpy 1.x kreves kun for JetPack 5/6-hjulene. JetPack 7 bruker numpy 2.
 if [ "$JP" = "5.x" ] || [ "${JP:0:3}" = "6.x" ]; then
-  python3 -m pip install "${PIPFLAGG[@]}" 'numpy<2' || adv "numpy<2 feilet – fortsetter"
+  "$PYTHON_BIN" -m pip install "${PIPFLAGG[@]}" 'numpy<2' || adv "numpy<2 feilet – fortsetter"
 fi
 
 # ---- 4. Installer NVIDIA PyTorch -------------------------------------------
@@ -117,8 +124,8 @@ for idx in "${INDEKSER[@]}"; do
   si "Prøver PyTorch-indeks $idx (dette tar noen minutter)"
   # Indeksen må være primær. Med --extra-index-url kunne pip velge den vanlige
   # PyPI-utgaven uten Jetson/SBSA-CUDA selv om NVIDIA-hjulet var tilgjengelig.
-  if python3 -m pip install "${PIPFLAGG[@]}" --upgrade --index-url "$idx" torch; then
-    if python3 -c 'import torch,sys; print("torch", torch.__version__, "cuda", torch.version.cuda, "available", torch.cuda.is_available()); sys.exit(0 if torch.cuda.is_available() else 1)'; then
+  if "$PYTHON_BIN" -m pip install "${PIPFLAGG[@]}" --upgrade --index-url "$idx" torch; then
+    if "$PYTHON_BIN" -c 'import torch,sys; print("torch", torch.__version__, "cuda", torch.version.cuda, "available", torch.cuda.is_available()); sys.exit(0 if torch.cuda.is_available() else 1)'; then
       INSTALLERT=1
       ok "PyTorch med CUDA installert fra $idx"
       break
@@ -136,20 +143,20 @@ fi
 
 # ---- 5. Verifiser ------------------------------------------------------------
 si "Verifiserer installasjonen"
-if ! python3 - <<'PY'
+if ! "$PYTHON_BIN" - <<'PY'
 import sys, torch
 print("torch", torch.__version__, "cuda", torch.version.cuda, "available", torch.cuda.is_available())
 sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 else 1)
 PY
 then
-  echo "PyTorch 2.x ble ikke installert riktig i system-Python." >&2
+  echo "PyTorch 2.x ble ikke installert riktig i $PYTHON_BIN." >&2
   exit 1
 fi
 
-if ! python3 -c 'import torch,sys;sys.exit(0 if torch.cuda.is_available() else 1)'; then
+if ! "$PYTHON_BIN" -c 'import torch,sys;sys.exit(0 if torch.cuda.is_available() else 1)'; then
   echo "PyTorch er installert, men ser ingen CUDA-enhet." >&2
   echo "Sjekk at brukeren har tilgang til /dev/nvhost* og at JetPack-driverne er installert." >&2
   exit 3
 fi
 
-ok "NVIDIA PyTorch med CUDA er klar i system-Python"
+ok "NVIDIA PyTorch med CUDA er klar i $PYTHON_BIN"

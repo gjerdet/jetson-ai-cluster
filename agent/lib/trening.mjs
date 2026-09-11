@@ -592,7 +592,7 @@ function tolkFeil(logg = "") {
     return "JetPack/L4T-versjonen på noden er nyere enn kartet i skriptet. Kjør git pull + update-jetson.sh; nyeste versjon faller tilbake til JetPack 7-hjulene.";
   if (/ffmpeg mangler|ffmpeg: not found/i.test(t)) return "ffmpeg mangler – sudo apt install ffmpeg.";
   if (/No module named ['"]?torch|PyTorch \(torch\) mangler/i.test(t))
-    return "PyTorch mangler i Piper-miljøet. Kjør INSTALLER PYTORCH og deretter INSTALLER PIPER AUTOMATISK på nytt.";
+    return "PyTorch mangler i Piper-miljøet. Kjør én vanlig Jarvis-oppdatering; den installerer nå NVIDIA PyTorch direkte i Piper-miljøet.";
   if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
 
   if (/out of memory|CUDA out of memory|Killed/i.test(t)) return "Tom for minne – velg presetet «Jetson · lav VRAM».";

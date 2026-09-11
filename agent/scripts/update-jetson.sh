@@ -190,6 +190,7 @@ if [ "${HOPP_OVER_STEMME:-0}" != "1" ]; then
   [ -f "$ENV_FILE" ] && PIPER_VENV_STI="$(grep -E '^PIPER_VENV=' "$ENV_FILE" | tail -1 | cut -d= -f2- || true)"
   [ -z "$PIPER_VENV_STI" ] && [ -f /var/lib/jarvis/data/piper-venv.sti ] &&
     PIPER_VENV_STI="$(cat /var/lib/jarvis/data/piper-venv.sti 2>/dev/null || true)"
+  [ -z "$PIPER_VENV_STI" ] && [ -x /opt/jarvis/piper/.venv/bin/python ] && PIPER_VENV_STI="/opt/jarvis/piper/.venv"
 
   TORCH_OK=0
   python3 -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0])>=2 and torch.cuda.is_available() else 1)' >/dev/null 2>&1 && TORCH_OK=1
