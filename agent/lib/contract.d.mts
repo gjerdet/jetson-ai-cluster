@@ -215,6 +215,12 @@ export const ROUTES: {
   memory: string;
   memoryRecall: string;
   memoryTimeline: string;
+  memoryConsolidate: string;
+  equipment: string;
+  equipmentFromScan: string;
+  reflection: string;
+  reflectionOutcome: string;
+  reflectionPatterns: string;
   plans: string;
   planSteps: string;
   evaluations: string;
