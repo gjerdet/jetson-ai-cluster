@@ -222,7 +222,7 @@ else
 fi
 
 ok "Piper-treningsmiljø verifisert i $PY_DIR/.venv"
-rm -rf "$VENV_BACKUP"
+[ -z "$VENV_BACKUP" ] || rm -rf "$VENV_BACKUP"
 trap - EXIT
 echo ""
 echo "Neste steg:"
