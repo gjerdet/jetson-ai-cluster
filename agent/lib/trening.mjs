@@ -591,7 +591,10 @@ function tolkFeil(logg = "") {
   if (/Ukjent eller manglende JetPack\/L4T-versjon|ikke ut til å være en Jetson med JetPack/i.test(t))
     return "JetPack/L4T-versjonen på noden er nyere enn kartet i skriptet. Kjør git pull + update-jetson.sh; nyeste versjon faller tilbake til JetPack 7-hjulene.";
   if (/ffmpeg mangler|ffmpeg: not found/i.test(t)) return "ffmpeg mangler – sudo apt install ffmpeg.";
+  if (/No module named ['"]?torch|PyTorch \(torch\) mangler/i.test(t))
+    return "PyTorch mangler i Piper-miljøet. Kjør INSTALLER PYTORCH og deretter INSTALLER PIPER AUTOMATISK på nytt.";
   if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
+
   if (/out of memory|CUDA out of memory|Killed/i.test(t)) return "Tom for minne – velg presetet «Jetson · lav VRAM».";
   if (/ingen lydfil|No such file/i.test(t)) return "Fant ikke lydfilene som manifestet peker på.";
   if (/Fant ingen checkpoint/i.test(t)) return "Treningen rakk aldri å lagre et checkpoint – øk epoker eller sjekk loggen over.";
