@@ -8,6 +8,9 @@ Wants=network-online.target
 Type=simple
 User=jarvis
 Group=jarvis
+# Uten video/render får GPU-kallene «NvRmMemInitNvmap failed: Permission denied»
+# og treningen faller tilbake til CPU.
+SupplementaryGroups=video render
 WorkingDirectory=/opt/jarvis-agent
 EnvironmentFile=/etc/jarvis/agent.env
 ExecStart=/usr/bin/node /opt/jarvis-agent/server.mjs
