@@ -1501,7 +1501,56 @@ export async function handleApi(req, res, route, url, deps = {}) {
       if (method === "POST") return json(req, res, 200, { ok: true, navn: await runBackup() });
     }
 
+    // ---- Utstyrsregister ---------------------------------------------------
+    if (path === "/utstyr" && method === "GET") {
+      const type = url.searchParams.get("type") || undefined;
+      const sok = url.searchParams.get("sok") || undefined;
+      return json(req, res, 200, { utstyr: listUtstyr({ type, sok }), stats: utstyrStats() });
+    }
+
+    if (path === "/utstyr" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, { enhet: lagreUtstyr(b || {}) });
+    }
+
+    if (path === "/utstyr/fra-skann" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, laerFraSkann(b?.verter || b?.hosts || []));
+    }
+
+    if (path === "/utstyr/gjett" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, { type: gjettType(b || {}) });
+    }
+
+    if (path.startsWith("/utstyr/") && method === "GET") {
+      const nokkel = decodeURIComponent(path.slice("/utstyr/".length));
+      const e = hentUtstyr(nokkel);
+      return e ? json(req, res, 200, { enhet: e }) : json(req, res, 404, { error: "Fant ikke enheten" });
+    }
+
+    if (path.startsWith("/utstyr/") && method === "DELETE")
+      return json(req, res, 200, slettUtstyr(decodeURIComponent(path.slice("/utstyr/".length))));
+
+    // ---- Refleksjon og verktøyerfaring -------------------------------------
+    if (path === "/refleksjon" && method === "GET") return json(req, res, 200, verktoyStats());
+
+    if (path === "/refleksjon" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, await reflekter(b || {}));
+    }
+
+    if (path === "/refleksjon/utfall" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, registrerUtfall(b || {}));
+    }
+
+    if (path === "/refleksjon/monstre" && method === "POST") return json(req, res, 200, feilmonstre());
+
     // ---- AGI: minne -------------------------------------------------------
+    if (path === "/minne/konsolider" && method === "POST") return json(req, res, 200, konsoliderMinne());
+
+
     if (path === "/minne" && method === "GET")
       return json(req, res, 200, memoryStats());
 
