@@ -51,6 +51,8 @@ import {
   toolAvailability,
   customToolPrompt,
   customToolNames,
+  taSisteSokekort,
+  sokekortBlokk,
 } from "@/lib/agent-tools";
 import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
@@ -533,6 +535,12 @@ export function ChatPanel({
             ok,
           });
           results.push(`[${c.name}]\n${res}`);
+          const kort = taSisteSokekort();
+          if (kort)
+            setMessages((m) => [
+              ...m,
+              { role: "assistant", content: sokekortBlokk(kort), node: "NETTSØK", time: Date.now() },
+            ]);
         }
         thread.push({
           role: "user",

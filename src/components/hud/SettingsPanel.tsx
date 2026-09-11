@@ -29,6 +29,7 @@ import { KnowledgePanel } from "@/components/hud/KnowledgePanel";
 import { VoiceSection } from "@/components/hud/VoiceSection";
 import { PersonalitySection } from "@/components/hud/settings/PersonalitySection";
 import { TokenBudsjettSection } from "@/components/hud/settings/TokenBudsjettSection";
+import { SkriptSection } from "@/components/hud/settings/SkriptSection";
 
 
 import {
@@ -101,6 +102,7 @@ type Tab =
   | "evner"
   | "koblinger"
   | "plugins"
+  | "skript"
   | "personlighet";
 
 
@@ -112,6 +114,7 @@ const TABS: { id: Tab; label: string; icon: typeof Sliders }[] = [
   { id: "agenter", label: "AGENTER", icon: Bot },
   { id: "kunnskap", label: "KUNNSKAP", icon: BookOpen },
   { id: "stemme", label: "STEMME", icon: Mic },
+  { id: "skript", label: "SKRIPT", icon: Terminal },
   { id: "evaluator", label: "EVALUATOR", icon: Scale },
   { id: "budsjett", label: "BUDSJETT", icon: Coins },
   { id: "enheter", label: "ENHETER", icon: HardDrive },
@@ -185,6 +188,7 @@ export function SettingsPanel({
         {tab === "backend" ? <BackendPanel /> : null}
         {tab === "kunnskap" ? <KnowledgePanel /> : null}
         {tab === "stemme" ? <VoiceSection /> : null}
+        {tab === "skript" ? <SkriptSection config={config} /> : null}
         {tab === "personlighet" ? <PersonalitySection /> : null}
         {tab === "budsjett" ? <TokenBudsjettSection config={config} update={update} /> : null}
 

@@ -619,7 +619,7 @@ export const backend = {
     call<{ config: RagConfig }>(ROUTES.knowledgeConfig!, { method: "PUT", body: JSON.stringify(v) }, { retries: 0 }),
   // ---- selvlæring: søk på nettet og lær ----
   sokWeb: (sporsmal: string, antall = 5) =>
-    call<{ sporsmal: string; treff: { tittel: string; url: string }[] }>(
+    call<{ sporsmal: string; treff: { tittel: string; url: string; utdrag?: string }[] }>(
       ROUTES.knowledgeWebSearch!,
       { method: "POST", body: JSON.stringify({ sporsmal, antall }) },
       { timeoutMs: 30_000, retries: 0 },

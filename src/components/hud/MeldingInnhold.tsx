@@ -1,9 +1,34 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { SOKEKORT_SLUTT, SOKEKORT_START, type Sokekort } from "@/lib/agent-tools";
+import { SokeKort } from "./SokeKort";
 
-type Blokk = { type: "tekst" | "kode"; sprak?: string; innhold: string };
+type Blokk =
+  | { type: "tekst" | "kode"; sprak?: string; innhold: string }
+  | { type: "sok"; kort: Sokekort };
 
-function del(tekst: string): Blokk[] {
+function delSok(tekst: string): Blokk[] {
+  const ut: Blokk[] = [];
+  let i = 0;
+  for (;;) {
+    const start = tekst.indexOf(SOKEKORT_START, i);
+    const slutt = start < 0 ? -1 : tekst.indexOf(SOKEKORT_SLUTT, start);
+    if (start < 0 || slutt < 0) break;
+    if (start > i) ut.push({ type: "tekst", innhold: tekst.slice(i, start) });
+    const rå = tekst.slice(start + SOKEKORT_START.length, slutt);
+    try {
+      const kort = JSON.parse(rå) as Sokekort;
+      if (kort && Array.isArray(kort.treff)) ut.push({ type: "sok", kort });
+    } catch {
+      ut.push({ type: "tekst", innhold: rå });
+    }
+    i = slutt + SOKEKORT_SLUTT.length;
+  }
+  if (i < tekst.length) ut.push({ type: "tekst", innhold: tekst.slice(i) });
+  return ut;
+}
+
+function delKode(tekst: string): Blokk[] {
   const ut: Blokk[] = [];
   const re = /```([\w+-]*)\n?([\s\S]*?)```/g;
   let i = 0;
@@ -14,7 +39,13 @@ function del(tekst: string): Blokk[] {
     i = m.index + m[0].length;
   }
   if (i < tekst.length) ut.push({ type: "tekst", innhold: tekst.slice(i) });
-  return ut.filter((b) => b.type === "kode" || b.innhold.trim());
+  return ut;
+}
+
+function del(tekst: string): Blokk[] {
+  return delSok(tekst)
+    .flatMap((b) => (b.type === "tekst" ? delKode(b.innhold) : [b]))
+    .filter((b) => b.type !== "tekst" || b.innhold.trim());
 }
 
 function Kode({ sprak, innhold }: { sprak?: string; innhold: string }) {
@@ -47,7 +78,9 @@ export function MeldingInnhold({ tekst }: { tekst: string }) {
   return (
     <>
       {blokker.map((b, i) =>
-        b.type === "kode" ? (
+        b.type === "sok" ? (
+          <SokeKort key={i} kort={b.kort} />
+        ) : b.type === "kode" ? (
           <Kode key={i} {...(b.sprak ? { sprak: b.sprak } : {})} innhold={b.innhold} />
         ) : (
           <span key={i} className="whitespace-pre-wrap">

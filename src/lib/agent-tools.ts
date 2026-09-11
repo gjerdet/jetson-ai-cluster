@@ -141,7 +141,7 @@ export const TOOL_CATALOG: ToolSpec[] = [
   {
     name: "web_sok",
     category: "minne",
-    summary: "Fritekstsøk på nettet – gir tittel og URL til kilder du kan lære av.",
+    summary: "Fritekstsøk på nettet – gir tittel, URL og et kort utdrag fra hver kilde i chatten.",
     args: '{"sok": "TrueNAS Scale API v2.0 pools", "antall": 5}',
     builtin: true,
   },
@@ -370,7 +370,8 @@ Tilgjengelige verktøy:
 - kollega_diagnose {"node": "Hermes"} – ende-til-ende diagnose av en kollega-node.
 - laer_om {"tema": "Junos BGP-konfigurasjon", "antall": 3} – skaff deg NY kunnskap: søker på nettet,
   leser kildene og lagrer dem varig i den lokale kunnskapsbasen. Du kan også gi {"urler": ["https://..."]}.
-- web_sok {"sok": "TrueNAS API pools", "antall": 5} – finn kilder (tittel + URL) uten å lagre noe.
+- web_sok {"sok": "TrueNAS API pools", "antall": 5} – finn kilder: tittel, URL og et kort utdrag fra hver
+  kilde. Treffene vises som et eget søkekort i chatten der brukeren kan lagre en kilde i kunnskapsbasen.
 - les_url {"url": "https://..."} – les én side/dokumentasjon som ren tekst.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
 - utstyr_liste {} eller {"sok": "truenas"} – slå opp i utstyrsregisteret: kjente enheter med IP, type, rolle og fakta.
@@ -580,6 +581,31 @@ export function stripToolCalls(text: string): string {
 }
 
 const str = (v: unknown) => (typeof v === "string" ? v : v == null ? "" : String(v));
+
+/** Treff fra et nettsøk som chatten kan vise som eget kort. */
+export type SokeTreff = { tittel: string; url: string; utdrag: string; lagret?: boolean };
+export type Sokekort = { sporsmal: string; treff: SokeTreff[] };
+
+let sisteSokekort: Sokekort | null = null;
+
+function settSokekort(kort: Sokekort) {
+  sisteSokekort = kort.treff.length ? kort : null;
+}
+
+/** Henter (og tømmer) siste nettsøk, slik at chatten kan vise det som kort. */
+export function taSisteSokekort(): Sokekort | null {
+  const s = sisteSokekort;
+  sisteSokekort = null;
+  return s;
+}
+
+export const SOKEKORT_START = "[[SOKEKORT]]";
+export const SOKEKORT_SLUTT = "[[/SOKEKORT]]";
+
+/** Pakker et søkekort som en tekstblokk chatvisningen gjenkjenner. */
+export function sokekortBlokk(kort: Sokekort): string {
+  return `${SOKEKORT_START}${JSON.stringify(kort)}${SOKEKORT_SLUTT}`;
+}
 
 export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string> {
   const { config, topics } = ctx;
@@ -939,6 +965,15 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     try {
       const r = await backend.laerOm(tema, { urler, antall });
       if (!r.kilder.length) return `Fant ingen kilder om «${tema}».`;
+      settSokekort({
+        sporsmal: tema,
+        treff: r.kilder.map((k) => ({
+          tittel: k.tittel,
+          url: k.url,
+          utdrag: str(k.utdrag).replace(/\s+/g, " ").slice(0, 320),
+          lagret: k.biter > 0,
+        })),
+      });
       const kilder = r.kilder
         .map((k) => `- ${k.tittel} (${k.url})${k.feil ? ` – FEIL: ${k.feil}` : ` – ${k.biter} biter lagret`}`)
         .join("\n");
@@ -956,13 +991,21 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     }
   }
 
-  if (call.name === "web_sok") {
+  if (call.name === "web_sok" || call.name === "nett_sok") {
     const q = str(call.args["sok"] ?? call.args["q"] ?? call.args["tema"] ?? call.args["tekst"]);
     if (!q) return "Mangler søketekst.";
     const antall = Math.max(1, Math.min(Number(call.args["antall"] ?? 5) || 5, 10));
     try {
       const r = await backend.sokWeb(q, antall);
-      return r.treff.map((t, i) => `${i + 1}. ${t.tittel}\n   ${t.url}`).join("\n");
+      const treff = r.treff.map((t) => ({
+        tittel: t.tittel,
+        url: t.url,
+        utdrag: str((t as { utdrag?: string }).utdrag),
+      }));
+      settSokekort({ sporsmal: q, treff });
+      return treff
+        .map((t, i) => `${i + 1}. ${t.tittel}\n   ${t.url}${t.utdrag ? `\n   ${t.utdrag}` : ""}`)
+        .join("\n");
     } catch (e) {
       return `Nettsøk feilet: ${e instanceof Error ? e.message : String(e)}`;
     }
