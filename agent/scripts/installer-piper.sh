@@ -101,6 +101,19 @@ python3 -m venv --system-site-packages --clear "$PY_DIR/.venv"
 source "$PY_DIR/.venv/bin/activate"
 python -m pip install --upgrade pip wheel setuptools scikit-build ninja
 
+# --system-site-packages er ikke tilstrekkelig på alle JetPack 7-images. Hvis
+# venv-et fortsatt ikke kan importere CUDA-PyTorch, installer samme NVIDIA-hjul
+# direkte i tolken Piper faktisk skal bruke. Dette fjerner avviket mellom en
+# grønn systemtest for python3 og «No module named torch» under trening.
+if ! python -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 and torch.cuda.is_available() else 1)' >/dev/null 2>&1; then
+  si "PyTorch mangler i Piper-miljøet – installerer NVIDIA-hjulet direkte i venv-et"
+  PYTORCH_PYTHON="$PY_DIR/.venv/bin/python" bash "$PYTORCH_SKRIPT"
+fi
+if ! python -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 else 1)' >/dev/null 2>&1; then
+  echo "PyTorch kunne ikke installeres i Piper-miljøet: $PY_DIR/.venv/bin/python" >&2
+  exit 1
+fi
+
 si "Installerer Python-pakker (dette kan ta flere minutter)"
 # Installer treningsavhengighetene eksplisitt uten torch. Venv-et arver den
 # CUDA-tilpassede NVIDIA-utgaven fra JetPack; pip må aldri erstatte den.
