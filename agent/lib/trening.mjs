@@ -473,7 +473,10 @@ function start(id) {
   logg(id, `starter: ${j.kommando}`);
   let p;
   try {
-    p = spawn("bash", ["-lc", j.kommando], { stdio: ["ignore", "pipe", "pipe"] });
+    p = spawn("bash", ["-lc", j.kommando], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, PYTHONUNBUFFERED: "1" },
+    });
   } catch (e) {
     oppdater(id, { status: "feilet", feil: String(e?.message || e), ferdig: new Date().toISOString() });
     logg(id, `kunne ikke starte prosessen: ${String(e?.message || e)}`);
@@ -500,6 +503,16 @@ function start(id) {
     if (!j2 || j2.status !== "kjører") return;
     oppdater(id, { telemetri: [...(j2.telemetri || []), punkt].slice(-MAKS_TELEMETRI) });
   }, 5000);
+
+  // Enkel livstegnsmelding når Piper bruker lang tid uten å skrive noe.
+  // Dette skiller en aktiv prosess fra en jobb som faktisk har låst seg.
+  const livstegnTimer = setInterval(() => {
+    const aktiv = hentJobb(id);
+    if (!aktiv || aktiv.status !== "kjører") return;
+    const startet = Date.parse(aktiv.startet || "");
+    const minutter = Number.isFinite(startet) ? Math.max(1, Math.floor((Date.now() - startet) / 60000)) : 1;
+    logg(id, `prosessen kjører fortsatt (${minutter} min) – venter på neste melding fra Piper`);
+  }, 60000);
 
   const lesLinjer = (strom) => {
     let rest = "";
@@ -528,6 +541,7 @@ function start(id) {
 
   p.on("close", async (kode) => {
     clearInterval(telemetriTimer);
+    clearInterval(livstegnTimer);
     prosesser.delete(id);
     const gjeldende = hentJobb(id);
     if (gjeldende?.status === "avbrutt") return kjorNeste();
