@@ -165,7 +165,7 @@ export function AirllmSection({
   );
 }
 
-function Felt({ navn, verdi, ok }: { navn: string; verdi: string; ok?: boolean }) {
+function Felt({ navn, verdi, ok }: { navn: string; verdi: string; ok?: boolean | undefined }) {
   return (
     <div className="rounded border border-primary/15 bg-background/20 px-2 py-1">
       <p className="text-[9px] text-muted-foreground">{navn}</p>
