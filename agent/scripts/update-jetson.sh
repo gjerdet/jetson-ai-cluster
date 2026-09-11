@@ -298,6 +298,10 @@ if [ -f "$AGENT_SERVICE_MAL" ] && [ -f "/etc/systemd/system/$SERVICE.service" ];
     cp "$AGENT_SERVICE_MAL" "/etc/systemd/system/$SERVICE.service"
   fi
 fi
+# GPU-tilgang for treningsjobber (ellers faller Piper tilbake til CPU).
+for grp in video render; do
+  getent group "$grp" >/dev/null 2>&1 && usermod -aG "$grp" jarvis 2>/dev/null || true
+done
 systemctl daemon-reload
 
 # ── 7. Start tjenester ─────────────────────────────────────────────────────────
