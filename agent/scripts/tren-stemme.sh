@@ -92,8 +92,8 @@ command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det f�
 command -v espeak-ng >/dev/null 2>&1 || { echo "espeak-ng mangler – installer det først (apt install espeak-ng)" >&2; exit 1; }
 
 # Språket for fonemisering. Engelsk er standard fordi eSpeak-dataene alltid
-# finnes; norsk («nb»/«no») kan velges med PIPER_ESPEAK_VOICE. Vi tester den
-# samme broen treningen faktisk bruker, og velger første kode som virker.
+# finnes; norsk («nb»/«no») kan velges med PIPER_ESPEAK_VOICE. Piper sin
+# kildeinstallasjon må først kobles til systemets eSpeak-data.
 ESPEAK_STEMME="${PIPER_ESPEAK_VOICE:-}"
 ESPEAK_KANDIDATER="${ESPEAK_STEMME:-en-us en en-gb nb no}"
 
@@ -106,19 +106,49 @@ if ! har_ny_piper && ! har_gammel_piper; then
   kjor_installasjon || true
 fi
 
+koble_piper_til_espeak_data() {
+  har_ny_piper || return 0
+  local pakkemappe datasti maal
+  pakkemappe="$("$PIPER_PYTHON_BIN" - <<'PY' 2>/dev/null || true
+from pathlib import Path
+import piper
+print(Path(piper.__file__).resolve().parent)
+PY
+)"
+  [ -n "$pakkemappe" ] || return 1
+  maal="$pakkemappe/espeak-ng-data"
+  [ -d "$maal/voices" ] && return 0
+  for datasti in /usr/share/espeak-ng-data /usr/lib/aarch64-linux-gnu/espeak-ng-data /usr/lib/x86_64-linux-gnu/espeak-ng-data; do
+    [ -d "$datasti/voices" ] || continue
+    rm -rf "$maal" 2>/dev/null || return 1
+    ln -s "$datasti" "$maal" 2>/dev/null || return 1
+    echo "==> Koblet Piper til eSpeak-data: $datasti"
+    return 0
+  done
+  return 1
+}
+
+if ! koble_piper_til_espeak_data; then
+  echo "Piper mangler tilgang til systemets eSpeak-data – reparerer Piper-miljøet." >&2
+  kjor_installasjon || true
+  koble_piper_til_espeak_data || true
+fi
+
 velg_espeak_stemme() {
   local kandidater="$1"
   if har_ny_piper; then
     "$PIPER_PYTHON_BIN" - $kandidater <<'PY' 2>/dev/null
 import sys
-from piper import espeakbridge
+from piper.phonemize_espeak import EspeakPhonemizer
+phonemizer = EspeakPhonemizer()
 for kode in sys.argv[1:]:
     try:
-        espeakbridge.set_voice(kode)
+        resultat = phonemizer.phonemize(kode, "Piper language test.")
     except Exception:
         continue
-    print(kode)
-    break
+    if resultat:
+        print(kode)
+        break
 PY
     return
   fi
@@ -132,27 +162,16 @@ PY
 }
 
 VALGT="$(velg_espeak_stemme "$ESPEAK_KANDIDATER" | head -n1 || true)"
-if [ -z "$VALGT" ]; then
-  # Piper-bygg uten norske data kan ofte bruke systemets eSpeak-data i stedet.
-  for datasti in /usr/share/espeak-ng-data /usr/lib/aarch64-linux-gnu/espeak-ng-data; do
-    if [ -d "$datasti" ]; then
-      export ESPEAK_DATA_PATH="$datasti"
-      VALGT="$(velg_espeak_stemme "$ESPEAK_KANDIDATER" | head -n1 || true)"
-      [ -n "$VALGT" ] && break
-      unset ESPEAK_DATA_PATH
-    fi
-  done
-fi
 
 if [ -z "$VALGT" ]; then
   echo "Fant ingen brukbar eSpeak-stemme for Piper (prøvde: $ESPEAK_KANDIDATER)." >&2
-  echo "Installer norske eSpeak-data: sudo apt install --reinstall espeak-ng espeak-ng-data" >&2
-  echo "Tilgjengelige norske stemmer i systemet:" >&2
-  espeak-ng --voices 2>/dev/null | awk 'tolower($0) ~ /norwegian|bokm.l|nynorsk/ {print}' >&2 || true
+  echo "Systemets eSpeak virker, men Piper får ikke lest språkdataene. Kjør en vanlig Jarvis-oppdatering for å reparere koblingen." >&2
+  echo "Tilgjengelige stemmer i systemet:" >&2
+  espeak-ng --voices 2>/dev/null | head -n 12 >&2 || true
   exit 1
 fi
 ESPEAK_STEMME="$VALGT"
-echo "==> Bruker eSpeak-stemme: $ESPEAK_STEMME${ESPEAK_DATA_PATH:+ (data: $ESPEAK_DATA_PATH)}"
+echo "==> Bruker eSpeak-stemme: $ESPEAK_STEMME"
 
 
 # PyTorch mangler ofte selv om Piper er installert: venv-et arver system-Python,
