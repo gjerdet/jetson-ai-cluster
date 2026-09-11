@@ -91,11 +91,12 @@ fi
 command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det først (apt install ffmpeg)" >&2; exit 1; }
 command -v espeak-ng >/dev/null 2>&1 || { echo "espeak-ng mangler – installer det først (apt install espeak-ng)" >&2; exit 1; }
 
-# Piper/espeak-ng bruker ISO 639-koden «nb» for norsk bokmål, men enkelte
-# Piper-bygg har egne (og eldre) eSpeak-data der koden heter «no». Test den
-# samme broen som treningen faktisk bruker, og velg første kode som virker.
+# Språket for fonemisering. Engelsk er standard fordi eSpeak-dataene alltid
+# finnes; norsk («nb»/«no») kan velges med PIPER_ESPEAK_VOICE. Vi tester den
+# samme broen treningen faktisk bruker, og velger første kode som virker.
 ESPEAK_STEMME="${PIPER_ESPEAK_VOICE:-}"
-ESPEAK_KANDIDATER="${ESPEAK_STEMME:-nb no nb-no norwegian norwegian-bokmal nn}"
+ESPEAK_KANDIDATER="${ESPEAK_STEMME:-en-us en en-gb nb no}"
+
 
 har_ny_piper() { "$PIPER_PYTHON_BIN" -m piper.train fit --help >/dev/null 2>&1; }
 har_gammel_piper() { "$PIPER_PYTHON_BIN" -m piper_train.preprocess --help >/dev/null 2>&1; }
