@@ -27,14 +27,54 @@ function normalize(text) {
     .filter(Boolean);
 }
 
+const TYPE_VEKT = { faktum: 1.3, erfaring: 1.2, beslutning: 1.15, mål: 1.1, plan: 1, hendelse: 0.9 };
+
+/** Delvis treff: eksakt ord teller mest, prefiks/rot teller litt. */
+function ordTreff(words, w) {
+  if (words.includes(w)) return 1;
+  if (w.length >= 5 && words.some((x) => x.startsWith(w.slice(0, 5)) || w.startsWith(x.slice(0, 5)))) return 0.5;
+  return 0;
+}
+
 function score(item, queryWords) {
   const words = normalize(item.tekst + " " + (item.kontekst || "") + " " + (item.tag || ""));
-  const matches = queryWords.filter((w) => words.includes(w)).length;
+  const matches = queryWords.reduce((s, w) => s + ordTreff(words, w), 0);
   const daysOld = (Date.now() - item.tid) / 86_400_000;
   const recency = Math.max(0.1, 1 - daysOld / DEFAULT_TTL_DAYS);
   const importance = Math.max(0.1, Math.min(1, (item.viktighet || 5) / 10));
-  return matches * recency * importance * (item.pinned ? 2 : 1);
+  const type = TYPE_VEKT[item.type] || 1;
+  return matches * recency * importance * type * (item.pinned ? 2 : 1);
 }
+
+/** Slår sammen nesten like minner slik at listen ikke gror igjen. */
+export function konsolider({ likhet = 0.85 } = {}) {
+  const d = db();
+  const beholdt = [];
+  let fjernet = 0;
+  const sett = (m) => new Set(normalize(m.tekst));
+  for (const m of d.list) {
+    const a = sett(m);
+    const dublett = beholdt.find((b) => {
+      if (b.type !== m.type) return false;
+      const c = sett(b);
+      if (!a.size || !c.size) return false;
+      const felles = [...a].filter((w) => c.has(w)).length;
+      return felles / Math.max(a.size, c.size) >= likhet;
+    });
+    if (dublett && !m.pinned) {
+      dublett.viktighet = Math.max(dublett.viktighet || 5, m.viktighet || 5);
+      fjernet++;
+      continue;
+    }
+    beholdt.push(m);
+  }
+  if (fjernet) {
+    d.list = beholdt;
+    persist(d);
+  }
+  return { fjernet, gjenstaende: beholdt.length };
+}
+
 
 export function remember({
   tekst,

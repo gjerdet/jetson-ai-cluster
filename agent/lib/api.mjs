@@ -83,6 +83,7 @@ import {
 import {
   forget as forgetMemory,
   getMemory,
+  konsolider as konsoliderMinne,
   memoryContext,
   memoryStats,
   recall,
@@ -90,6 +91,18 @@ import {
   rememberCurrent,
   timeline as memoryTimeline,
 } from "./memory.mjs";
+import {
+  gjettType,
+  hentUtstyr,
+  laerFraSkann,
+  lagreUtstyr,
+  listUtstyr,
+  slettUtstyr,
+  utstyrKontekst,
+  utstyrStats,
+} from "./utstyr.mjs";
+import { feilmonstre, reflekter, registrerUtfall, verktoyHint, verktoyStats } from "./refleksjon.mjs";
+
 import {
   activePlanCount,
   cancelPlan,
@@ -208,7 +221,7 @@ async function readBody(req, maks = 5_000_000) {
  * `deps`: { publish(emne, payload), mqttStatus() }
  */
 /** Rutene backend-API-et eier, med eller uten «/api»-prefiks. */
-export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram", "/verktoy", "/identitet", "/kollega", "/initiativ", "/minne", "/planer", "/evalueringer"];
+export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram", "/verktoy", "/identitet", "/kollega", "/initiativ", "/minne", "/planer", "/evalueringer", "/utstyr", "/refleksjon"];
 
 /**
  * Innlogging kan slås av mens systemet kjører i et lukket lokalt miljø.
@@ -764,14 +777,28 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const sisteBrukerMelding = meldinger
         .filter((m) => m && m.role === "user" && typeof m.content === "string")
         .pop()?.content;
-      const minneKontekst = sisteBrukerMelding ? memoryContext(sisteBrukerMelding, { topK: 5, maksLengde: 1200 }) : "";
+      const minneKontekst = sisteBrukerMelding ? memoryContext(sisteBrukerMelding, { topK: 6, maksLengde: 1200 }) : "";
       const memoryMessage = minneKontekst
         ? [{ role: "system", content: `Relevant minne fra tidligere:\n${minneKontekst}` }]
         : [];
+      // Utstyrsprofiler og verktøyerfaring gir konkret, lokal kunnskap.
+      let utstyrMelding = [];
+      let erfaringMelding = [];
+      try {
+        const u = sisteBrukerMelding ? utstyrKontekst(sisteBrukerMelding) : "";
+        if (u) utstyrMelding = [{ role: "system", content: `Kjent utstyr hos brukeren (bruk dette, ikke gjett):\n${u}` }];
+        const h = sisteBrukerMelding ? verktoyHint(sisteBrukerMelding) : "";
+        if (h) erfaringMelding = [{ role: "system", content: `Egen verktøyerfaring:\n${h}` }];
+      } catch {
+        /* kontekst er valgfri – chatten skal aldri falle på dette */
+      }
 
       const messages = [
         ...systemMelding,
         ...memoryMessage,
+        ...utstyrMelding,
+        ...erfaringMelding,
+
         ...meldinger
           .filter((m) => m && typeof m.content === "string")
           .slice(-40)
@@ -1474,7 +1501,56 @@ export async function handleApi(req, res, route, url, deps = {}) {
       if (method === "POST") return json(req, res, 200, { ok: true, navn: await runBackup() });
     }
 
+    // ---- Utstyrsregister ---------------------------------------------------
+    if (path === "/utstyr" && method === "GET") {
+      const type = url.searchParams.get("type") || undefined;
+      const sok = url.searchParams.get("sok") || undefined;
+      return json(req, res, 200, { utstyr: listUtstyr({ type, sok }), stats: utstyrStats() });
+    }
+
+    if (path === "/utstyr" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, { enhet: lagreUtstyr(b || {}) });
+    }
+
+    if (path === "/utstyr/fra-skann" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, laerFraSkann(b?.verter || b?.hosts || []));
+    }
+
+    if (path === "/utstyr/gjett" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, { type: gjettType(b || {}) });
+    }
+
+    if (path.startsWith("/utstyr/") && method === "GET") {
+      const nokkel = decodeURIComponent(path.slice("/utstyr/".length));
+      const e = hentUtstyr(nokkel);
+      return e ? json(req, res, 200, { enhet: e }) : json(req, res, 404, { error: "Fant ikke enheten" });
+    }
+
+    if (path.startsWith("/utstyr/") && method === "DELETE")
+      return json(req, res, 200, slettUtstyr(decodeURIComponent(path.slice("/utstyr/".length))));
+
+    // ---- Refleksjon og verktøyerfaring -------------------------------------
+    if (path === "/refleksjon" && method === "GET") return json(req, res, 200, verktoyStats());
+
+    if (path === "/refleksjon" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, await reflekter(b || {}));
+    }
+
+    if (path === "/refleksjon/utfall" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, registrerUtfall(b || {}));
+    }
+
+    if (path === "/refleksjon/monstre" && method === "POST") return json(req, res, 200, feilmonstre());
+
     // ---- AGI: minne -------------------------------------------------------
+    if (path === "/minne/konsolider" && method === "POST") return json(req, res, 200, konsoliderMinne());
+
+
     if (path === "/minne" && method === "GET")
       return json(req, res, 200, memoryStats());
 

@@ -113,6 +113,56 @@ export type {
   MemoryStats,
 };
 
+/** En kjent enhet i brukerens nett (TrueNAS, Proxmox, UniFi, Homey, Jetson …). */
+export interface Utstyr {
+  id: string;
+  navn: string;
+  type: string;
+  ip: string;
+  mac: string;
+  vertsnavn: string;
+  rolle: string;
+  notat: string;
+  porter: unknown[];
+  fakta: string[];
+  sistSett: number;
+  opprettet: number;
+  kilde: string;
+}
+
+export interface UtstyrStats {
+  antall: number;
+  identifisert: number;
+  perType: Record<string, number>;
+}
+
+export interface RefleksjonVerktoyStat {
+  navn: string;
+  kall: number;
+  ok: number;
+  feil: number;
+  treffrate: number;
+  snittMs: number;
+  sisteFeil: string;
+  sistBrukt: number;
+}
+
+export interface VerktoyStatsSvar {
+  verktoy: RefleksjonVerktoyStat[];
+  antallKall: number;
+  ustabile: RefleksjonVerktoyStat[];
+  laerdommer: { tid: number; tekst: string; kilde: string }[];
+}
+
+export interface Refleksjon {
+  gikkBra: string;
+  gikkDaarlig: string;
+  regel: string;
+  faktum: string;
+  lagret: string[];
+}
+
+
 export interface UpdateStatus {
   aktiv: boolean;
   status: string;
@@ -725,6 +775,29 @@ export const backend = {
     call<{ minner: MemoryItem[] }>(
       `${ROUTES.memoryTimeline}?maks=${o.maks ?? 50}${o.type ? `&type=${encodeURIComponent(o.type)}` : ""}`,
     ),
+  konsoliderMinne: () => call<{ fjernet: number; gjenstaende: number }>(ROUTES.memoryConsolidate!, { method: "POST" }),
+
+  // ---- Utstyrsregister ----
+  hentUtstyr: (o: { type?: string; sok?: string } = {}) =>
+    call<{ utstyr: Utstyr[]; stats: UtstyrStats }>(
+      `${ROUTES.equipment}?${new URLSearchParams({ ...(o.type ? { type: o.type } : {}), ...(o.sok ? { sok: o.sok } : {}) })}`,
+    ),
+  lagreUtstyr: (e: Partial<Utstyr>) => call<{ enhet: Utstyr }>(ROUTES.equipment!, { method: "POST", body: JSON.stringify(e) }),
+  slettUtstyr: (id: string) => call<{ fjernet: number }>(`${ROUTES.equipment}/${id}`, { method: "DELETE" }),
+  utstyrFraSkann: (verter: unknown[]) =>
+    call<{ nye: number; oppdatert: number; enheter: Utstyr[] }>(ROUTES.equipmentFromScan!, {
+      method: "POST",
+      body: JSON.stringify({ verter }),
+    }),
+
+  // ---- Refleksjon ----
+  hentVerktoyStats: () => call<VerktoyStatsSvar>(ROUTES.reflection!),
+  reflekter: (b: { oppgave: string; svar?: string; verktoy?: unknown[]; utfall?: string }) =>
+    call<Refleksjon>(ROUTES.reflection!, { method: "POST", body: JSON.stringify(b) }, { timeoutMs: 120_000, retries: 0 }),
+  registrerUtfall: (b: { oppgave?: string; verktoy?: unknown[]; svar?: string; ok?: boolean }) =>
+    call<{ registrert: boolean; nyeRegler: string[] }>(ROUTES.reflectionOutcome!, { method: "POST", body: JSON.stringify(b) }),
+
+
 
   hentPlaner: (aktiv = false) => call<{ planer: Plan[] }>(`${ROUTES.plans}?aktiv=${aktiv ? 1 : 0}`),
   lagPlan: (mål: string, kontekst?: string) =>

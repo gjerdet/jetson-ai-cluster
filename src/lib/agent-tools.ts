@@ -167,6 +167,46 @@ export const TOOL_CATALOG: ToolSpec[] = [
     builtin: true,
   },
   {
+    name: "utstyr_liste",
+    category: "minne",
+    summary:
+      "Slår opp i utstyrsregisteret: hvilke enheter (TrueNAS, Proxmox, UniFi, Homey, Jetson, brannmur …) som finnes, med IP, rolle og kjente fakta.",
+    args: '{"sok": "truenas"}',
+    builtin: true,
+  },
+  {
+    name: "utstyr_lagre",
+    category: "minne",
+    summary:
+      "Oppretter eller oppdaterer en utstyrsprofil med IP, type, rolle og fakta. Bruk denne når du lærer noe nytt om en enhet.",
+    args: '{"navn": "TrueNAS", "ip": "192.168.1.20", "type": "truenas", "faktum": "Kjører Scale 24.10, pool tank"}',
+    builtin: true,
+  },
+  {
+    name: "utstyr_fra_skann",
+    category: "system",
+    summary:
+      "Tar resultatet fra nett_skann og lagrer/oppdaterer utstyrsprofiler automatisk, med gjetning av enhetstype.",
+    args: '{"verter": [{"ip": "192.168.1.20", "vertsnavn": "truenas", "porter": [443, 445]}]}',
+    builtin: true,
+  },
+  {
+    name: "verktoy_erfaring",
+    category: "system",
+    summary:
+      "Viser din egen statistikk per verktøy: treffrate, snittid, ustabile verktøy og lærdommer du har trukket.",
+    args: "{}",
+    builtin: true,
+  },
+  {
+    name: "reflekter",
+    category: "system",
+    summary:
+      "Gjennomgår en fullført oppgave, trekker ut hva som gikk bra/dårlig og lagrer ny adferdsregel og/eller faktum.",
+    args: '{"oppgave": "Finne ledig plass på NAS", "svar": "...", "verktoy": [{"navn": "ping", "ok": true}]}',
+    builtin: true,
+  },
+  {
     name: "evaluering",
     category: "system",
     summary: "Vurder et AI-svar eller verktøyresultat 0-10 og få forbedringsforslag.",
@@ -333,6 +373,11 @@ Tilgjengelige verktøy:
 - web_sok {"sok": "TrueNAS API pools", "antall": 5} – finn kilder (tittel + URL) uten å lagre noe.
 - les_url {"url": "https://..."} – les én side/dokumentasjon som ren tekst.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
+- utstyr_liste {} eller {"sok": "truenas"} – slå opp i utstyrsregisteret: kjente enheter med IP, type, rolle og fakta.
+- utstyr_lagre {"navn": "TrueNAS", "ip": "192.168.1.20", "type": "truenas", "faktum": "..."} – opprett/oppdater en enhetsprofil.
+- utstyr_fra_skann {"verter": [...]} – lagre resultatet fra nett_skann som utstyrsprofiler (type gjettes automatisk).
+- verktoy_erfaring {} – din egen statistikk per verktøy: treffrate, snittid, ustabile verktøy, lærdommer.
+- reflekter {"oppgave": "...", "svar": "...", "verktoy": [...]} – gjennomgå en fullført oppgave og lagre lærdommen.
 - laer_regel {"tekst": "...", "hvorfor": "..."} – lagrer en varig adferdsregel om HVORDAN du skal jobbe.
   Reglene lastes inn i systemprompten din i alle senere samtaler (selvforbedring).
 - verktoy_liste {} – dine egendefinerte verktøy.
@@ -409,6 +454,24 @@ R12. KUNNSKAPSHULL = LÆR, IKKE UNNSKYLD. Vet du ikke nok om et emne (produkt, A
     les_url når brukeren allerede har gitt deg lenken. Alt du lærer havner i den lokale
     kunnskapsbasen og hentes automatisk neste gang – si kort i svaret hva du lærte deg og hvorfra.
     Er lærdommen om HVORDAN du skal jobbe, lagre den i tillegg med laer_regel (R11).
+
+R13. UTSTYRSREGISTERET ER FASITEN. Gjelder spørsmålet en enhet hos brukeren (TrueNAS, Proxmox,
+    UniFi, Homey, Juniper, en Jetson-node, en server), slå den opp med utstyr_liste FØR du skanner
+    eller spør. Lærer du noe nytt om en enhet – IP, rolle, versjon, pool-navn, port, særegenhet –
+    lagrer du det med utstyr_lagre i samme svar. Etter nett_skann kjører du utstyr_fra_skann slik
+    at registeret holdes oppdatert. Aldri be brukeren gjenta noe som allerede står i registeret.
+
+R14. LÆR AV EGNE FEIL. Feiler et verktøy, eller går en oppgave i vranglås: kjør verktoy_erfaring,
+    bruk treffratene til å velge en annen vei, og si hvorfor du bytter. Etter en oppgave som var
+    vanskelig, feilet eller ble løst på en ny måte, kjør reflekter {} – den lagrer regel og faktum
+    automatisk. Gjenta aldri en fremgangsmåte som allerede har feilet to ganger i samme samtale.
+
+R15. SPESIALKUNNSKAP OM BRUKERENS PLATTFORMER. TrueNAS, Proxmox, UniFi, Homey, Juniper og Ubuntu er
+    kjerneområdene dine. Er du usikker på en kommando, API-sti eller versjonsforskjell der, kombiner
+    laer_om (dokumentasjon) med utstyr_liste (hva brukeren faktisk har) før du svarer – aldri
+    generiske råd når du kan gi svaret for akkurat hans oppsett.
+
+
 
 
 
@@ -742,6 +805,95 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     ctx.update({ ...config, memories: [...(config.memories ?? []), newMemory(text)] });
     return `Lagret i langtidsminnet: «${text}».`;
   }
+
+  if (call.name === "utstyr_liste") {
+    const sok = str(call.args["sok"] ?? call.args["navn"] ?? "").trim();
+    const type = str(call.args["type"] ?? "").trim();
+    try {
+      const r = await backend.hentUtstyr({ ...(sok ? { sok } : {}), ...(type ? { type } : {}) });
+      if (!r.utstyr.length) return "Utstyrsregisteret er tomt for dette søket. Kjør nett_skann og deretter utstyr_fra_skann.";
+      return r.utstyr
+        .map((u) => {
+          const d = [u.ip, u.vertsnavn, u.rolle].filter(Boolean).join(" · ");
+          const f = (u.fakta ?? []).slice(-4).join("; ");
+          return `- ${u.navn} [${u.type}] ${d}${f ? `\n    ${f}` : ""}`;
+        })
+        .join("\n");
+    } catch (e) {
+      return `Klarte ikke lese utstyrsregisteret: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "utstyr_lagre") {
+    const faktum = str(call.args["faktum"] ?? call.args["fakta"] ?? "").trim();
+    const body = {
+      navn: str(call.args["navn"] ?? "").trim(),
+      ip: str(call.args["ip"] ?? "").trim(),
+      mac: str(call.args["mac"] ?? "").trim(),
+      type: str(call.args["type"] ?? "").trim(),
+      vertsnavn: str(call.args["vertsnavn"] ?? "").trim(),
+      rolle: str(call.args["rolle"] ?? "").trim(),
+      notat: str(call.args["notat"] ?? "").trim(),
+      ...(faktum ? { fakta: [faktum] } : {}),
+    };
+    if (!body.navn && !body.ip) return "Mangler «navn» eller «ip» – vet ikke hvilken enhet dette gjelder.";
+    try {
+      const r = await backend.lagreUtstyr(body);
+      return `Lagret enhet: ${r.enhet.navn} [${r.enhet.type}]${r.enhet.ip ? ` – ${r.enhet.ip}` : ""}.`;
+    } catch (e) {
+      return `Klarte ikke lagre enheten: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "utstyr_fra_skann") {
+    const verter = Array.isArray(call.args["verter"]) ? (call.args["verter"] as unknown[]) : [];
+    if (!verter.length) return "Mangler «verter» – kjør nett_skann først og send resultatet hit.";
+    try {
+      const r = await backend.utstyrFraSkann(verter);
+      return `Utstyrsregister oppdatert: ${r.nye} nye og ${r.oppdatert} oppdaterte enheter.`;
+    } catch (e) {
+      return `Klarte ikke oppdatere registeret: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "verktoy_erfaring") {
+    try {
+      const r = await backend.hentVerktoyStats();
+      if (!r.verktoy.length) return "Ingen verktøystatistikk enda.";
+      const topp = r.verktoy.slice(0, 10).map((v) => `- ${v.navn}: ${v.treffrate}% av ${v.kall} kall, ~${v.snittMs} ms`).join("\n");
+      const ustabile = r.ustabile.length
+        ? `\nUstabile: ${r.ustabile.map((v) => `${v.navn} (${v.treffrate}%)`).join(", ")}`
+        : "";
+      const laert = r.laerdommer.length ? `\nLærdommer: ${r.laerdommer.slice(0, 3).map((l) => l.tekst).join(" | ")}` : "";
+      return `${topp}${ustabile}${laert}`;
+    } catch (e) {
+      return `Klarte ikke hente verktøystatistikk: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "reflekter") {
+    const oppgave = str(call.args["oppgave"] ?? call.args["tema"] ?? "").trim();
+    if (!oppgave) return "Mangler «oppgave» – si hva jeg skal reflektere over.";
+    try {
+      const r = await backend.reflekter({
+        oppgave,
+        svar: str(call.args["svar"] ?? ""),
+        utfall: str(call.args["utfall"] ?? ""),
+        verktoy: Array.isArray(call.args["verktoy"]) ? (call.args["verktoy"] as unknown[]) : [],
+      });
+      await refreshLearnedRules(true).catch(() => []);
+      const deler = [
+        r.gikkBra ? `Gikk bra: ${r.gikkBra}` : "",
+        r.gikkDaarlig ? `Bør bedres: ${r.gikkDaarlig}` : "",
+        r.regel ? `Ny regel: «${r.regel}»` : "",
+        r.faktum ? `Nytt faktum: «${r.faktum}»` : "",
+      ].filter(Boolean);
+      return deler.length ? deler.join("\n") : "Ingenting nytt å lære av denne runden.";
+    } catch (e) {
+      return `Klarte ikke reflektere: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
 
   if (call.name === "laer_regel") {
     const tekst = str(call.args["tekst"] ?? call.args["regel"] ?? call.args["text"]).trim();
