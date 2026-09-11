@@ -90,20 +90,30 @@ fi
 
 
 si "Oppretter Python-venv i $PY_DIR/.venv"
-# JetPack leverer normalt en CUDA-tilpasset PyTorch i system-Python. Behold
-# tilgang til den i venv-et; en tilfeldig PyPI-utgave av torch mangler ofte
-# GPU-støtten som stemmetreningen trenger på Jetson.
-# Ikke slett et eksisterende miljø før vi vet at erstatningen kan hente et
-# kompatibelt NVIDIA-hjul. `venv` reparerer/oppretter miljøet idempotent, mens
-# pip-kommandoene under oppgraderer pakkene som faktisk må skiftes ut.
-python3 -m venv --system-site-packages "$PY_DIR/.venv"
+# Piper får et isolert miljø og NVIDIA-hjulet installeres eksplisitt der. Dette
+# unngår kollisjon mellom en arvet system-torch og en lokal CUDA-utgave.
+VENV_BACKUP=""
+if [ -d "$PY_DIR/.venv" ]; then
+  VENV_BACKUP="$PY_DIR/.venv.jarvis-backup"
+  rm -rf "$VENV_BACKUP"
+  mv "$PY_DIR/.venv" "$VENV_BACKUP"
+fi
+gjenopprett_venv() {
+  local kode=$?
+  if [ "$kode" -ne 0 ] && [ -n "$VENV_BACKUP" ] && [ -d "$VENV_BACKUP" ]; then
+    rm -rf "$PY_DIR/.venv"
+    mv "$VENV_BACKUP" "$PY_DIR/.venv"
+    echo "Gjenopprettet forrige Piper-miljø etter installasjonsfeil." >&2
+  fi
+  exit "$kode"
+}
+trap gjenopprett_venv EXIT
+python3 -m venv "$PY_DIR/.venv"
 source "$PY_DIR/.venv/bin/activate"
 python -m pip install --upgrade pip wheel setuptools scikit-build ninja
 
-# --system-site-packages er ikke tilstrekkelig på alle JetPack 7-images. Hvis
-# venv-et fortsatt ikke kan importere CUDA-PyTorch, installer samme NVIDIA-hjul
-# direkte i tolken Piper faktisk skal bruke. Dette fjerner avviket mellom en
-# grønn systemtest for python3 og «No module named torch» under trening.
+# Installer NVIDIA-hjulet direkte i tolken Piper faktisk skal bruke. Dette
+# fjerner avviket mellom system-Python og «No module named torch» under trening.
 if ! python -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0]) >= 2 and torch.cuda.is_available() else 1)' >/dev/null 2>&1; then
   si "PyTorch mangler i Piper-miljøet – installerer NVIDIA-hjulet direkte i venv-et"
   PYTORCH_PYTHON="$PY_DIR/.venv/bin/python" bash "$PYTORCH_SKRIPT"
@@ -212,6 +222,8 @@ else
 fi
 
 ok "Piper-treningsmiljø verifisert i $PY_DIR/.venv"
+rm -rf "$VENV_BACKUP"
+trap - EXIT
 echo ""
 echo "Neste steg:"
 echo "  1. Last opp stemmeklipp under SYSTEM → STEMME"

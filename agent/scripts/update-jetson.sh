@@ -349,6 +349,11 @@ else
   exit 1
 fi
 
+if [ "${STEMME_FEIL:-0}" -ne 0 ]; then
+  feil "Jarvis er oppdatert, men automatisk klargjøring av stemmetrening feilet. Se PyTorch/Piper-feilen over."
+  exit 2
+fi
+
 # ── 9. Oppdater GUI-konfig hvis backend-adressen har endret seg ───────────────
 if [ -f "$GUI_DIR/.output/server/index.mjs" ]; then
   adv "Husk å åpne HUD-en på nytt i nettleseren for å laste siste versjon."
