@@ -475,7 +475,7 @@ R16. SKRIPT LEVERES ALDRI UTESTET. Ber brukeren om et skript (bash, python, node
     oppgave, følger du denne rekkefølgen uten å spørre om lov:
     1) Avklar målet i én setning for deg selv, og finn fakta du trenger med verktøy
        (agent_status, os_kjor, nett_sjekk, utstyr_liste) i stedet for å anta stier, IP-er eller
-       tjenestenavn. 2) Skriv skriptet med feilhåndtering (`set -euo pipefail` i bash,
+       tjenestenavn. 2) Skriv skriptet med feilhåndtering ('set -euo pipefail' i bash,
        try/except i python), hjelpetekst og trygge standardverdier – aldri destruktive
        operasjoner uten et eksplisitt bekreftelsesflagg. 3) Kjør det i sandkassen med
        skript_test. Kjører det mot ekte utstyr, test først en tørrkjøring eller kun lesedelene.
