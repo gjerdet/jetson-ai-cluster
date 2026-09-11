@@ -64,6 +64,8 @@ ok "Node $(node -v)"
 # ── 3. Agent-oppsett ─────────────────────────────────────────────────────────
 si "Setter opp kataloger og rettigheter"
 id -u jarvis >/dev/null 2>&1 || useradd --system --home /var/lib/jarvis --shell /usr/sbin/nologin jarvis
+# GPU-tilgang for treningsjobber (ellers faller Piper tilbake til CPU).
+for grp in video render; do getent group "$grp" >/dev/null 2>&1 && usermod -aG "$grp" jarvis || true; done
 mkdir -p "$DATA_DIR" "$SANDBOX_DIR" /etc/jarvis
 chown -R jarvis:jarvis /var/lib/jarvis
 

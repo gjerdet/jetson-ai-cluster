@@ -139,29 +139,44 @@ python -m pip install \
   'onnxruntime>=1,<2' 'pathvalidate>=3,<4'
 python -m pip install --no-deps -e "$PY_DIR"
 
-# Piper sin kildeinstallasjon forventer språkdata under Python-pakken, men
-# git-repoet inneholder ikke denne mappen. Koble derfor Piper til de samme
-# systemdataene som den fungerende espeak-ng-kommandoen bruker.
 PIPER_PAKKE_DIR="$(python - <<'PY'
 from pathlib import Path
 import piper
 print(Path(piper.__file__).resolve().parent)
 PY
 )"
-ESPEAK_SYSTEM_DATA=""
-for datasti in /usr/share/espeak-ng-data /usr/lib/aarch64-linux-gnu/espeak-ng-data /usr/lib/x86_64-linux-gnu/espeak-ng-data; do
-  if [ -d "$datasti/voices" ]; then
-    ESPEAK_SYSTEM_DATA="$datasti"
-    break
-  fi
-done
-if [ -z "$ESPEAK_SYSTEM_DATA" ]; then
-  echo "Fant ikke systemets espeak-ng-data selv om espeak-ng er installert." >&2
+
+si "Bygger monotonic_align"
+# CMake kopierer sine egne espeak-data hit under bygget. En symlink her får
+# «Error copying directory» og stopper hele installasjonen, så den fjernes først.
+[ -L "$PIPER_PAKKE_DIR/espeak-ng-data" ] && rm -f "$PIPER_PAKKE_DIR/espeak-ng-data"
+if [ -f "$PY_DIR/build_monotonic_align.sh" ]; then
+  (cd "$PY_DIR" && bash build_monotonic_align.sh && python setup.py build_ext --inplace)
+else
+  echo "Fant ikke $PY_DIR/build_monotonic_align.sh" >&2
   exit 1
 fi
-rm -rf "$PIPER_PAKKE_DIR/espeak-ng-data"
-ln -s "$ESPEAK_SYSTEM_DATA" "$PIPER_PAKKE_DIR/espeak-ng-data"
-ok "Piper bruker eSpeak-data fra $ESPEAK_SYSTEM_DATA"
+
+# Piper trenger språkdata under Python-pakken. Bygget legger dem ofte der selv;
+# ellers kobles Piper til de samme systemdataene som espeak-ng-kommandoen bruker.
+if [ -d "$PIPER_PAKKE_DIR/espeak-ng-data/voices" ]; then
+  ok "Piper har egne eSpeak-data i $PIPER_PAKKE_DIR/espeak-ng-data"
+else
+  ESPEAK_SYSTEM_DATA=""
+  for datasti in /usr/share/espeak-ng-data /usr/lib/aarch64-linux-gnu/espeak-ng-data /usr/lib/x86_64-linux-gnu/espeak-ng-data; do
+    if [ -d "$datasti/voices" ]; then
+      ESPEAK_SYSTEM_DATA="$datasti"
+      break
+    fi
+  done
+  if [ -z "$ESPEAK_SYSTEM_DATA" ]; then
+    echo "Fant ikke systemets espeak-ng-data selv om espeak-ng er installert." >&2
+    exit 1
+  fi
+  rm -rf "$PIPER_PAKKE_DIR/espeak-ng-data"
+  ln -s "$ESPEAK_SYSTEM_DATA" "$PIPER_PAKKE_DIR/espeak-ng-data"
+  ok "Piper bruker eSpeak-data fra $ESPEAK_SYSTEM_DATA"
+fi
 
 si "Kontrollerer NumPy, matplotlib, PyTorch og Lightning"
 if ! python - <<'PY'
@@ -192,13 +207,6 @@ then
   exit 1
 fi
 
-si "Bygger monotonic_align"
-if [ -f "$PY_DIR/build_monotonic_align.sh" ]; then
-  (cd "$PY_DIR" && bash build_monotonic_align.sh && python setup.py build_ext --inplace)
-else
-  echo "Fant ikke $PY_DIR/build_monotonic_align.sh" >&2
-  exit 1
-fi
 
 si "Verifiserer Piper-trening"
 if ! "$PY_DIR/.venv/bin/python" -m piper.train fit --help >/dev/null 2>&1; then
