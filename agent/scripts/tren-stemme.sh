@@ -145,7 +145,7 @@ if [ -z "$VALGT" ]; then
 fi
 
 if [ -z "$VALGT" ]; then
-  echo "Fant ingen norsk eSpeak-stemme som Piper kan bruke (prøvde: $ESPEAK_KANDIDATER)." >&2
+  echo "Fant ingen brukbar eSpeak-stemme for Piper (prøvde: $ESPEAK_KANDIDATER)." >&2
   echo "Installer norske eSpeak-data: sudo apt install --reinstall espeak-ng espeak-ng-data" >&2
   echo "Tilgjengelige norske stemmer i systemet:" >&2
   espeak-ng --voices 2>/dev/null | awk 'tolower($0) ~ /norwegian|bokm.l|nynorsk/ {print}' >&2 || true
