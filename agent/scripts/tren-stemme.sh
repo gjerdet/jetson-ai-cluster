@@ -91,17 +91,11 @@ fi
 command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det først (apt install ffmpeg)" >&2; exit 1; }
 command -v espeak-ng >/dev/null 2>&1 || { echo "espeak-ng mangler – installer det først (apt install espeak-ng)" >&2; exit 1; }
 
-# Piper/espeak-ng bruker ISO 639-koden «nb» for norsk bokmål. «no» kan se
-# riktig ut, men finnes ikke i espeakbridge på nyere Piper og feiler først når
-# hele datasettet skal fonemiseres. Test den samme broen som treningen bruker
-# før vi bruker tid på lydkonvertering og modelloppstart.
-ESPEAK_STEMME="${PIPER_ESPEAK_VOICE:-nb}"
-if ! espeak-ng -v "$ESPEAK_STEMME" --stdout "språktest" >/dev/null 2>&1; then
-  echo "eSpeak-stemmen '$ESPEAK_STEMME' finnes ikke. Norsk bokmål krever stemmen 'nb'." >&2
-  echo "Tilgjengelige norske stemmer:" >&2
-  espeak-ng --voices 2>/dev/null | awk 'tolower($0) ~ /norwegian|bokm.l| nynorsk|[[:space:]]nb([[:space:]]|$)/ {print}' >&2 || true
-  exit 1
-fi
+# Piper/espeak-ng bruker ISO 639-koden «nb» for norsk bokmål, men enkelte
+# Piper-bygg har egne (og eldre) eSpeak-data der koden heter «no». Test den
+# samme broen som treningen faktisk bruker, og velg første kode som virker.
+ESPEAK_STEMME="${PIPER_ESPEAK_VOICE:-}"
+ESPEAK_KANDIDATER="${ESPEAK_STEMME:-nb no nb-no norwegian norwegian-bokmal nn}"
 
 har_ny_piper() { "$PIPER_PYTHON_BIN" -m piper.train fit --help >/dev/null 2>&1; }
 har_gammel_piper() { "$PIPER_PYTHON_BIN" -m piper_train.preprocess --help >/dev/null 2>&1; }
@@ -111,16 +105,54 @@ if ! har_ny_piper && ! har_gammel_piper; then
   kjor_installasjon || true
 fi
 
-if har_ny_piper && ! "$PIPER_PYTHON_BIN" - "$ESPEAK_STEMME" <<'PY' >/dev/null 2>&1
+velg_espeak_stemme() {
+  local kandidater="$1"
+  if har_ny_piper; then
+    "$PIPER_PYTHON_BIN" - $kandidater <<'PY' 2>/dev/null
 import sys
 from piper import espeakbridge
-espeakbridge.set_voice(sys.argv[1])
+for kode in sys.argv[1:]:
+    try:
+        espeakbridge.set_voice(kode)
+    except Exception:
+        continue
+    print(kode)
+    break
 PY
-then
-  echo "Piper klarte ikke å åpne eSpeak-stemmen '$ESPEAK_STEMME'." >&2
-  echo "Installer norske eSpeak-data på nytt, eller bruk PIPER_ESPEAK_VOICE=nb." >&2
+    return
+  fi
+  local k
+  for k in $kandidater; do
+    if espeak-ng -v "$k" --stdout "spraaktest" >/dev/null 2>&1; then
+      echo "$k"
+      return
+    fi
+  done
+}
+
+VALGT="$(velg_espeak_stemme "$ESPEAK_KANDIDATER" | head -n1 || true)"
+if [ -z "$VALGT" ]; then
+  # Piper-bygg uten norske data kan ofte bruke systemets eSpeak-data i stedet.
+  for datasti in /usr/share/espeak-ng-data /usr/lib/aarch64-linux-gnu/espeak-ng-data; do
+    if [ -d "$datasti" ]; then
+      export ESPEAK_DATA_PATH="$datasti"
+      VALGT="$(velg_espeak_stemme "$ESPEAK_KANDIDATER" | head -n1 || true)"
+      [ -n "$VALGT" ] && break
+      unset ESPEAK_DATA_PATH
+    fi
+  done
+fi
+
+if [ -z "$VALGT" ]; then
+  echo "Fant ingen norsk eSpeak-stemme som Piper kan bruke (prøvde: $ESPEAK_KANDIDATER)." >&2
+  echo "Installer norske eSpeak-data: sudo apt install --reinstall espeak-ng espeak-ng-data" >&2
+  echo "Tilgjengelige norske stemmer i systemet:" >&2
+  espeak-ng --voices 2>/dev/null | awk 'tolower($0) ~ /norwegian|bokm.l|nynorsk/ {print}' >&2 || true
   exit 1
 fi
+ESPEAK_STEMME="$VALGT"
+echo "==> Bruker eSpeak-stemme: $ESPEAK_STEMME${ESPEAK_DATA_PATH:+ (data: $ESPEAK_DATA_PATH)}"
+
 
 # PyTorch mangler ofte selv om Piper er installert: venv-et arver system-Python,
 # og der er NVIDIA-hjulet ikke alltid på plass. Prøv å installere det først.
