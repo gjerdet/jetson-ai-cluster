@@ -186,6 +186,7 @@ chown jarvis:jarvis /var/log/jarvis 2>/dev/null || true
 # ── 3b. Stemmemiljø (PyTorch + Piper) installeres automatisk ─────────────────
 # Idempotent: hopper over alt som allerede er på plass. HOPP_OVER_STEMME=1 slår av.
 if [ "${HOPP_OVER_STEMME:-0}" != "1" ]; then
+  STEMME_FEIL=0
   PIPER_VENV_STI=""
   [ -f "$ENV_FILE" ] && PIPER_VENV_STI="$(grep -E '^PIPER_VENV=' "$ENV_FILE" | tail -1 | cut -d= -f2- || true)"
   [ -z "$PIPER_VENV_STI" ] && [ -f /var/lib/jarvis/data/piper-venv.sti ] &&
@@ -202,6 +203,7 @@ if [ "${HOPP_OVER_STEMME:-0}" != "1" ]; then
       TORCH_OK=1
     else
       adv "PyTorch-installasjonen feilet – stemmetrening blir utilgjengelig inntil videre"
+      STEMME_FEIL=1
     fi
   else
     ok "PyTorch er allerede på plass"
@@ -213,14 +215,35 @@ if [ "${HOPP_OVER_STEMME:-0}" != "1" ]; then
   fi
   if [ "$PIPER_OK" -eq 1 ]; then
     ok "Piper-treningsmiljøet er allerede på plass og ser CUDA"
-  elif [ "$TORCH_OK" -eq 1 ]; then
+  else
     [ -n "$PIPER_VENV_STI" ] && adv "Eksisterende Piper-miljø er ufullstendig – bygger det på nytt"
     si "Installerer Piper-treningsmiljø …"
     if bash "$APP_DIR/scripts/installer-piper.sh"; then
       ok "Piper installert"
+      PIPER_VENV_STI="/opt/jarvis/piper/.venv"
     else
-      adv "Piper-installasjonen feilet – prøv «INSTALLER PIPER AUTOMATISK» i GUI-et"
+      adv "Automatisk Piper-reparasjon feilet – detaljene står i loggen over"
+      STEMME_FEIL=1
     fi
+  fi
+
+  # Ikke stol på delresultatene over. Oppdateringen er først ferdig med stemme
+  # når den samme tolken treningsjobben bruker kan laste alle komponentene.
+  PIPER_SLUTT_OK=0
+  for venv in "$PIPER_VENV_STI" /opt/jarvis/piper/.venv; do
+    [ -n "$venv" ] && [ -x "$venv/bin/python" ] || continue
+    if "$venv/bin/python" -c 'import torch,lightning,piper.train; assert torch.cuda.is_available(); print("torch", torch.__version__, "CUDA klar")'; then
+      PIPER_SLUTT_OK=1
+      PIPER_VENV_STI="$venv"
+      break
+    fi
+  done
+  if [ "$PIPER_SLUTT_OK" -eq 1 ]; then
+    ok "Stemmemiljø verifisert i $PIPER_VENV_STI"
+    STEMME_FEIL=0
+  else
+    STEMME_FEIL=1
+    adv "Stemmemiljøet er fortsatt ufullstendig: torch, CUDA, Lightning eller Piper mangler"
   fi
 fi
 
