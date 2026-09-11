@@ -139,22 +139,51 @@ python -m pip install \
   'onnxruntime>=1,<2' 'pathvalidate>=3,<4'
 python -m pip install --no-deps -e "$PY_DIR"
 
+# Piper sin kildeinstallasjon forventer språkdata under Python-pakken, men
+# git-repoet inneholder ikke denne mappen. Koble derfor Piper til de samme
+# systemdataene som den fungerende espeak-ng-kommandoen bruker.
+PIPER_PAKKE_DIR="$(python - <<'PY'
+from pathlib import Path
+import piper
+print(Path(piper.__file__).resolve().parent)
+PY
+)"
+ESPEAK_SYSTEM_DATA=""
+for datasti in /usr/share/espeak-ng-data /usr/lib/aarch64-linux-gnu/espeak-ng-data /usr/lib/x86_64-linux-gnu/espeak-ng-data; do
+  if [ -d "$datasti/voices" ]; then
+    ESPEAK_SYSTEM_DATA="$datasti"
+    break
+  fi
+done
+if [ -z "$ESPEAK_SYSTEM_DATA" ]; then
+  echo "Fant ikke systemets espeak-ng-data selv om espeak-ng er installert." >&2
+  exit 1
+fi
+rm -rf "$PIPER_PAKKE_DIR/espeak-ng-data"
+ln -s "$ESPEAK_SYSTEM_DATA" "$PIPER_PAKKE_DIR/espeak-ng-data"
+ok "Piper bruker eSpeak-data fra $ESPEAK_SYSTEM_DATA"
+
 si "Kontrollerer NumPy, matplotlib, PyTorch og Lightning"
 if ! python - <<'PY'
 import matplotlib
 import numpy
 import torch
 import lightning
+from piper.phonemize_espeak import EspeakPhonemizer
 
 numpy_major = int(numpy.__version__.split(".")[0])
 if numpy_major >= 2:
     raise RuntimeError(f"Piper krever NumPy 1.x i dette miljøet, fant {numpy.__version__}")
+phonemizer = EspeakPhonemizer()
+if not phonemizer.phonemize("en-us", "Piper language test."):
+    raise RuntimeError("Piper klarte ikke å fonemisere med eSpeak-stemmen en-us")
 print(
     "Python-pakker OK:",
     f"numpy={numpy.__version__}",
     f"matplotlib={matplotlib.__version__}",
     f"torch={torch.__version__}",
     f"lightning={lightning.__version__}",
+    "espeak=en-us",
 )
 PY
 then
