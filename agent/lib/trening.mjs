@@ -608,7 +608,7 @@ function tolkFeil(logg = "") {
   if (/No module named ['"]?torch|PyTorch \(torch\) mangler/i.test(t))
     return "PyTorch mangler i Piper-miljøet. Kjør én vanlig Jarvis-oppdatering; den installerer nå NVIDIA PyTorch direkte i Piper-miljøet.";
   if (/Fant ingen (norsk )?eSpeak-stemme|Failed to set voice|Piper klarte ikke å åpne eSpeak-stemmen|eSpeak-stemmen .* finnes ikke/i.test(t))
-    return "Ingen brukbar talespråk-profil funnet. Treningen bruker nå engelsk (en-us) som standard; kjør sudo apt install --reinstall espeak-ng espeak-ng-data hvis feilen vedvarer.";
+    return "Piper får ikke lest systemets eSpeak-data. Kjør én vanlig Jarvis-oppdatering; den kobler nå Piper til de installerte språkdataene og tester ekte fonemisering.";
 
 
   if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
