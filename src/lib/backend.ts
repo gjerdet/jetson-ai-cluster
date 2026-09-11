@@ -74,6 +74,7 @@ export type {
   TrainingDistribution,
   PiperSelftest,
   PiperPreflight,
+  AirllmStatus,
   AiConfig,
   KnowledgeDoc,
   KnowledgeHit,
