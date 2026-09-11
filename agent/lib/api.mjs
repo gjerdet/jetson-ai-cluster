@@ -75,6 +75,14 @@ import {
 } from "./trening.mjs";
 
 import {
+  airllmStatus,
+  lagreAirllmConfig,
+  startInstallasjonAirllm,
+  startAirllm,
+  stoppAirllm,
+} from "./airllm.mjs";
+
+import {
   addFeedback as addFeedbackEntry,
   getVekt,
   listFeedback,
