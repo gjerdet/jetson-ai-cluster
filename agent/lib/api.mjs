@@ -781,6 +781,34 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const memoryMessage = minneKontekst
         ? [{ role: "system", content: `Relevant minne fra tidligere:\n${minneKontekst}` }]
         : [];
+      // Tidligere innlært dokumentasjon brukes automatisk i senere samtaler.
+      // Nettsøk skjer via laer_om-verktøyet når modellen oppdager et hull;
+      // resultatet lagres i RAG og kommer deretter inn her uten nytt nettsøk.
+      let kunnskapsMelding = [];
+      if (sisteBrukerMelding) {
+        try {
+          const kunnskap = await search(sisteBrukerMelding, { topK: 5 });
+          const utdrag = (kunnskap?.treff || [])
+            .filter((treff) => Number(treff?.poeng ?? 0) > 0)
+            .map((treff, indeks) => {
+              const tittel = String(treff?.tittel || `Kilde ${indeks + 1}`).slice(0, 240);
+              const kilde = String(treff?.kilde || "lokal kunnskapsbase").slice(0, 500);
+              const tekst = String(treff?.tekst || treff?.innhold || "").slice(0, 1800);
+              return tekst ? `[${indeks + 1}] ${tittel}\nKilde: ${kilde}\n${tekst}` : "";
+            })
+            .filter(Boolean)
+            .join("\n\n")
+            .slice(0, 7000);
+          if (utdrag) {
+            kunnskapsMelding = [{
+              role: "system",
+              content: `Relevant kunnskap du tidligere har lært og lagret lokalt:\n${utdrag}\n\nBruk bare relevante utdrag og oppgi kilden når du bygger svaret på dem.`,
+            }];
+          }
+        } catch {
+          /* Manglende embedding-modell skal ikke stoppe vanlig chat. */
+        }
+      }
       // Utstyrsprofiler og verktøyerfaring gir konkret, lokal kunnskap.
       let utstyrMelding = [];
       let erfaringMelding = [];
@@ -796,6 +824,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const messages = [
         ...systemMelding,
         ...memoryMessage,
+        ...kunnskapsMelding,
         ...utstyrMelding,
         ...erfaringMelding,
 

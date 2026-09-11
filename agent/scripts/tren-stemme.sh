@@ -91,12 +91,35 @@ fi
 command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det først (apt install ffmpeg)" >&2; exit 1; }
 command -v espeak-ng >/dev/null 2>&1 || { echo "espeak-ng mangler – installer det først (apt install espeak-ng)" >&2; exit 1; }
 
+# Piper/espeak-ng bruker ISO 639-koden «nb» for norsk bokmål. «no» kan se
+# riktig ut, men finnes ikke i espeakbridge på nyere Piper og feiler først når
+# hele datasettet skal fonemiseres. Test den samme broen som treningen bruker
+# før vi bruker tid på lydkonvertering og modelloppstart.
+ESPEAK_STEMME="${PIPER_ESPEAK_VOICE:-nb}"
+if ! espeak-ng -v "$ESPEAK_STEMME" --stdout "språktest" >/dev/null 2>&1; then
+  echo "eSpeak-stemmen '$ESPEAK_STEMME' finnes ikke. Norsk bokmål krever stemmen 'nb'." >&2
+  echo "Tilgjengelige norske stemmer:" >&2
+  espeak-ng --voices 2>/dev/null | awk 'tolower($0) ~ /norwegian|bokm.l| nynorsk|[[:space:]]nb([[:space:]]|$)/ {print}' >&2 || true
+  exit 1
+fi
+
 har_ny_piper() { "$PIPER_PYTHON_BIN" -m piper.train fit --help >/dev/null 2>&1; }
 har_gammel_piper() { "$PIPER_PYTHON_BIN" -m piper_train.preprocess --help >/dev/null 2>&1; }
 
 if ! har_ny_piper && ! har_gammel_piper; then
   echo "==> Piper-treningsmiljø mangler – installerer det nå (kan ta 10-20 min)"
   kjor_installasjon || true
+fi
+
+if har_ny_piper && ! "$PIPER_PYTHON_BIN" - "$ESPEAK_STEMME" <<'PY' >/dev/null 2>&1
+import sys
+from piper import espeakbridge
+espeakbridge.set_voice(sys.argv[1])
+PY
+then
+  echo "Piper klarte ikke å åpne eSpeak-stemmen '$ESPEAK_STEMME'." >&2
+  echo "Installer norske eSpeak-data på nytt, eller bruk PIPER_ESPEAK_VOICE=nb." >&2
+  exit 1
 fi
 
 # PyTorch mangler ofte selv om Piper er installert: venv-et arver system-Python,
@@ -187,7 +210,7 @@ if har_ny_piper; then
     --data.csv_path "$DATASET/metadata.csv"
     --data.audio_dir "$WAV"
     --model.sample_rate 22050
-    --data.espeak_voice no
+    --data.espeak_voice "$ESPEAK_STEMME"
     --data.cache_dir "$PREP/cache"
     --data.config_path "$CONFIG"
     --data.batch_size "$BS"
@@ -207,7 +230,7 @@ else
   cp "$MANIFEST" "$DATASET/metadata.csv"
   echo "==> Pre-prosesserer med eldre Piper"
   "$PIPER_PYTHON_BIN" -m piper_train.preprocess \
-    --language no --input-dir "$DATASET" --output-dir "$PREP" \
+    --language "$ESPEAK_STEMME" --input-dir "$DATASET" --output-dir "$PREP" \
     --dataset-format ljspeech --single-speaker --sample-rate 22050
   echo "==> Trener med eldre Piper"
   RESUME="${PIPER_CHECKPOINT:+--resume_from_checkpoint $PIPER_CHECKPOINT}"
