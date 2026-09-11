@@ -370,7 +370,8 @@ Tilgjengelige verktøy:
 - kollega_diagnose {"node": "Hermes"} – ende-til-ende diagnose av en kollega-node.
 - laer_om {"tema": "Junos BGP-konfigurasjon", "antall": 3} – skaff deg NY kunnskap: søker på nettet,
   leser kildene og lagrer dem varig i den lokale kunnskapsbasen. Du kan også gi {"urler": ["https://..."]}.
-- web_sok {"sok": "TrueNAS API pools", "antall": 5} – finn kilder (tittel + URL) uten å lagre noe.
+- web_sok {"sok": "TrueNAS API pools", "antall": 5} – finn kilder: tittel, URL og et kort utdrag fra hver
+  kilde. Treffene vises som et eget søkekort i chatten der brukeren kan lagre en kilde i kunnskapsbasen.
 - les_url {"url": "https://..."} – les én side/dokumentasjon som ren tekst.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
 - utstyr_liste {} eller {"sok": "truenas"} – slå opp i utstyrsregisteret: kjente enheter med IP, type, rolle og fakta.
