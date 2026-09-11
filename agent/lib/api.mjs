@@ -83,6 +83,7 @@ import {
 import {
   forget as forgetMemory,
   getMemory,
+  konsolider as konsoliderMinne,
   memoryContext,
   memoryStats,
   recall,
@@ -90,6 +91,18 @@ import {
   rememberCurrent,
   timeline as memoryTimeline,
 } from "./memory.mjs";
+import {
+  gjettType,
+  hentUtstyr,
+  laerFraSkann,
+  lagreUtstyr,
+  listUtstyr,
+  slettUtstyr,
+  utstyrKontekst,
+  utstyrStats,
+} from "./utstyr.mjs";
+import { feilmonstre, reflekter, registrerUtfall, verktoyHint, verktoyStats } from "./refleksjon.mjs";
+
 import {
   activePlanCount,
   cancelPlan,
