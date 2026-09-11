@@ -533,6 +533,12 @@ export function ChatPanel({
             ok,
           });
           results.push(`[${c.name}]\n${res}`);
+          const kort = taSisteSokekort();
+          if (kort)
+            setMessages((m) => [
+              ...m,
+              { role: "assistant", content: sokekortBlokk(kort), node: "NETTSØK", time: Date.now() },
+            ]);
         }
         thread.push({
           role: "user",
