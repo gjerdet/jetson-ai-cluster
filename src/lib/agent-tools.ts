@@ -184,7 +184,7 @@ export const TOOL_CATALOG: ToolSpec[] = [
   },
   {
     name: "utstyr_fra_skann",
-    category: "nett",
+    category: "system",
     summary:
       "Tar resultatet fra nett_skann og lagrer/oppdaterer utstyrsprofiler automatisk, med gjetning av enhetstype.",
     args: '{"verter": [{"ip": "192.168.1.20", "vertsnavn": "truenas", "porter": [443, 445]}]}',

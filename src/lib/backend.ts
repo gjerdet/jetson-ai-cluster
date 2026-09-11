@@ -136,7 +136,7 @@ export interface UtstyrStats {
   perType: Record<string, number>;
 }
 
-export interface VerktoyStat {
+export interface RefleksjonVerktoyStat {
   navn: string;
   kall: number;
   ok: number;
@@ -148,9 +148,9 @@ export interface VerktoyStat {
 }
 
 export interface VerktoyStatsSvar {
-  verktoy: VerktoyStat[];
+  verktoy: RefleksjonVerktoyStat[];
   antallKall: number;
-  ustabile: VerktoyStat[];
+  ustabile: RefleksjonVerktoyStat[];
   laerdommer: { tid: number; tekst: string; kilde: string }[];
 }
 
