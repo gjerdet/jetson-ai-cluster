@@ -108,7 +108,9 @@ case "$JP" in
   7.2*|7.x*) INDEKSER+=("https://download.pytorch.org/whl/cu130" "https://pypi.jetson-ai-lab.io/sbsa/cu130") ;;
   6.x*) INDEKSER+=("https://pypi.jetson-ai-lab.io/jp6/cu129" "https://pypi.jetson-ai-lab.io/jp6/cu128") ;;
 esac
-[ "$L4T_MAJOR" -lt 38 ] 2>/dev/null && INDEKSER+=("https://developer.download.nvidia.com/compute/redist/jp/v${L4T_MAJOR}")
+if [ "$L4T_MAJOR" -lt 38 ] 2>/dev/null; then
+  INDEKSER+=("https://developer.download.nvidia.com/compute/redist/jp/v${L4T_MAJOR}")
+fi
 
 INSTALLERT=0
 for idx in "${INDEKSER[@]}"; do
