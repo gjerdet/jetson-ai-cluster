@@ -122,6 +122,23 @@ else
   adv "Agenten svarer ikke ennå – se: journalctl -u jarvis-agent -f"
 fi
 
+# Stemme (PyTorch + Piper) installeres automatisk med mindre HOPP_OVER_STEMME=1
+if [ "${HOPP_OVER_STEMME:-0}" != "1" ]; then
+  si "Installerer stemmestøtte (NVIDIA PyTorch + Piper) – dette kan ta 10–30 min"
+  if bash "$AGENT_DIR/scripts/installer-pytorch.sh"; then
+    ok "PyTorch installert"
+  else
+    adv "PyTorch-installasjon feilet – prøv INSTALLER PYTORCH i GUI-et senere"
+  fi
+  if bash "$AGENT_DIR/scripts/installer-piper.sh"; then
+    ok "Piper installert"
+  else
+    adv "Piper-installasjon feilet – prøv INSTALLER PIPER AUTOMATISK i GUI-et senere"
+  fi
+else
+  si "Hopper over stemmeinstallasjon (HOPP_OVER_STEMME=1)"
+fi
+
 cat <<EOF
 
 ${GRN}────────────────────────────────────────────────${RST}
