@@ -670,6 +670,40 @@ export interface PiperPreflight {
   anbefaling: string;
 }
 
+export interface AirllmModel {
+  id: string;
+  navn: string;
+  diskGb: number;
+  svartid: string;
+  hint: string;
+}
+
+export interface AirllmConfig {
+  modell: string;
+  port: number;
+  maksTokens: number;
+  komprimering: string;
+  aktiv: boolean;
+}
+
+export interface AirllmStatus {
+  installert: boolean;
+  venv: string;
+  installerSkript: string;
+  serverSkript: string;
+  kjorer: boolean;
+  opptatt: boolean;
+  lastet: boolean;
+  sisteSvarSek: number | null;
+  feil: string;
+  pid: number | null;
+  baseUrl: string;
+  config: AirllmConfig;
+  modeller: AirllmModel[];
+  installasjonsjobb: string | null;
+  logg: string;
+}
+
 export interface TrainingEpoch {
   nummer: number;
   tid: number;
