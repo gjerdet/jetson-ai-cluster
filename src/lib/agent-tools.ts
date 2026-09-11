@@ -806,6 +806,95 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     return `Lagret i langtidsminnet: «${text}».`;
   }
 
+  if (call.name === "utstyr_liste") {
+    const sok = str(call.args["sok"] ?? call.args["navn"] ?? "").trim();
+    const type = str(call.args["type"] ?? "").trim();
+    try {
+      const r = await backend.hentUtstyr({ ...(sok ? { sok } : {}), ...(type ? { type } : {}) });
+      if (!r.utstyr.length) return "Utstyrsregisteret er tomt for dette søket. Kjør nett_skann og deretter utstyr_fra_skann.";
+      return r.utstyr
+        .map((u) => {
+          const d = [u.ip, u.vertsnavn, u.rolle].filter(Boolean).join(" · ");
+          const f = (u.fakta ?? []).slice(-4).join("; ");
+          return `- ${u.navn} [${u.type}] ${d}${f ? `\n    ${f}` : ""}`;
+        })
+        .join("\n");
+    } catch (e) {
+      return `Klarte ikke lese utstyrsregisteret: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "utstyr_lagre") {
+    const faktum = str(call.args["faktum"] ?? call.args["fakta"] ?? "").trim();
+    const body = {
+      navn: str(call.args["navn"] ?? "").trim(),
+      ip: str(call.args["ip"] ?? "").trim(),
+      mac: str(call.args["mac"] ?? "").trim(),
+      type: str(call.args["type"] ?? "").trim(),
+      vertsnavn: str(call.args["vertsnavn"] ?? "").trim(),
+      rolle: str(call.args["rolle"] ?? "").trim(),
+      notat: str(call.args["notat"] ?? "").trim(),
+      ...(faktum ? { fakta: [faktum] } : {}),
+    };
+    if (!body.navn && !body.ip) return "Mangler «navn» eller «ip» – vet ikke hvilken enhet dette gjelder.";
+    try {
+      const r = await backend.lagreUtstyr(body);
+      return `Lagret enhet: ${r.enhet.navn} [${r.enhet.type}]${r.enhet.ip ? ` – ${r.enhet.ip}` : ""}.`;
+    } catch (e) {
+      return `Klarte ikke lagre enheten: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "utstyr_fra_skann") {
+    const verter = Array.isArray(call.args["verter"]) ? (call.args["verter"] as unknown[]) : [];
+    if (!verter.length) return "Mangler «verter» – kjør nett_skann først og send resultatet hit.";
+    try {
+      const r = await backend.utstyrFraSkann(verter);
+      return `Utstyrsregister oppdatert: ${r.nye} nye og ${r.oppdatert} oppdaterte enheter.`;
+    } catch (e) {
+      return `Klarte ikke oppdatere registeret: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "verktoy_erfaring") {
+    try {
+      const r = await backend.hentVerktoyStats();
+      if (!r.verktoy.length) return "Ingen verktøystatistikk enda.";
+      const topp = r.verktoy.slice(0, 10).map((v) => `- ${v.navn}: ${v.treffrate}% av ${v.kall} kall, ~${v.snittMs} ms`).join("\n");
+      const ustabile = r.ustabile.length
+        ? `\nUstabile: ${r.ustabile.map((v) => `${v.navn} (${v.treffrate}%)`).join(", ")}`
+        : "";
+      const laert = r.laerdommer.length ? `\nLærdommer: ${r.laerdommer.slice(0, 3).map((l) => l.tekst).join(" | ")}` : "";
+      return `${topp}${ustabile}${laert}`;
+    } catch (e) {
+      return `Klarte ikke hente verktøystatistikk: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "reflekter") {
+    const oppgave = str(call.args["oppgave"] ?? call.args["tema"] ?? "").trim();
+    if (!oppgave) return "Mangler «oppgave» – si hva jeg skal reflektere over.";
+    try {
+      const r = await backend.reflekter({
+        oppgave,
+        svar: str(call.args["svar"] ?? ""),
+        utfall: str(call.args["utfall"] ?? ""),
+        verktoy: Array.isArray(call.args["verktoy"]) ? (call.args["verktoy"] as unknown[]) : [],
+      });
+      await refreshLearnedRules(true).catch(() => []);
+      const deler = [
+        r.gikkBra ? `Gikk bra: ${r.gikkBra}` : "",
+        r.gikkDaarlig ? `Bør bedres: ${r.gikkDaarlig}` : "",
+        r.regel ? `Ny regel: «${r.regel}»` : "",
+        r.faktum ? `Nytt faktum: «${r.faktum}»` : "",
+      ].filter(Boolean);
+      return deler.length ? deler.join("\n") : "Ingenting nytt å lære av denne runden.";
+    } catch (e) {
+      return `Klarte ikke reflektere: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+
   if (call.name === "laer_regel") {
     const tekst = str(call.args["tekst"] ?? call.args["regel"] ?? call.args["text"]).trim();
     if (!tekst) return "Tom regel – ingenting lært.";
