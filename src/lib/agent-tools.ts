@@ -167,6 +167,46 @@ export const TOOL_CATALOG: ToolSpec[] = [
     builtin: true,
   },
   {
+    name: "utstyr_liste",
+    category: "minne",
+    summary:
+      "Slår opp i utstyrsregisteret: hvilke enheter (TrueNAS, Proxmox, UniFi, Homey, Jetson, brannmur …) som finnes, med IP, rolle og kjente fakta.",
+    args: '{"sok": "truenas"}',
+    builtin: true,
+  },
+  {
+    name: "utstyr_lagre",
+    category: "minne",
+    summary:
+      "Oppretter eller oppdaterer en utstyrsprofil med IP, type, rolle og fakta. Bruk denne når du lærer noe nytt om en enhet.",
+    args: '{"navn": "TrueNAS", "ip": "192.168.1.20", "type": "truenas", "faktum": "Kjører Scale 24.10, pool tank"}',
+    builtin: true,
+  },
+  {
+    name: "utstyr_fra_skann",
+    category: "nett",
+    summary:
+      "Tar resultatet fra nett_skann og lagrer/oppdaterer utstyrsprofiler automatisk, med gjetning av enhetstype.",
+    args: '{"verter": [{"ip": "192.168.1.20", "vertsnavn": "truenas", "porter": [443, 445]}]}',
+    builtin: true,
+  },
+  {
+    name: "verktoy_erfaring",
+    category: "system",
+    summary:
+      "Viser din egen statistikk per verktøy: treffrate, snittid, ustabile verktøy og lærdommer du har trukket.",
+    args: "{}",
+    builtin: true,
+  },
+  {
+    name: "reflekter",
+    category: "system",
+    summary:
+      "Gjennomgår en fullført oppgave, trekker ut hva som gikk bra/dårlig og lagrer ny adferdsregel og/eller faktum.",
+    args: '{"oppgave": "Finne ledig plass på NAS", "svar": "...", "verktoy": [{"navn": "ping", "ok": true}]}',
+    builtin: true,
+  },
+  {
     name: "evaluering",
     category: "system",
     summary: "Vurder et AI-svar eller verktøyresultat 0-10 og få forbedringsforslag.",
