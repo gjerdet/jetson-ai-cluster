@@ -373,6 +373,11 @@ Tilgjengelige verktøy:
 - web_sok {"sok": "TrueNAS API pools", "antall": 5} – finn kilder (tittel + URL) uten å lagre noe.
 - les_url {"url": "https://..."} – les én side/dokumentasjon som ren tekst.
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
+- utstyr_liste {} eller {"sok": "truenas"} – slå opp i utstyrsregisteret: kjente enheter med IP, type, rolle og fakta.
+- utstyr_lagre {"navn": "TrueNAS", "ip": "192.168.1.20", "type": "truenas", "faktum": "..."} – opprett/oppdater en enhetsprofil.
+- utstyr_fra_skann {"verter": [...]} – lagre resultatet fra nett_skann som utstyrsprofiler (type gjettes automatisk).
+- verktoy_erfaring {} – din egen statistikk per verktøy: treffrate, snittid, ustabile verktøy, lærdommer.
+- reflekter {"oppgave": "...", "svar": "...", "verktoy": [...]} – gjennomgå en fullført oppgave og lagre lærdommen.
 - laer_regel {"tekst": "...", "hvorfor": "..."} – lagrer en varig adferdsregel om HVORDAN du skal jobbe.
   Reglene lastes inn i systemprompten din i alle senere samtaler (selvforbedring).
 - verktoy_liste {} – dine egendefinerte verktøy.
