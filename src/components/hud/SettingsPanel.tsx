@@ -30,6 +30,7 @@ import { VoiceSection } from "@/components/hud/VoiceSection";
 import { PersonalitySection } from "@/components/hud/settings/PersonalitySection";
 import { TokenBudsjettSection } from "@/components/hud/settings/TokenBudsjettSection";
 import { SkriptSection } from "@/components/hud/settings/SkriptSection";
+import { AirllmSection } from "@/components/hud/settings/AirllmSection";
 
 
 import {
@@ -804,6 +805,9 @@ export function SettingsPanel({
                 brukes som reserve hvis den ikke svarer.
               </p>
               <ModelSelector config={config} update={update} />
+              <div className="mt-2 rounded border border-primary/15 bg-background/20 p-2">
+                <AirllmSection config={config} update={update} />
+              </div>
             </div>
 
 

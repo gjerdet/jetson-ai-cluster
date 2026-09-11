@@ -25,10 +25,13 @@ const LETT_ORD =
 
 const SKY_VERT = /(openrouter|openai\.com|anthropic|groq|together|mistral|deepseek|fireworks|azure)/i;
 const HERMES = /hermes/i;
+/** AirLLM kjører lokalt, men er en tung modell: bruk den kun til krevende oppgaver. */
+const AIRLLM = /airllm|:11500/i;
 
 /** Klassifiser en node som lokal Jetson-modell eller tung modell. */
 export function nodeKlasse(node: ModelNode): NodeKlasse {
   const url = (node.baseUrl || "").toLowerCase();
+  if (AIRLLM.test(url) || AIRLLM.test(node.name)) return "tung";
   if (SKY_VERT.test(url) || (node.apiKey && !/^https?:\/\/(127\.|10\.|192\.168\.|172\.|localhost)/.test(url)))
     return "tung";
   if (HERMES.test(node.name) || HERMES.test(node.model)) return "tung";

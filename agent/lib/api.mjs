@@ -75,6 +75,14 @@ import {
 } from "./trening.mjs";
 
 import {
+  airllmStatus,
+  lagreAirllmConfig,
+  startInstallasjonAirllm,
+  startAirllm,
+  stoppAirllm,
+} from "./airllm.mjs";
+
+import {
   addFeedback as addFeedbackEntry,
   getVekt,
   listFeedback,
@@ -875,7 +883,11 @@ export async function handleApi(req, res, route, url, deps = {}) {
         const model = str(b.model || node.modell || cfg.model || chosenModel, "Modell", { maks: 120 });
         const ctrl = new AbortController();
         // Første svar fra en kald modell på Jetson kan ta flere minutter.
-        const grenseMs = Math.max(15_000, Number(cfg.timeoutMs) || 60_000);
+        // AirLLM leser modellen lag for lag fra disk og trenger mye lengre tid.
+        const erAirllm = /airllm|:11500/i.test(baseUrl);
+        const grenseMs = erAirllm
+          ? Math.max(600_000, Number(cfg.airllmTimeoutMs) || 1_800_000)
+          : Math.max(15_000, Number(cfg.timeoutMs) || 60_000);
         const timer = setTimeout(() => ctrl.abort(), grenseMs + 15_000);
         try {
           const resultat = await callChatEndpoint({
@@ -1258,6 +1270,50 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path.startsWith("/tts/trening/") && method === "POST") {
       const id = decodeURIComponent(path.slice("/tts/trening/".length));
       return json(req, res, 200, { ok: treningAvbryt(id), jobb: treningJobb(id) });
+    }
+
+    // ---- AirLLM (stor modell lokalt, lag for lag) ------------------------
+
+    if (path === "/airllm/status" && method === "GET") {
+      try {
+        return json(req, res, 200, await airllmStatus());
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/airllm/config" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      const b = await readBody(req);
+      return json(req, res, 200, { config: lagreAirllmConfig(b || {}) });
+    }
+
+    if (path === "/airllm/installer" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      try {
+        const b = await readBody(req);
+        return json(req, res, 200, { jobb: await startInstallasjonAirllm({ modell: b?.modell || "" }) });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/airllm/start" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      try {
+        return json(req, res, 200, await startAirllm());
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/airllm/stopp" && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      try {
+        return json(req, res, 200, await stoppAirllm());
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
     }
 
     if (path === "/tts/treningssett" && method === "GET")
