@@ -939,6 +939,15 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     try {
       const r = await backend.laerOm(tema, { urler, antall });
       if (!r.kilder.length) return `Fant ingen kilder om «${tema}».`;
+      settSokekort({
+        sporsmal: tema,
+        treff: r.kilder.map((k) => ({
+          tittel: k.tittel,
+          url: k.url,
+          utdrag: str(k.utdrag).replace(/\s+/g, " ").slice(0, 320),
+          lagret: k.biter > 0,
+        })),
+      });
       const kilder = r.kilder
         .map((k) => `- ${k.tittel} (${k.url})${k.feil ? ` – FEIL: ${k.feil}` : ` – ${k.biter} biter lagret`}`)
         .join("\n");
@@ -956,13 +965,21 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     }
   }
 
-  if (call.name === "web_sok") {
+  if (call.name === "web_sok" || call.name === "nett_sok") {
     const q = str(call.args["sok"] ?? call.args["q"] ?? call.args["tema"] ?? call.args["tekst"]);
     if (!q) return "Mangler søketekst.";
     const antall = Math.max(1, Math.min(Number(call.args["antall"] ?? 5) || 5, 10));
     try {
       const r = await backend.sokWeb(q, antall);
-      return r.treff.map((t, i) => `${i + 1}. ${t.tittel}\n   ${t.url}`).join("\n");
+      const treff = r.treff.map((t) => ({
+        tittel: t.tittel,
+        url: t.url,
+        utdrag: str((t as { utdrag?: string }).utdrag),
+      }));
+      settSokekort({ sporsmal: q, treff });
+      return treff
+        .map((t, i) => `${i + 1}. ${t.tittel}\n   ${t.url}${t.utdrag ? `\n   ${t.utdrag}` : ""}`)
+        .join("\n");
     } catch (e) {
       return `Nettsøk feilet: ${e instanceof Error ? e.message : String(e)}`;
     }
