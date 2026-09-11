@@ -141,7 +141,7 @@ export const TOOL_CATALOG: ToolSpec[] = [
   {
     name: "web_sok",
     category: "minne",
-    summary: "Fritekstsøk på nettet – gir tittel og URL til kilder du kan lære av.",
+    summary: "Fritekstsøk på nettet – gir tittel, URL og et kort utdrag fra hver kilde i chatten.",
     args: '{"sok": "TrueNAS Scale API v2.0 pools", "antall": 5}',
     builtin: true,
   },
