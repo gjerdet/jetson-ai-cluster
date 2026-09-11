@@ -51,6 +51,8 @@ import {
   toolAvailability,
   customToolPrompt,
   customToolNames,
+  taSisteSokekort,
+  sokekortBlokk,
 } from "@/lib/agent-tools";
 import { evaluate } from "@/lib/evaluator";
 import { logSelfEvent } from "@/lib/health";
