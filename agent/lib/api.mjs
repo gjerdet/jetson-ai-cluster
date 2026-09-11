@@ -883,7 +883,11 @@ export async function handleApi(req, res, route, url, deps = {}) {
         const model = str(b.model || node.modell || cfg.model || chosenModel, "Modell", { maks: 120 });
         const ctrl = new AbortController();
         // Første svar fra en kald modell på Jetson kan ta flere minutter.
-        const grenseMs = Math.max(15_000, Number(cfg.timeoutMs) || 60_000);
+        // AirLLM leser modellen lag for lag fra disk og trenger mye lengre tid.
+        const erAirllm = /airllm|:11500/i.test(baseUrl);
+        const grenseMs = erAirllm
+          ? Math.max(600_000, Number(cfg.airllmTimeoutMs) || 1_800_000)
+          : Math.max(15_000, Number(cfg.timeoutMs) || 60_000);
         const timer = setTimeout(() => ctrl.abort(), grenseMs + 15_000);
         try {
           const resultat = await callChatEndpoint({
