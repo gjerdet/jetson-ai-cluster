@@ -804,6 +804,9 @@ export function SettingsPanel({
                 brukes som reserve hvis den ikke svarer.
               </p>
               <ModelSelector config={config} update={update} />
+              <div className="mt-2 rounded border border-primary/15 bg-background/20 p-2">
+                <AirllmSection config={config} update={update} />
+              </div>
             </div>
 
 
