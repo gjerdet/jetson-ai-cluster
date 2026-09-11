@@ -607,8 +607,9 @@ function tolkFeil(logg = "") {
   if (/ffmpeg mangler|ffmpeg: not found/i.test(t)) return "ffmpeg mangler – sudo apt install ffmpeg.";
   if (/No module named ['"]?torch|PyTorch \(torch\) mangler/i.test(t))
     return "PyTorch mangler i Piper-miljøet. Kjør én vanlig Jarvis-oppdatering; den installerer nå NVIDIA PyTorch direkte i Piper-miljøet.";
-  if (/Fant ingen norsk eSpeak-stemme|Failed to set voice|Piper klarte ikke å åpne eSpeak-stemmen|eSpeak-stemmen .* finnes ikke/i.test(t))
-    return "Ingen norsk talespråk-profil funnet. Kjør: sudo apt install --reinstall espeak-ng espeak-ng-data, og start treningen på nytt.";
+  if (/Fant ingen (norsk )?eSpeak-stemme|Failed to set voice|Piper klarte ikke å åpne eSpeak-stemmen|eSpeak-stemmen .* finnes ikke/i.test(t))
+    return "Ingen brukbar talespråk-profil funnet. Treningen bruker nå engelsk (en-us) som standard; kjør sudo apt install --reinstall espeak-ng espeak-ng-data hvis feilen vedvarer.";
+
 
   if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
 
