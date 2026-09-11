@@ -35,14 +35,16 @@ JETPACK_PAKKE="$(dpkg-query -W -f='${Version}' nvidia-jetpack 2>/dev/null || tru
 si "L4T: ${L4T_FULL:-ukjent} (major ${L4T_MAJOR:-?}), JetPack-pakke: ${JETPACK_PAKKE:-ukjent}"
 
 case "$L4T_MAJOR" in
+  39) INDEKS="https://download.pytorch.org/whl/cu132"; JP="7.2"; CUDA_FORVENTET="13.2" ;;
+  38) INDEKS="https://download.pytorch.org/whl/cu130"; JP="7.x"; CUDA_FORVENTET="13.0" ;;
   36) INDEKS="https://pypi.jetson-ai-lab.io/jp6/cu126"; JP="6.x"; CUDA_FORVENTET="12.6" ;;
   35) INDEKS="https://pypi.jetson-ai-lab.io/jp5/cu114"; JP="5.x"; CUDA_FORVENTET="11.4" ;;
   *)
     # Nyere L4T-utgaver (38, 39 …) er ikke i kartet ennå. I stedet for å stoppe
     # faller vi tilbake til nyeste kjente serie, JetPack 7 / CUDA 13.
-    if [ -n "$L4T_MAJOR" ] && [ "$L4T_MAJOR" -ge 38 ] 2>/dev/null; then
-      INDEKS="https://pypi.jetson-ai-lab.io/jp7/cu130"; JP="7.x (antatt for L4T R$L4T_MAJOR)"; CUDA_FORVENTET="13.0"
-      adv "L4T R$L4T_MAJOR er nyere enn kartet – bruker JetPack 7-hjulene"
+    if [ -n "$L4T_MAJOR" ] && [ "$L4T_MAJOR" -ge 39 ] 2>/dev/null; then
+      INDEKS="https://download.pytorch.org/whl/cu132"; JP="7.2+ (antatt for L4T R$L4T_MAJOR)"; CUDA_FORVENTET="13.2"
+      adv "L4T R$L4T_MAJOR er nyere enn kartet – bruker offisielle SBSA-hjul for CUDA 13.2"
     elif [ -n "$L4T_MAJOR" ] && [ "$L4T_MAJOR" -ge 36 ] 2>/dev/null; then
       INDEKS="https://pypi.jetson-ai-lab.io/jp6/cu126"; JP="6.x (antatt)"; CUDA_FORVENTET="12.6"
     else
@@ -103,18 +105,25 @@ fi
 # ---- 4. Installer NVIDIA PyTorch -------------------------------------------
 INDEKSER=("$INDEKS")
 case "$JP" in
-  7.x*) INDEKSER+=("https://pypi.jetson-ai-lab.io/jp7/cu129" "https://pypi.jetson-ai-lab.io/jp7/cu128") ;;
+  7.2*|7.x*) INDEKSER+=("https://download.pytorch.org/whl/cu130" "https://pypi.jetson-ai-lab.io/sbsa/cu130") ;;
   6.x*) INDEKSER+=("https://pypi.jetson-ai-lab.io/jp6/cu129" "https://pypi.jetson-ai-lab.io/jp6/cu128") ;;
 esac
-INDEKSER+=("https://developer.download.nvidia.com/compute/redist/jp/v${L4T_MAJOR}")
+if [ "$L4T_MAJOR" -lt 38 ] 2>/dev/null; then
+  INDEKSER+=("https://developer.download.nvidia.com/compute/redist/jp/v${L4T_MAJOR}")
+fi
 
 INSTALLERT=0
 for idx in "${INDEKSER[@]}"; do
   si "Prøver PyTorch-indeks $idx (dette tar noen minutter)"
-  if python3 -m pip install "${PIPFLAGG[@]}" --extra-index-url "$idx" torch torchaudio; then
-    INSTALLERT=1
-    ok "PyTorch installert fra $idx"
-    break
+  # Indeksen må være primær. Med --extra-index-url kunne pip velge den vanlige
+  # PyPI-utgaven uten Jetson/SBSA-CUDA selv om NVIDIA-hjulet var tilgjengelig.
+  if python3 -m pip install "${PIPFLAGG[@]}" --upgrade --index-url "$idx" torch; then
+    if python3 -c 'import torch,sys; print("torch", torch.__version__, "cuda", torch.version.cuda, "available", torch.cuda.is_available()); sys.exit(0 if torch.cuda.is_available() else 1)'; then
+      INSTALLERT=1
+      ok "PyTorch med CUDA installert fra $idx"
+      break
+    fi
+    adv "Pakken fra $idx kan importeres, men mangler CUDA – prøver neste kilde"
   fi
   adv "Indeksen $idx ga ingen brukbar pakke – prøver neste"
 done

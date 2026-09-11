@@ -28,7 +28,8 @@ const les = (f) => fs.readFile(f, "utf8").catch(() => "");
  * cu-versjonen følger CUDA-en JetPack leverer.
  */
 const JETPACK_KART = [
-  { l4t: 38, jetpack: "7.x", cuda: "13.0", indeks: "https://pypi.jetson-ai-lab.io/jp7/cu130" },
+  { l4t: 39, jetpack: "7.2", cuda: "13.2", indeks: "https://download.pytorch.org/whl/cu132" },
+  { l4t: 38, jetpack: "7.x", cuda: "13.0", indeks: "https://download.pytorch.org/whl/cu130" },
   { l4t: 36, jetpack: "6.x", cuda: "12.6", indeks: "https://pypi.jetson-ai-lab.io/jp6/cu126" },
   { l4t: 35, jetpack: "5.x", cuda: "11.4", indeks: "https://pypi.jetson-ai-lab.io/jp5/cu114" },
 ];
