@@ -30,6 +30,7 @@ import { VoiceSection } from "@/components/hud/VoiceSection";
 import { PersonalitySection } from "@/components/hud/settings/PersonalitySection";
 import { TokenBudsjettSection } from "@/components/hud/settings/TokenBudsjettSection";
 import { SkriptSection } from "@/components/hud/settings/SkriptSection";
+import { AirllmSection } from "@/components/hud/settings/AirllmSection";
 
 
 import {
