@@ -29,6 +29,14 @@ if [ -z "$AGENT_TOKEN_LOCAL" ] && [ -r "$AGENT_ENV_FILE" ]; then
   AGENT_TOKEN_LOCAL="$(grep -E '^AGENT_TOKEN=' "$AGENT_ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)"
 fi
 
+# Porten står i agent.env (f.eks. 8443 ved TLS). Uten dette sjekket helsesjekken
+# standardporten 8787 og meldte en frisk backend som nede.
+if [ -z "${AGENT_PORT_SATT:-}" ] && [ -z "${AGENT_PORT:-}" ] && [ -r "$AGENT_ENV_FILE" ]; then
+  PORT_FRA_ENV="$(grep -E '^AGENT_PORT=' "$AGENT_ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'")"
+  [ -n "$PORT_FRA_ENV" ] && AGENT_PORT="$PORT_FRA_ENV"
+fi
+
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --json) JSON=1 ;;
