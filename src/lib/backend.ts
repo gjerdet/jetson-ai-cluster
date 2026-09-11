@@ -743,7 +743,7 @@ export const backend = {
   // ---- Refleksjon ----
   hentVerktoyStats: () => call<VerktoyStatsSvar>(ROUTES.reflection!),
   reflekter: (b: { oppgave: string; svar?: string; verktoy?: unknown[]; utfall?: string }) =>
-    call<Refleksjon>(ROUTES.reflection!, { method: "POST", body: JSON.stringify(b), timeoutMs: 120_000 }),
+    call<Refleksjon>(ROUTES.reflection!, { method: "POST", body: JSON.stringify(b) }, { timeoutMs: 120_000, retries: 0 }),
   registrerUtfall: (b: { oppgave?: string; verktoy?: unknown[]; svar?: string; ok?: boolean }) =>
     call<{ registrert: boolean; nyeRegler: string[] }>(ROUTES.reflectionOutcome!, { method: "POST", body: JSON.stringify(b) }),
 
