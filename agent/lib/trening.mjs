@@ -607,6 +607,8 @@ function tolkFeil(logg = "") {
   if (/ffmpeg mangler|ffmpeg: not found/i.test(t)) return "ffmpeg mangler – sudo apt install ffmpeg.";
   if (/No module named ['"]?torch|PyTorch \(torch\) mangler/i.test(t))
     return "PyTorch mangler i Piper-miljøet. Kjør én vanlig Jarvis-oppdatering; den installerer nå NVIDIA PyTorch direkte i Piper-miljøet.";
+  if (/Failed to set voice|Piper klarte ikke å åpne eSpeak-stemmen|eSpeak-stemmen .* finnes ikke/i.test(t))
+    return "Norsk språkprofil mangler eller er feil. Jarvis bruker nå eSpeak-koden «nb» for norsk bokmål; oppdater noden og start treningen på nytt.";
   if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
 
   if (/out of memory|CUDA out of memory|Killed/i.test(t)) return "Tom for minne – velg presetet «Jetson · lav VRAM».";
