@@ -113,6 +113,56 @@ export type {
   MemoryStats,
 };
 
+/** En kjent enhet i brukerens nett (TrueNAS, Proxmox, UniFi, Homey, Jetson …). */
+export interface Utstyr {
+  id: string;
+  navn: string;
+  type: string;
+  ip: string;
+  mac: string;
+  vertsnavn: string;
+  rolle: string;
+  notat: string;
+  porter: unknown[];
+  fakta: string[];
+  sistSett: number;
+  opprettet: number;
+  kilde: string;
+}
+
+export interface UtstyrStats {
+  antall: number;
+  identifisert: number;
+  perType: Record<string, number>;
+}
+
+export interface VerktoyStat {
+  navn: string;
+  kall: number;
+  ok: number;
+  feil: number;
+  treffrate: number;
+  snittMs: number;
+  sisteFeil: string;
+  sistBrukt: number;
+}
+
+export interface VerktoyStatsSvar {
+  verktoy: VerktoyStat[];
+  antallKall: number;
+  ustabile: VerktoyStat[];
+  laerdommer: { tid: number; tekst: string; kilde: string }[];
+}
+
+export interface Refleksjon {
+  gikkBra: string;
+  gikkDaarlig: string;
+  regel: string;
+  faktum: string;
+  lagret: string[];
+}
+
+
 export interface UpdateStatus {
   aktiv: boolean;
   status: string;
