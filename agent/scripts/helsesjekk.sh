@@ -149,26 +149,38 @@ sjekk_tjeneste jarvis-agent feil
 # ── 4. Porter / endepunkter ──────────────────────────────────────────────────
 HELSE_HEADER=()
 if [ -n "$AGENT_TOKEN_LOCAL" ]; then HELSE_HEADER=(-H "Authorization: Bearer $AGENT_TOKEN_LOCAL"); fi
-if HELSE="$(curl -fsS --max-time 8 "${HELSE_HEADER[@]}" "http://127.0.0.1:$AGENT_PORT/health" 2>/dev/null)"; then
-  resultat ok "Backend" "http://127.0.0.1:$AGENT_PORT svarer"
+
+# Agenten kan kjøre HTTP eller HTTPS (AGENT_TLS_*). Finn riktig skjema først,
+# ellers rapporteres en frisk TLS-backend feilaktig som nede.
+AGENT_BASE=""
+for skjema in http https; do
+  if curl -sSk --max-time 8 -o /dev/null "$skjema://127.0.0.1:$AGENT_PORT/api/status" 2>/dev/null; then
+    AGENT_BASE="$skjema://127.0.0.1:$AGENT_PORT"
+    break
+  fi
+done
+
+if [ -z "$AGENT_BASE" ]; then
+  resultat feil "Backend" "svarer ikke på port $AGENT_PORT"
+elif curl -fsSk --max-time 8 "${HELSE_HEADER[@]}" "$AGENT_BASE/health" >/dev/null 2>&1; then
+  resultat ok "Backend" "$AGENT_BASE svarer"
 else
-  # /api/status er offentlig og skiller «prosessen lytter» fra feil/manglende
-  # agent-token. Tidligere ble en frisk backend feilaktig rapportert som nede.
-  STATUSKODE="$(curl -sS --max-time 8 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$AGENT_PORT/api/status" 2>/dev/null || true)"
+  STATUSKODE="$(curl -sSk --max-time 8 -o /dev/null -w '%{http_code}' "$AGENT_BASE/api/status" 2>/dev/null || true)"
   if [ "$STATUSKODE" = "200" ]; then
-    resultat advarsel "Backend" "svarer på port $AGENT_PORT, men /health avviste agent-tokenet"
+    resultat advarsel "Backend" "svarer på $AGENT_BASE, men /health avviste agent-tokenet"
   else
     resultat feil "Backend" "svarer ikke på port $AGENT_PORT"
   fi
 fi
 
-if STATUS="$(curl -fsS --max-time 8 "http://127.0.0.1:$AGENT_PORT/api/status" 2>/dev/null)"; then
+if [ -n "$AGENT_BASE" ] && STATUS="$(curl -fsSk --max-time 8 "$AGENT_BASE/api/status" 2>/dev/null)"; then
   if printf '%s' "$STATUS" | grep -q '"trengerOppsett":true'; then
     resultat advarsel "Brukere" "ingen bruker opprettet ennå – første innlogging oppretter admin"
   else
     resultat ok "Brukere" "admin-bruker finnes"
   fi
 fi
+
 
 if [ "$SJEKK_GUI" -eq 1 ]; then
   if curl -fsS --max-time 10 -o /dev/null "http://127.0.0.1:$GUI_PORT/" 2>/dev/null; then
