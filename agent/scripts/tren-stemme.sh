@@ -21,18 +21,42 @@ mkdir -p "$WAV"
 
 # Finn Python direkte i Piper-miljøet. En absolutt interpreter er mer robust
 # enn å stole på at `source activate` endrer PATH i et systemd/bash-lc-miljø.
-finn_piper_python() {
-  [ -n "${PIPER_PYTHON:-}" ] && [ -x "$PIPER_PYTHON" ] && { echo "$PIPER_PYTHON"; return 0; }
+RESERVE_STI="${AGENT_DATA:-/var/lib/jarvis/data}/piper-venv.sti"
+LAGRET_VENV=""
+[ -f "$RESERVE_STI" ] && LAGRET_VENV="$(cat "$RESERVE_STI" 2>/dev/null || true)"
+
+kandidat_python() {
+  [ -n "${PIPER_PYTHON:-}" ] && [ -x "$PIPER_PYTHON" ] && echo "$PIPER_PYTHON"
   for v in \
     "${PIPER_VENV:-}" \
+    "$LAGRET_VENV" \
+    /opt/jarvis/piper/.venv \
     /opt/jarvis/piper/src/python/.venv \
     "$HOME/piper/src/python/.venv" \
     "$HOME/piper/.venv" \
-    /opt/jarvis/piper/.venv \
     /opt/piper/.venv; do
-    [ -n "$v" ] && [ -x "$v/bin/python" ] && { echo "$v/bin/python"; return 0; }
+    [ -n "$v" ] && [ -x "$v/bin/python" ] && echo "$v/bin/python"
   done
-  command -v python3
+  command -v python3 || true
+}
+
+har_piper() { "$1" -c 'import piper.train' >/dev/null 2>&1 || "$1" -m piper_train.preprocess --help >/dev/null 2>&1; }
+har_torch() { "$1" -c 'import torch' >/dev/null 2>&1; }
+
+# Velg først en tolker som har både Piper og torch. Et venv uten torch gir
+# ellers «ModuleNotFoundError: No module named torch» langt inne i treningen.
+finn_piper_python() {
+  local beste="" delvis=""
+  while read -r p; do
+    [ -n "$p" ] || continue
+    if har_piper "$p"; then
+      if har_torch "$p"; then beste="$p"; break; fi
+      [ -z "$delvis" ] && delvis="$p"
+    fi
+  done < <(kandidat_python)
+  if [ -n "$beste" ]; then echo "$beste"; return 0; fi
+  if [ -n "$delvis" ]; then echo "$delvis"; return 0; fi
+  kandidat_python | head -n1
 }
 PIPER_PYTHON_BIN="$(finn_piper_python)"
 echo "Piper Python: $PIPER_PYTHON_BIN"
@@ -50,31 +74,50 @@ kan_installere_piper() {
 }
 som_root() { if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo -n "$@"; fi; }
 
+kjor_installasjon() {
+  [ "$AUTO" = "1" ] || return 1
+  kan_installere_piper || return 1
+  [ -f "$HER/installer-piper.sh" ] || return 1
+  som_root bash "$HER/installer-piper.sh" || return 1
+  PIPER_PYTHON_BIN="$(finn_piper_python)"
+  echo "Piper Python: $PIPER_PYTHON_BIN"
+}
+
 if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v espeak-ng >/dev/null 2>&1; then
-  if [ "$AUTO" = "1" ] && kan_installere_piper && [ -f "$HER/installer-piper.sh" ]; then
-    echo "==> Mangler ffmpeg/espeak-ng – kjører Piper-installatøren"
-    som_root bash "$HER/installer-piper.sh"
-    PIPER_PYTHON_BIN="$(finn_piper_python)"
-  fi
+  echo "==> Mangler ffmpeg/espeak-ng – kjører Piper-installatøren"
+  kjor_installasjon || true
 fi
 command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det først (apt install ffmpeg)" >&2; exit 1; }
+command -v espeak-ng >/dev/null 2>&1 || { echo "espeak-ng mangler – installer det først (apt install espeak-ng)" >&2; exit 1; }
 
 har_ny_piper() { "$PIPER_PYTHON_BIN" -m piper.train fit --help >/dev/null 2>&1; }
 har_gammel_piper() { "$PIPER_PYTHON_BIN" -m piper_train.preprocess --help >/dev/null 2>&1; }
 
 if ! har_ny_piper && ! har_gammel_piper; then
-  if [ "$AUTO" = "1" ] && kan_installere_piper && [ -f "$HER/installer-piper.sh" ]; then
-    echo "==> Piper-treningsmiljø mangler – installerer det nå (kan ta 10-20 min)"
-    som_root bash "$HER/installer-piper.sh"
-    PIPER_PYTHON_BIN="$(finn_piper_python)"
-  fi
+  echo "==> Piper-treningsmiljø mangler – installerer det nå (kan ta 10-20 min)"
+  kjor_installasjon || true
 fi
+
+# PyTorch mangler ofte selv om Piper er installert: venv-et arver system-Python,
+# og der er NVIDIA-hjulet ikke alltid på plass. Prøv å installere det først.
+if ! har_torch "$PIPER_PYTHON_BIN"; then
+  echo "==> PyTorch mangler i $PIPER_PYTHON_BIN – installerer NVIDIA PyTorch og Piper på nytt"
+  kjor_installasjon || true
+fi
+if ! har_torch "$PIPER_PYTHON_BIN"; then
+  echo "PyTorch (torch) mangler i Piper-miljøet: $PIPER_PYTHON_BIN" >&2
+  "$PIPER_PYTHON_BIN" -c 'import sys; print("sys.executable:", sys.executable); print("sys.path:", sys.path)' >&2 2>/dev/null || true
+  echo "Kjør på noden: sudo bash agent/scripts/installer-pytorch.sh && sudo bash agent/scripts/installer-piper.sh" >&2
+  exit 1
+fi
+
 if ! har_ny_piper && ! har_gammel_piper; then
   echo "Piper-treningsmiljøet mangler – installer Piper først" >&2
   "$PIPER_PYTHON_BIN" -m piper.train fit --help 2>&1 | tail -n 12 >&2 || true
   echo "Tips: sudo bash agent/scripts/installer-piper.sh" >&2
   exit 1
 fi
+
 
 # Finjustering fra ferdig norsk stemme gir mye bedre resultat med lite data.
 if [ "${PIPER_FINETUNE_NO:-0}" = "1" ] && [ -z "${PIPER_CHECKPOINT:-}" ]; then
