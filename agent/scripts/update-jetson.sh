@@ -192,7 +192,7 @@ if [ "${HOPP_OVER_STEMME:-0}" != "1" ]; then
     PIPER_VENV_STI="$(cat /var/lib/jarvis/data/piper-venv.sti 2>/dev/null || true)"
 
   TORCH_OK=0
-  python3 -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0])>=2 else 1)' >/dev/null 2>&1 && TORCH_OK=1
+  python3 -c 'import torch,sys;sys.exit(0 if int(torch.__version__.split(".")[0])>=2 and torch.cuda.is_available() else 1)' >/dev/null 2>&1 && TORCH_OK=1
 
   if [ "$TORCH_OK" -eq 0 ]; then
     si "Installerer NVIDIA PyTorch (kan ta 5–20 min) …"
