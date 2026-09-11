@@ -51,7 +51,7 @@ export function lagreAirllmConfig(verdier = {}) {
     modell: String(verdier.modell ?? naa.modell).trim() || STANDARD.modell,
     port: Number(verdier.port ?? naa.port) || STANDARD.port,
     maksTokens: Math.max(32, Number(verdier.maksTokens ?? naa.maksTokens) || STANDARD.maksTokens),
-    komprimering: String(verdier.komprimering ?? naa.komprimering || ""),
+    komprimering: String(verdier.komprimering ?? naa.komprimering ?? ""),
   };
   saveDoc("airllm", ny);
   return ny;
