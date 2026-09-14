@@ -14,6 +14,7 @@ import {
   type VoiceConfig,
 } from "@/lib/voice";
 import { VoiceTraining } from "./VoiceTraining";
+import { TrainedVoices } from "./TrainedVoices";
 
 const TESTTEKST = "Systemene er på nett, sir. Alle noder rapporterer normal drift.";
 
@@ -201,6 +202,10 @@ export function VoiceSection() {
         filmatisk JARVIS-klang enn nettleserstemmene. Egen trent stemme legges inn ved å peke
         «Piper-modell» til din <code>.onnx</code>-modell.
       </p>
+
+      <div className="border-t border-primary/15 pt-3">
+        <TrainedVoices onValgt={(fil) => patch({ piperVoice: fil })} />
+      </div>
 
       <div className="border-t border-primary/15 pt-3">
         <VoiceTraining />

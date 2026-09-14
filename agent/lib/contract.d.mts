@@ -159,6 +159,9 @@ export const ROUTES: {
   ttsTrainingResults: string;
   ttsTrainingNodes: string;
   ttsTrainingDistribute: string;
+  ttsTrainedVoices: string;
+  ttsTrainedActivate: string;
+  ttsTrainingContinue: string;
   airllmStatus: string;
   airllmConfig: string;
   airllmInstall: string;
@@ -760,6 +763,20 @@ export interface TrainingResult {
   gpuSnitt: number | null;
   vramToppMb: number | null;
   tempToppC: number | null;
+}
+
+export interface TrainedVoice {
+  id: string;
+  navn: string;
+  mappe: string;
+  fil: string;
+  konfig: string;
+  checkpoint: string;
+  kanTreneMer: boolean;
+  storrelseMb: number | null;
+  endret: string;
+  aktiv: boolean;
+  jobbId: string;
 }
 
 export interface TrainingNodeJob {

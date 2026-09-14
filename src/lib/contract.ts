@@ -62,6 +62,7 @@ export type {
   TrainingQueue,
   TrainingPlan,
   TrainingResult,
+  TrainedVoice,
   TrainingEpoch,
   TrainingNode,
   TrainingNodes,

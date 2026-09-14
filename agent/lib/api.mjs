@@ -72,6 +72,9 @@ import {
   treningResultater,
   treningNoder,
   fordelTrening,
+  lokaleStemmer,
+  aktiverStemme,
+  fortsettTrening,
 } from "./trening.mjs";
 
 import {
@@ -1156,6 +1159,18 @@ export async function handleApi(req, res, route, url, deps = {}) {
       }
     }
 
+    if (path === "/tts/stemmer/trente" && method === "GET")
+      return json(req, res, 200, { stemmer: await lokaleStemmer() });
+
+    if (path === "/tts/stemmer/trente/aktiver" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, await aktiverStemme(b?.fil));
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
     if (path === "/tts/stemmer" && method === "GET")
       return json(req, res, 200, { stemmer: await piperStemmer() });
 
@@ -1200,6 +1215,17 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path.startsWith("/tts/klipp/") && method === "DELETE") {
       const id = decodeURIComponent(path.slice("/tts/klipp/".length));
       return json(req, res, 200, { ok: await deleteClip(id), statistikk: clipStats() });
+    }
+
+    if (path === "/tts/trening/fortsett" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, {
+          jobb: await fortsettTrening({ mappe: b?.mappe, jobbId: b?.jobbId, epoker: b?.epoker, batch: b?.batch }),
+        });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
     }
 
     if (path === "/tts/trening/plan" && method === "GET") {

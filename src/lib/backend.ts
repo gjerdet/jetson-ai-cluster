@@ -48,6 +48,7 @@ import {
   type TrainingQueue,
   type TrainingPlan,
   type TrainingResult,
+  type TrainedVoice,
   type TrainingNodes,
   type TrainingDistribution,
   type PiperSelftest,
@@ -71,6 +72,7 @@ export type {
   TrainingQueue,
   TrainingPlan,
   TrainingResult,
+  TrainedVoice,
   TrainingNodes,
   TrainingDistribution,
   PiperSelftest,
@@ -769,6 +771,25 @@ export const backend = {
     call<{ ok: boolean }>(`${ROUTES.ttsTraining}/${encodeURIComponent(id)}`, { method: "POST" }, { retries: 0 }),
   slettTrening: (id: string) =>
     call<TrainingQueue>(`${ROUTES.ttsTraining}/${encodeURIComponent(id)}`, { method: "DELETE" }, { retries: 0 }),
+  /** Ferdigtrente Piper-stemmer som ligger lokalt på noden. */
+  trenteStemmer: () =>
+    call<{ stemmer: TrainedVoice[] }>(ROUTES.ttsTrainedVoices!, {}, { timeoutMs: 30_000, retries: 0 }).then(
+      (r) => r.stemmer,
+    ),
+  /** Setter en ferdigtrent .onnx som aktiv stemme på noden. */
+  aktiverTrentStemme: (fil: string) =>
+    call<{ modell: string }>(
+      ROUTES.ttsTrainedActivate!,
+      { method: "POST", body: JSON.stringify({ fil }) },
+      { retries: 0 },
+    ),
+  /** Trener videre på en eksisterende stemme fra siste checkpoint. */
+  fortsettTrening: (v: { mappe?: string; jobbId?: string; epoker?: number; batch?: number }) =>
+    call<{ jobb: TrainingJob }>(
+      ROUTES.ttsTrainingContinue!,
+      { method: "POST", body: JSON.stringify(v) },
+      { timeoutMs: 30_000, retries: 0 },
+    ),
   publiserTrening: (id: string, modell?: string) =>
     call<{ modell: string }>(
       `${ROUTES.ttsTraining}/${encodeURIComponent(id)}/publiser`,
