@@ -326,7 +326,7 @@ if har_ny_piper; then
   "$PIPER_PYTHON_BIN" -m piper.train.export_onnx --checkpoint "$CKPT" --output-file "$UT/model.onnx"
 else
   # Kompatibilitet for noder som fortsatt har et fungerende eldre miljø.
-  cp "$MANIFEST" "$DATASET/metadata.csv"
+  awk -F'|' -v ok="$OK_IDER" 'BEGIN{OFS="|"; while ((getline l < ok) > 0) g[l]=1} NF>=2 { sub(/\r$/, "", $1); n=$1; while (n ~ /\.wav$/) sub(/\.wav$/, "", n); if (n in g) print }' "$MANIFEST" > "$DATASET/metadata.csv"
   echo "==> Pre-prosesserer med eldre Piper"
   "$PIPER_PYTHON_BIN" -m piper_train.preprocess \
     --language "$ESPEAK_STEMME" --input-dir "$DATASET" --output-dir "$PREP" \
