@@ -203,6 +203,10 @@ export function VoiceSection() {
       </p>
 
       <div className="border-t border-primary/15 pt-3">
+        <TrainedVoices onValgt={(fil) => patch({ piperVoice: fil })} />
+      </div>
+
+      <div className="border-t border-primary/15 pt-3">
         <VoiceTraining />
       </div>
     </div>
