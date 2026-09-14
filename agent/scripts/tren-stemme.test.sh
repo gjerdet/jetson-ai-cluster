@@ -12,7 +12,7 @@ import re
 import sys
 
 tekst = open(sys.argv[1], encoding="utf-8").read()
-treff = re.search(r"^CHECKPOINT_CALLBACKS='(.+)'$", tekst, re.MULTILINE)
+treff = re.search(r"^\s*CHECKPOINT_CALLBACKS='(.+)'$", tekst, re.MULTILINE)
 assert treff, "Fant ikke eksplisitt checkpoint-konfigurasjon"
 callbacks = json.loads(treff.group(1))
 assert len(callbacks) == 1
