@@ -765,6 +765,20 @@ export interface TrainingResult {
   tempToppC: number | null;
 }
 
+export interface TrainedVoice {
+  id: string;
+  navn: string;
+  mappe: string;
+  fil: string;
+  konfig: string;
+  checkpoint: string;
+  kanTreneMer: boolean;
+  storrelseMb: number | null;
+  endret: string;
+  aktiv: boolean;
+  jobbId: string;
+}
+
 export interface TrainingNodeJob {
   id: string;
   navn: string;
