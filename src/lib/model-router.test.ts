@@ -38,9 +38,14 @@ describe("modell-ruting", () => {
   });
 
   it("ruter tungt til skynode og lett til lokal når lokal-først er av", () => {
-    const c = { ...cfg, lokalForst: false };
+    const c = { ...cfg, lokalForst: false, kunLokalt: false };
     expect(velgRute(c, "feilsøk docker-containeren min").node?.id).toBe("n2");
     expect(velgRute(c, "hei").node?.id).toBe("n1");
+  });
+
+  it("kun-lokalt holder skynoden utenfor også ved tunge oppgaver", () => {
+    const c = { ...cfg, lokalForst: false, kunLokalt: true };
+    expect(velgRute(c, "feilsøk docker-containeren min").node?.id).toBe("n1");
   });
 
   it("lokal-først lar lokal node ta også tunge oppgaver", () => {
