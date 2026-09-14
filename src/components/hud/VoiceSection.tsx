@@ -14,6 +14,7 @@ import {
   type VoiceConfig,
 } from "@/lib/voice";
 import { VoiceTraining } from "./VoiceTraining";
+import { TrainedVoices } from "./TrainedVoices";
 
 const TESTTEKST = "Systemene er på nett, sir. Alle noder rapporterer normal drift.";
 
