@@ -300,6 +300,12 @@ if har_ny_piper; then
   awk -F'|' -v ok="$OK_IDER" 'BEGIN{OFS="|"; while ((getline l < ok) > 0) g[l]=1} NF>=2 { sub(/\r$/, "", $1); while ($1 ~ /\.wav$/) sub(/\.wav$/, "", $1); if ($1 in g) print }' "$MANIFEST" > "$DATASET/metadata.csv"
   CONFIG="$UT/model.onnx.json"
   echo "==> Trener med aktiv Piper-CLI"
+  # Enkelte Piper1-GPL-utgaver legger inn en ekstra ModelCheckpoint som følger
+  # val_mos. UTMOS lastes ikke alltid på Jetson, og nyere Lightning avslutter da
+  # hele treningen selv om de vanlige valideringsmålingene finnes. Erstatt
+  # standardlisten med én robust kontrollpunktregel basert på val_mel, som
+  # Piper alltid logger når vi har en valideringsmengde.
+  CHECKPOINT_CALLBACKS='[{"class_path":"lightning.pytorch.callbacks.ModelCheckpoint","init_args":{"monitor":"val_mel","mode":"min","save_top_k":5,"save_last":true,"filename":"epoch={epoch}-val_mel={val_mel:.4f}","auto_insert_metric_name":false}}]'
   CMD=("$PIPER_PYTHON_BIN" -m piper.train fit
     --data.voice_name "$NAVN"
     --data.csv_path "$DATASET/metadata.csv"
@@ -314,6 +320,7 @@ if har_ny_piper; then
     --trainer.max_epochs "$EPOCHS"
     --trainer.log_every_n_steps 1
     --trainer.enable_progress_bar false
+    --trainer.callbacks "$CHECKPOINT_CALLBACKS"
     --trainer.accelerator "$AKSEL"
     --trainer.devices 1
     --trainer.default_root_dir "$PREP")
