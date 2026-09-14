@@ -177,7 +177,7 @@ export async function callChatEndpoint(input) {
   const samlet = feil.join(" | ");
   if (erModellMangler(samlet) && !input?._retry) {
     const modeller = await listModels(baseUrl, { apiKey, signal });
-    const alternativ = modeller.find((m) => m !== model);
+    const alternativ = velgChatModell(modeller, [model]);
     if (alternativ) {
       const res = await callChatEndpoint({
         baseUrl, model: alternativ, messages, temperature, apiKey, signal, timeoutMs, _retry: true,
