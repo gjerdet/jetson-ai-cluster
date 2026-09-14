@@ -792,6 +792,8 @@ function tolkFeil(logg = "") {
   if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
 
   if (/out of memory|CUDA out of memory|Killed/i.test(t)) return "Tom for minne – velg presetet «Jetson · lav VRAM».";
+  if (/ModelCheckpoint\(monitor=['"]val_mos['"]\).*could not find the monitored key/i.test(t))
+    return "Piper-versjonen overvåket en valgfri stemmekvalitetsmåling som ikke ble laget. Oppdater Jarvis og bruk «TREN MER» for å fortsette fra siste kontrollpunkt.";
   if (/ingen lydfil|No such file/i.test(t)) return "Fant ikke lydfilene som manifestet peker på.";
   if (/Fant ingen checkpoint/i.test(t)) return "Treningen rakk aldri å lagre et checkpoint – øk epoker eller sjekk loggen over.";
   return "";
