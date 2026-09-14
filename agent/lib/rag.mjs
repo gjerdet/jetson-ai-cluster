@@ -292,39 +292,69 @@ export async function search(sporsmal, { topK, minPoeng } = {}) {
   const k = clamp(Number(topK ?? cfg.topK), 1, 20);
   const grense = minPoeng != null ? Number(minPoeng) : cfg.minPoeng;
 
-  // 1) Rask indeks (turbovec) når den kjører – ellers faller vi tilbake under.
+  // 1) Hybrid: rask vektorindeks (turbovec) + ordtreff i teksten, og AirLLM
+  //    rangerer toppen når motoren er ledig. Svikter noe av dette, faller vi
+  //    stille tilbake til metoden under.
   try {
     if (await turbovecHelse()) {
       const [q] = await embed([String(sporsmal)], cfg);
       if (q) {
-        const { treff: raa, msBrukt } = await turbovecSok(q, k);
-        if (raa.length) {
-          const hent = db.prepare(
-            "SELECT b.id, b.dok_id, b.nr, b.tekst, d.tittel, d.kilde, d.type FROM biter b JOIN dokumenter d ON d.id = b.dok_id WHERE b.id = ?",
-          );
-          const treff = raa
-            .map((t) => {
-              const r = hent.get(t.id);
-              if (!r) return null;
-              return {
-                id: r.id,
-                dokId: r.dok_id,
-                nr: r.nr,
-                tittel: r.tittel,
-                kilde: r.kilde,
-                type: r.type,
-                tekst: r.tekst,
-                poeng: Number(Number(t.poeng).toFixed(4)),
-              };
-            })
-            .filter(Boolean);
-          if (treff.length) return { treff, metode: "turbovec", msBrukt: msBrukt || Date.now() - start };
+        const { treff: raa, msBrukt } = await turbovecSok(q, k * 2);
+        const hent = db.prepare(
+          "SELECT b.id, b.dok_id, b.nr, b.tekst, d.tittel, d.kilde, d.type FROM biter b JOIN dokumenter d ON d.id = b.dok_id WHERE b.id = ?",
+        );
+        const form = (r, poeng, kilder) => ({
+          id: r.id,
+          dokId: r.dok_id,
+          nr: r.nr,
+          tittel: r.tittel,
+          kilde: r.kilde,
+          type: r.type,
+          tekst: r.tekst,
+          poeng: Number(Number(poeng).toFixed(4)),
+          treffkilder: kilder,
+        });
+
+        const samlet = new Map();
+        for (const t of raa) {
+          const r = hent.get(t.id);
+          if (r) samlet.set(r.id, form(r, Number(t.poeng) * 0.75, ["vektor"]));
+        }
+
+        // Tekstdelen: ordtreff fanger navn, kommandoer og tall som vektorene bommer på.
+        const tekstRader = db
+          .prepare(
+            "SELECT b.id, b.dok_id, b.nr, b.tekst, d.tittel, d.kilde, d.type FROM biter b JOIN dokumenter d ON d.id = b.dok_id",
+          )
+          .all();
+        for (const r of tekstRader) {
+          const ordPoeng = keywordScore(String(sporsmal), r.tekst);
+          if (ordPoeng <= 0) continue;
+          const fra = samlet.get(r.id);
+          if (fra) {
+            fra.poeng = Number((fra.poeng + ordPoeng * 0.25).toFixed(4));
+            fra.treffkilder = ["vektor", "tekst"];
+          } else {
+            samlet.set(r.id, form(r, ordPoeng * 0.25, ["tekst"]));
+          }
+        }
+
+        let treff = [...samlet.values()].sort((a, b) => b.poeng - a.poeng).slice(0, k);
+        let metode = "hybrid";
+        if (treff.length) {
+          const rekkefolge = await airllmRangerTreff(String(sporsmal), treff).catch(() => null);
+          if (rekkefolge) {
+            treff = rekkefolge.map((i) => treff[i]).filter(Boolean);
+            metode = "hybrid+airllm";
+          }
+          return { treff, metode, msBrukt: msBrukt || Date.now() - start };
         }
       }
     }
   } catch {
     /* faller tilbake til vanlig søk */
   }
+
 
   const rader = db
     .prepare(
