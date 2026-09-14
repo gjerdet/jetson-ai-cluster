@@ -14,15 +14,29 @@ export function IndeksSection() {
   const [jobber, setJobber] = useState("");
   const [melding, setMelding] = useState<string | null>(null);
   const [feil, setFeil] = useState<string | null>(null);
+  const [vert, setVert] = useState("");
+  const [port, setPort] = useState("");
+  const [token, setToken] = useState("");
+  const [delt, setDelt] = useState(false);
+  const [rortFelt, setRortFelt] = useState(false);
 
   const last = async () => {
     const { data, error } = await safe(() => backend.indeksStatus());
-    if (data) setStatus(data);
+    if (data) {
+      setStatus(data);
+      if (!rortFelt) {
+        setVert(data.config.vert);
+        setPort(String(data.config.port));
+        setToken(data.config.token);
+        setDelt(data.config.delt);
+      }
+    }
     else if (error) setFeil(error.message);
   };
 
   useEffect(() => {
     void last();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const t = setInterval(() => void last(), 10_000);
     return () => clearInterval(t);
   }, []);
@@ -49,7 +63,7 @@ export function IndeksSection() {
             : !status.installert
               ? "ikke installert – bruker vanlig søk"
               : status.kjorer
-                ? `aktiv · ${status.vektorer} vektorer · ${status.bits} bit${
+                ? `${status.fjern ? `på ${status.config.vert}` : "lokalt"} · ${status.vektorer} vektorer · ${status.bits} bit${
                     status.sisteSokMs != null ? ` · siste søk ${status.sisteSokMs} ms` : ""
                   }`
                 : "installert, men stoppet – bruker vanlig søk"}
@@ -65,7 +79,76 @@ export function IndeksSection() {
         Komprimerer vektorene og søker mye raskere når basen vokser. Alt kjører lokalt på noden.
       </p>
 
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="hud-title space-y-1 text-[8px] text-muted-foreground">
+          INDEKSNODE (IP ELLER VERTSNAVN)
+          <input
+            value={vert}
+            onChange={(e) => {
+              setRortFelt(true);
+              setVert(e.target.value);
+            }}
+            placeholder="127.0.0.1"
+            className="w-full rounded-lg border border-primary/20 bg-background/40 px-2 py-1 font-mono text-[11px] text-foreground outline-none focus:border-primary/50"
+          />
+        </label>
+        <label className="hud-title space-y-1 text-[8px] text-muted-foreground">
+          PORT
+          <input
+            value={port}
+            onChange={(e) => {
+              setRortFelt(true);
+              setPort(e.target.value);
+            }}
+            placeholder="11600"
+            className="w-full rounded-lg border border-primary/20 bg-background/40 px-2 py-1 font-mono text-[11px] text-foreground outline-none focus:border-primary/50"
+          />
+        </label>
+        <label className="hud-title space-y-1 text-[8px] text-muted-foreground">
+          DELINGSNØKKEL (VALGFRI)
+          <input
+            value={token}
+            onChange={(e) => {
+              setRortFelt(true);
+              setToken(e.target.value);
+            }}
+            placeholder="tom = ingen nøkkel"
+            className="w-full rounded-lg border border-primary/20 bg-background/40 px-2 py-1 font-mono text-[11px] text-foreground outline-none focus:border-primary/50"
+          />
+        </label>
+        <label className="hud-title flex items-center gap-2 self-end text-[9px] text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={delt}
+            onChange={(e) => {
+              setRortFelt(true);
+              setDelt(e.target.checked);
+            }}
+            className="accent-primary"
+          />
+          DEL MED ANDRE NODER
+        </label>
+      </div>
+
       <div className="flex flex-wrap gap-2">
+        <button
+          className={btnCls}
+          disabled={!!jobber}
+          onClick={() =>
+            void kjor("Lagre", async () => {
+              const r = await backend.indeksConfig({
+                vert: vert.trim() || "127.0.0.1",
+                port: Number(port) || 11600,
+                token: token.trim(),
+                delt,
+              });
+              setRortFelt(false);
+              return r;
+            })
+          }
+        >
+          Lagre indeksnode
+        </button>
         <button className={btnCls} disabled={!!jobber} onClick={() => void kjor("Installasjon", () => backend.indeksInstaller())}>
           <Wrench className="size-3" /> Installer turbovec
         </button>
