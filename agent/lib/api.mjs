@@ -186,10 +186,12 @@ import {
   listDocuments,
   ragConfig,
   ragStats,
+  rebuildIndex,
   reindex,
   saveRagConfig,
   search,
 } from "./rag.mjs";
+import { startInstallasjonTurbovec, startTurbovec, stoppTurbovec, turbovecStatus } from "./turbovec.mjs";
 import { hentUrl, laerOm, sokWeb } from "./laering.mjs";
 
 const json = (req, res, status, body) => {
