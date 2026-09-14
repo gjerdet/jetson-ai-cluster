@@ -794,6 +794,8 @@ function tolkFeil(logg = "") {
   if (/out of memory|CUDA out of memory|Killed/i.test(t)) return "Tom for minne – velg presetet «Jetson · lav VRAM».";
   if (/ModelCheckpoint\(monitor=['"]val_mos['"]\).*could not find the monitored key/i.test(t))
     return "Piper-versjonen overvåket en valgfri stemmekvalitetsmåling som ikke ble laget. Oppdater Jarvis og bruk «TREN MER» for å fortsette fra siste kontrollpunkt.";
+  if (/more than one stateful callback of type [`'"]ModelCheckpoint/i.test(t))
+    return "Piper opprettet to kolliderende lagringsregler. Oppdater Jarvis; den valgfrie val_mos-regelen fjernes nå før treningen starter.";
   if (/ingen lydfil|No such file/i.test(t)) return "Fant ikke lydfilene som manifestet peker på.";
   if (/Fant ingen checkpoint/i.test(t)) return "Treningen rakk aldri å lagre et checkpoint – øk epoker eller sjekk loggen over.";
   return "";
