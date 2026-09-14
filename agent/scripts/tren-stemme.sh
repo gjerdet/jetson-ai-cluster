@@ -218,12 +218,14 @@ fi
 echo "==> Bygger datasett for $NAVN"
 while IFS='|' read -r id tekst; do
   [ -n "$id" ] || continue
-  src=$(find "$MAPPE" -maxdepth 1 -type f -name "$id.*" | head -n1)
+  src=$(find "$MAPPE" -maxdepth 1 -type f -name "${id%.wav}.*" | head -n1)
   if [ -z "$src" ]; then
     echo "  hopper over $id (ingen lydfil)" >&2
     continue
   fi
-  ffmpeg -y -hide_banner -loglevel error -i "$src" -ar 22050 -ac 1 -c:a pcm_s16le "$WAV/$id.wav"
+  # Manifestet kan ha id både med og uten .wav – vi skriver alltid én .wav
+  basisnavn="${id%.wav}"
+  ffmpeg -y -hide_banner -loglevel error -i "$src" -ar 22050 -ac 1 -c:a pcm_s16le "$WAV/$basisnavn.wav"
 done < "$MANIFEST"
 
 # Tomt datasett gir en kryptisk Python-feil langt inne i treningen.
@@ -238,6 +240,15 @@ echo "==> $ANTALL_WAV klipp klare i $WAV"
 
 EPOCHS="${PIPER_EPOCHS:-2000}"
 BS="${PIPER_BATCH:-8}"
+# Er batchen større enn treningssettet, kaster Piper bort klipp og logger
+# nesten ingenting. Juster ned automatisk i stedet.
+TRENINGSKLIPP=$(( ANTALL_WAV - (ANTALL_WAV / 10) - 1 ))
+[ "$TRENINGSKLIPP" -lt 1 ] && TRENINGSKLIPP=1
+if [ "$BS" -gt "$TRENINGSKLIPP" ]; then
+  echo "! Batchstørrelse $BS er større enn treningssettet ($TRENINGSKLIPP klipp) – setter batch til $TRENINGSKLIPP." >&2
+  echo "  Last opp flere klipp (helst 15–30 min lyd) for et brukbart resultat." >&2
+  BS="$TRENINGSKLIPP"
+fi
 KVAL="${PIPER_QUALITY:-low}"
 
 # Velg akselerator ut fra hva torch faktisk ser. Uten dette krasjer Lightning
@@ -254,7 +265,7 @@ fi
 
 if har_ny_piper; then
   # Ny Piper (Open Home Foundation) bruker lydfilnavn i første CSV-kolonne.
-  awk -F'|' 'BEGIN{OFS="|"} NF>=2 {$1=$1 ".wav"; print}' "$MANIFEST" > "$DATASET/metadata.csv"
+  awk -F'|' 'BEGIN{OFS="|"} NF>=2 { if ($1 !~ /\.wav$/) $1=$1 ".wav"; print }' "$MANIFEST" > "$DATASET/metadata.csv"
   CONFIG="$UT/model.onnx.json"
   echo "==> Trener med aktiv Piper-CLI"
   CMD=("$PIPER_PYTHON_BIN" -m piper.train fit
@@ -267,6 +278,8 @@ if har_ny_piper; then
     --data.config_path "$CONFIG"
     --data.batch_size "$BS"
     --trainer.max_epochs "$EPOCHS"
+    --trainer.log_every_n_steps 1
+    --trainer.enable_progress_bar false
     --trainer.accelerator "$AKSEL"
     --trainer.devices 1
     --trainer.default_root_dir "$PREP")
