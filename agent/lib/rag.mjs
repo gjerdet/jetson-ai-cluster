@@ -188,11 +188,21 @@ export async function addDocument({ tittel, tekst, kilde = "", type = "tekst" })
     embedFeil = String(e?.message || e);
   }
   const stmt = db.prepare("INSERT INTO biter (id, dok_id, nr, tekst, vektor, model) VALUES (?,?,?,?,?,?)");
+  const nye = [];
   biter.forEach((b, i) => {
     const v = vektorer[i];
-    stmt.run(randomUUID(), id, i, b, v ? JSON.stringify(v) : null, v ? cfg.model : null);
+    const bitId = randomUUID();
+    stmt.run(bitId, id, i, b, v ? JSON.stringify(v) : null, v ? cfg.model : null);
+    if (v) nye.push({ id: bitId, vektor: v });
   });
-  return { dokument: getDocument(id), biter: biter.length, embedFeil };
+  // Den raske indeksen er valgfri: svarer den ikke, søker vi som før.
+  let indeksert = 0;
+  try {
+    if (nye.length && (await turbovecHelse())) indeksert = await turbovecLeggTil(nye);
+  } catch {
+    indeksert = 0;
+  }
+  return { dokument: getDocument(id), biter: biter.length, embedFeil, indeksert };
 }
 
 export function getDocument(id) {
