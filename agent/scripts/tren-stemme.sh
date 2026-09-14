@@ -215,18 +215,31 @@ if [ "${PIPER_FINETUNE_NO:-0}" = "1" ] && [ -z "${PIPER_CHECKPOINT:-}" ]; then
 fi
 
 echo "==> Bygger datasett for $NAVN"
+OK_IDER="$UT/ok-ider.txt"
+: > "$OK_IDER"
+HOPPET=0
 while IFS='|' read -r id tekst || [ -n "$id" ]; do
   id="${id%$'\r'}"
   [ -n "$id" ] || continue
   src=$(find "$MAPPE" -maxdepth 1 -type f -name "${id%.wav}.*" | head -n1)
   if [ -z "$src" ]; then
     echo "  hopper over $id (ingen lydfil)" >&2
+    HOPPET=$((HOPPET + 1))
     continue
   fi
   # Manifestet kan ha id både med og uten .wav – vi skriver alltid én .wav
   basisnavn="${id%.wav}"
-  ffmpeg -y -hide_banner -loglevel error -i "$src" -ar 22050 -ac 1 -c:a pcm_s16le "$WAV/$basisnavn.wav"
+  # En ødelagt eller feilnavngitt opptaksfil skal ikke stoppe hele treningen.
+  if ffmpeg -y -hide_banner -loglevel error -i "$src" -ar 22050 -ac 1 -c:a pcm_s16le "$WAV/$basisnavn.wav" 2>"$UT/ffmpeg-feil.txt"; then
+    printf '%s\n' "$basisnavn" >> "$OK_IDER"
+  else
+    echo "  hopper over $id (kunne ikke leses som lyd: $(tr '\n' ' ' < "$UT/ffmpeg-feil.txt" | tail -c 200))" >&2
+    rm -f "$WAV/$basisnavn.wav"
+    HOPPET=$((HOPPET + 1))
+  fi
 done < "$MANIFEST"
+rm -f "$UT/ffmpeg-feil.txt"
+[ "$HOPPET" -gt 0 ] && echo "! $HOPPET klipp ble hoppet over og er utelatt fra treningen." >&2
 
 # Tomt datasett gir en kryptisk Python-feil langt inne i treningen.
 # Stopp tidlig med en forklarende melding i stedet.
@@ -284,7 +297,7 @@ fi
 if har_ny_piper; then
   # Bruk klipp-ID uten filendelse. Piper prøver selv først eksakt navn og
   # deretter `<id>.wav`; normaliseringen hindrer `.wav.wav` ved eldre manifest.
-  awk -F'|' 'BEGIN{OFS="|"} NF>=2 { sub(/\r$/, "", $1); while ($1 ~ /\.wav$/) sub(/\.wav$/, "", $1); print }' "$MANIFEST" > "$DATASET/metadata.csv"
+  awk -F'|' -v ok="$OK_IDER" 'BEGIN{OFS="|"; while ((getline l < ok) > 0) g[l]=1} NF>=2 { sub(/\r$/, "", $1); while ($1 ~ /\.wav$/) sub(/\.wav$/, "", $1); if ($1 in g) print }' "$MANIFEST" > "$DATASET/metadata.csv"
   CONFIG="$UT/model.onnx.json"
   echo "==> Trener med aktiv Piper-CLI"
   CMD=("$PIPER_PYTHON_BIN" -m piper.train fit
@@ -313,7 +326,7 @@ if har_ny_piper; then
   "$PIPER_PYTHON_BIN" -m piper.train.export_onnx --checkpoint "$CKPT" --output-file "$UT/model.onnx"
 else
   # Kompatibilitet for noder som fortsatt har et fungerende eldre miljø.
-  cp "$MANIFEST" "$DATASET/metadata.csv"
+  awk -F'|' -v ok="$OK_IDER" 'BEGIN{OFS="|"; while ((getline l < ok) > 0) g[l]=1} NF>=2 { sub(/\r$/, "", $1); n=$1; while (n ~ /\.wav$/) sub(/\.wav$/, "", n); if (n in g) print }' "$MANIFEST" > "$DATASET/metadata.csv"
   echo "==> Pre-prosesserer med eldre Piper"
   "$PIPER_PYTHON_BIN" -m piper_train.preprocess \
     --language "$ESPEAK_STEMME" --input-dir "$DATASET" --output-dir "$PREP" \
