@@ -287,9 +287,45 @@ export async function reindex() {
  */
 export async function search(sporsmal, { topK, minPoeng } = {}) {
   initRag();
+  const start = Date.now();
   const cfg = ragConfig();
   const k = clamp(Number(topK ?? cfg.topK), 1, 20);
   const grense = minPoeng != null ? Number(minPoeng) : cfg.minPoeng;
+
+  // 1) Rask indeks (turbovec) når den kjører – ellers faller vi tilbake under.
+  try {
+    if (await turbovecHelse()) {
+      const [q] = await embed([String(sporsmal)], cfg);
+      if (q) {
+        const { treff: raa, msBrukt } = await turbovecSok(q, k);
+        if (raa.length) {
+          const hent = db.prepare(
+            "SELECT b.id, b.dok_id, b.nr, b.tekst, d.tittel, d.kilde, d.type FROM biter b JOIN dokumenter d ON d.id = b.dok_id WHERE b.id = ?",
+          );
+          const treff = raa
+            .map((t) => {
+              const r = hent.get(t.id);
+              if (!r) return null;
+              return {
+                id: r.id,
+                dokId: r.dok_id,
+                nr: r.nr,
+                tittel: r.tittel,
+                kilde: r.kilde,
+                type: r.type,
+                tekst: r.tekst,
+                poeng: Number(Number(t.poeng).toFixed(4)),
+              };
+            })
+            .filter(Boolean);
+          if (treff.length) return { treff, metode: "turbovec", msBrukt: msBrukt || Date.now() - start };
+        }
+      }
+    }
+  } catch {
+    /* faller tilbake til vanlig søk */
+  }
+
   const rader = db
     .prepare(
       "SELECT b.id, b.dok_id, b.nr, b.tekst, b.vektor, d.tittel, d.kilde, d.type FROM biter b JOIN dokumenter d ON d.id = b.dok_id",
