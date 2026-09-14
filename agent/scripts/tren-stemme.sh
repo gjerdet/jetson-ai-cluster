@@ -297,7 +297,7 @@ fi
 if har_ny_piper; then
   # Bruk klipp-ID uten filendelse. Piper prøver selv først eksakt navn og
   # deretter `<id>.wav`; normaliseringen hindrer `.wav.wav` ved eldre manifest.
-  awk -F'|' 'BEGIN{OFS="|"} NF>=2 { sub(/\r$/, "", $1); while ($1 ~ /\.wav$/) sub(/\.wav$/, "", $1); print }' "$MANIFEST" > "$DATASET/metadata.csv"
+  awk -F'|' -v ok="$OK_IDER" 'BEGIN{OFS="|"; while ((getline l < ok) > 0) g[l]=1} NF>=2 { sub(/\r$/, "", $1); while ($1 ~ /\.wav$/) sub(/\.wav$/, "", $1); if ($1 in g) print }' "$MANIFEST" > "$DATASET/metadata.csv"
   CONFIG="$UT/model.onnx.json"
   echo "==> Trener med aktiv Piper-CLI"
   CMD=("$PIPER_PYTHON_BIN" -m piper.train fit
