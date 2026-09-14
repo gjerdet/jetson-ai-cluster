@@ -191,7 +191,13 @@ import {
   saveRagConfig,
   search,
 } from "./rag.mjs";
-import { startInstallasjonTurbovec, startTurbovec, stoppTurbovec, turbovecStatus } from "./turbovec.mjs";
+import {
+  lagreTurbovecConfig,
+  startInstallasjonTurbovec,
+  startTurbovec,
+  stoppTurbovec,
+  turbovecStatus,
+} from "./turbovec.mjs";
 import { hentUrl, laerOm, sokWeb } from "./laering.mjs";
 
 const json = (req, res, status, body) => {
@@ -1093,6 +1099,11 @@ export async function handleApi(req, res, route, url, deps = {}) {
         if (handling === "start") return json(req, res, 200, await startTurbovec());
         if (handling === "stopp") return json(req, res, 200, await stoppTurbovec());
         if (handling === "bygg") return json(req, res, 200, await rebuildIndex());
+        if (handling === "config") {
+          const kropp = await readBody(req);
+          lagreTurbovecConfig(kropp || {});
+          return json(req, res, 200, await turbovecStatus());
+        }
       } catch (e) {
         return json(req, res, 400, { error: String(e?.message || e) });
       }

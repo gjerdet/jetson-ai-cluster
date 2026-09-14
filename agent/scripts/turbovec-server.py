@@ -17,6 +17,9 @@ from turbovec import IdMapIndex
 PORT = int(os.environ.get("TURBOVEC_PORT", "11600"))
 DATA_DIR = os.environ.get("TURBOVEC_DATA", "/var/lib/jarvis/data/turbovec")
 BIT_WIDTH = int(os.environ.get("TURBOVEC_BITS", "4"))
+# Bind til 0.0.0.0 når indeksen skal deles med andre Jetson-noder.
+BIND = os.environ.get("TURBOVEC_BIND", "127.0.0.1")
+TOKEN = os.environ.get("TURBOVEC_TOKEN", "").strip()
 INDEX_FIL = os.path.join(DATA_DIR, "indeks.tvim")
 KART_FIL = os.path.join(DATA_DIR, "idkart.json")
 
@@ -188,12 +191,23 @@ class Handler(BaseHTTPRequestHandler):
             return {}
         return json.loads(self.rfile.read(n).decode("utf-8"))
 
+    def _godkjent(self):
+        """Deles indeksen på nettverket, kreves et token fra de andre nodene."""
+        if not TOKEN:
+            return True
+        oppgitt = (self.headers.get("authorization") or "").removeprefix("Bearer ").strip()
+        return oppgitt == TOKEN
+
     def do_GET(self):  # noqa: N802
+        if not self._godkjent():
+            return self._svar(401, {"error": "Ugyldig token"})
         if self.path.startswith("/health") or self.path.startswith("/statistikk"):
             return self._svar(200, {"ok": True, **statistikk()})
         return self._svar(404, {"error": "Ukjent sti"})
 
     def do_POST(self):  # noqa: N802
+        if not self._godkjent():
+            return self._svar(401, {"error": "Ugyldig token"})
         try:
             data = self._kropp()
             with laas:
@@ -216,8 +230,12 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     last_fra_disk()
-    print(f"turbovec-indeks lytter på http://127.0.0.1:{PORT} ({statistikk()['vektorer']} vektorer)", flush=True)
-    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    print(
+        f"turbovec-indeks lytter på http://{BIND}:{PORT} "
+        f"({statistikk()['vektorer']} vektorer, token: {'ja' if TOKEN else 'nei'})",
+        flush=True,
+    )
+    ThreadingHTTPServer((BIND, PORT), Handler).serve_forever()
 
 
 if __name__ == "__main__":
