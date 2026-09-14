@@ -69,9 +69,23 @@ export async function listModels(baseUrl, { apiKey, signal } = {}) {
   return [];
 }
 
-/** Sant når feilteksten tyder på at modellen ikke finnes på noden. */
+/** Sant når feilteksten tyder på at modellen ikke finnes eller ikke kan chatte. */
 export function erModellMangler(tekst) {
-  return /model .*not found|no such model|pull the model/i.test(String(tekst || ""));
+  const t = String(tekst || "");
+  return /model .*not found|no such model|pull the model|does not support (chat|generate)/i.test(t);
+}
+
+/** Embedding-/rangeringsmodeller kan ikke svare i chat – de må aldri velges automatisk. */
+export function erEmbedModell(navn) {
+  return /embed|bge[-_]|gte[-_]|e5[-_]|minilm|rerank|nomic-embed/i.test(String(navn || ""));
+}
+
+/** Velger første brukbare chat-modell fra en modelliste. */
+export function velgChatModell(modeller, unntatt = []) {
+  const nekt = new Set(unntatt.filter(Boolean).map((m) => String(m).toLowerCase()));
+  return (modeller || []).find(
+    (m) => !erEmbedModell(m) && !nekt.has(String(m).toLowerCase()),
+  ) || null;
 }
 
 /** OpenRouter-modeller er alltid «leverandør/modell» med små bokstaver. */
@@ -163,7 +177,7 @@ export async function callChatEndpoint(input) {
   const samlet = feil.join(" | ");
   if (erModellMangler(samlet) && !input?._retry) {
     const modeller = await listModels(baseUrl, { apiKey, signal });
-    const alternativ = modeller.find((m) => m !== model);
+    const alternativ = velgChatModell(modeller, [model]);
     if (alternativ) {
       const res = await callChatEndpoint({
         baseUrl, model: alternativ, messages, temperature, apiKey, signal, timeoutMs, _retry: true,

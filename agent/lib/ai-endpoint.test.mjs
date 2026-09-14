@@ -1,6 +1,6 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { chatEndpoints, chatPayload, chatText } from "./ai-endpoint.mjs";
+import { chatEndpoints, chatPayload, chatText, erEmbedModell, erModellMangler, velgChatModell } from "./ai-endpoint.mjs";
 
 test("normaliserer OpenAI-base", () => {
   assert.deepEqual(chatEndpoints("http://hermes:11434/v1/"), ["http://hermes:11434/v1/chat/completions"]);
@@ -41,4 +41,16 @@ test("bytter modell når modellen mangler på noden", async () => {
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("embedding-modeller velges aldri automatisk", () => {
+  assert.equal(erEmbedModell("nomic-embed-text:latest"), true);
+  assert.equal(erEmbedModell("bge-m3:latest"), true);
+  assert.equal(erEmbedModell("llama3.2:3b"), false);
+  assert.equal(
+    velgChatModell(["nomic-embed-text:latest", "bge-m3:latest", "llama3.2:3b"]),
+    "llama3.2:3b",
+  );
+  assert.equal(velgChatModell(["llama3.2:3b"], ["llama3.2:3b"]), null);
+  assert.equal(erModellMangler("model \"llama3.1\" does not support chat"), true);
 });
