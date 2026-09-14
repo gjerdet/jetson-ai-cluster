@@ -69,8 +69,10 @@ export function velgRute(
   if (config.autoRoute === false)
     return { ...(primary ? { node: primary } : {}), vekt, grunn: "automatisk ruting er av – bruker primærnode" };
 
-  const tunge = aktive.filter((n) => nodeKlasse(n) === "tung");
-  const lokale = aktive.filter((n) => nodeKlasse(n) === "lokal");
+  // Kun-lokalt: betalte sky-noder holdes helt utenfor rutingen.
+  const brukbare = config.kunLokalt !== false ? aktive.filter((n) => !erSkyNode(n)) : aktive;
+  const tunge = brukbare.filter((n) => nodeKlasse(n) === "tung");
+  const lokale = brukbare.filter((n) => nodeKlasse(n) === "lokal");
   const passer = (n: ModelNode) => !n.duties?.length || n.duties.includes(opts?.verktoyrunde ? "verktoy" : "chat");
 
   // Lokal-først: den lokale modellen prøver alltid selv først for å spare
