@@ -339,6 +339,52 @@ function logg(id, linje) {
 
 const prosesser = new Map();
 
+/**
+ * Rydder opp i jobber som står som «kjører» uten at det finnes en prosess.
+ * Skjer når agenten restartes (oppdatering, strømbrudd, OOM) – da dør
+ * bash-barnet, men statusen i lageret blir stående og GUI-et viser
+ * evig «kjører». Vi markerer slike jobber som feilet med en forklaring.
+ */
+export function gjenopprettForeldreloseJobber() {
+  const list = jobbDoc().list || [];
+  const foreldrelose = list.filter((j) => j.status === "kjører" && !prosesser.has(j.id));
+  if (!foreldrelose.length) return [];
+  const ny = list.map((j) =>
+    foreldrelose.some((f) => f.id === j.id)
+      ? {
+          ...j,
+          status: "feilet",
+          ferdig: new Date().toISOString(),
+          feil:
+            "Treningen ble avbrutt fordi agenttjenesten startet på nytt (oppdatering, omstart eller tom for minne). Bruk «TREN MER» for å fortsette fra siste lagrede punkt.",
+          logg: [
+            ...(j.logg || []),
+            `${new Date().toISOString().slice(11, 19)} avbrutt: agenttjenesten startet på nytt mens jobben kjørte`,
+          ].slice(-MAKS_LOGG),
+        }
+      : j,
+  );
+  lagre(ny);
+  return foreldrelose.map((j) => j.id);
+}
+
+// Kjør oppryddingen så snart modulen lastes (dvs. ved hver agentstart).
+try {
+  gjenopprettForeldreloseJobber();
+} catch {
+  /* ignorer – oppryddingen skal aldri hindre oppstart */
+}
+
+// Vaktbikkje: fanger også opp prosesser som dør uten close-hendelse.
+const vaktbikkje = setInterval(() => {
+  try {
+    if (gjenopprettForeldreloseJobber().length) kjorNeste();
+  } catch {
+    /* ignorer */
+  }
+}, 30_000);
+vaktbikkje.unref?.();
+
 /** Legger en jobb i køen og starter den hvis ingen kjører. */
 export async function koLeggTil({ navn, kommando, autoTranskriber = true, hoppOverValidering = false } = {}) {
   let stat = clipStats();
