@@ -367,7 +367,11 @@ export async function search(sporsmal, { topK, minPoeng } = {}) {
   });
   scoret.sort((a, b) => b.poeng - a.poeng);
   const treff = scoret.filter((s) => s.poeng >= grense).slice(0, k);
-  return { treff: treff.length ? treff : scoret.slice(0, Math.min(k, 3)), metode };
+  return {
+    treff: treff.length ? treff : scoret.slice(0, Math.min(k, 3)),
+    metode,
+    msBrukt: Date.now() - start,
+  };
 }
 
 export function ragStats() {
