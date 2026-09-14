@@ -26,6 +26,42 @@ export type ChatMsg = {
 /** Tjenester som alltid krever en egen API-nøkkel. */
 const KREVER_NOKKEL = /(openrouter|openai\.com|anthropic|groq|together|mistral|deepseek|fireworks|azure)/i;
 
+/** Normaliserer adressen til en node. */
+function normaliser(input: string): string {
+  let base = String(input || "").trim().replace(/\/+$/, "");
+  if (!base) return "";
+  if (!/^https?:\/\//i.test(base))
+    base = `${/openrouter\.ai|openai\.com|anthropic\.com/i.test(base) ? "https" : "http"}://${base}`;
+  if (/openrouter\.ai/i.test(base)) return "https://openrouter.ai/api/v1";
+  if (/api\.openai\.com/i.test(base)) return "https://api.openai.com/v1";
+  return base;
+}
+
+/** Kjente chat-stier i prøverekkefølge (Ollama, OpenAI-kompatibel, agent). */
+export function chatEndepunkter(input: string): string[] {
+  const base = normaliser(input);
+  if (!base) return [];
+  if (/\/(chat\/completions|api\/chat)$/i.test(base)) return [base];
+  if (/\/chat$/i.test(base)) {
+    const rot = base.replace(/\/chat$/i, "");
+    return [base, `${rot}/v1/chat/completions`, `${rot}/api/chat`];
+  }
+  if (/\/v1$/i.test(base)) return [`${base}/chat/completions`];
+  return [`${base}/v1/chat/completions`, `${base}/api/chat`, `${base}/chat`];
+}
+
+function svarTekst(data: unknown): string {
+  const d = data as {
+    choices?: Array<{ message?: { content?: string } }>;
+    message?: { content?: string };
+    response?: string;
+    content?: string;
+  };
+  const verdi =
+    d?.choices?.[0]?.message?.content ?? d?.message?.content ?? d?.response ?? d?.content;
+  return typeof verdi === "string" ? verdi.trim() : "";
+}
+
 export async function callNode(
   node: ModelNode,
   messages: ChatMsg[],
@@ -36,43 +72,69 @@ export async function callNode(
     throw new Error(
       `${node.name}: API-nøkkel mangler. Åpne INNSTILLINGER → MODELLER, lim inn nøkkelen for denne tjenesten og lagre.`,
     );
-  const res = await fetch(`${node.baseUrl.replace(/\/$/, "")}/chat/completions`, {
-    method: "POST",
-    ...(signal ? { signal } : {}),
-    headers: {
-      "Content-Type": "application/json",
-      ...(nokkel ? { Authorization: `Bearer ${nokkel}` } : {}),
-    },
-    body: JSON.stringify({
-      model: node.model,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      stream: false,
-    }),
-  });
-  if (!res.ok) {
-    const tekst = await res.text();
-    if (res.status === 401 || res.status === 403)
-      throw new Error(
-        `${node.name}: nøkkelen ble avvist (HTTP ${res.status}). Sjekk at API-nøkkelen er gyldig og lagret under INNSTILLINGER → MODELLER.`,
-      );
-    throw new Error(`${node.name}: HTTP ${res.status} ${tekst}`);
+  const endepunkter = chatEndepunkter(node.baseUrl);
+  if (!endepunkter.length) throw new Error(`${node.name}: adressen mangler.`);
+
+  const feil: string[] = [];
+  for (const url of endepunkter) {
+    const ollama = /\/api\/chat$/i.test(url);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        ...(signal ? { signal } : {}),
+        headers: {
+          "Content-Type": "application/json",
+          ...(nokkel ? { Authorization: `Bearer ${nokkel}` } : {}),
+        },
+        body: JSON.stringify({
+          model: node.model,
+          messages: messages.map((m) => ({ role: m.role, content: m.content })),
+          stream: false,
+        }),
+      });
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      feil.push(`${url}: ${(e as Error).message}`);
+      continue;
+    }
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403)
+        throw new Error(
+          `${node.name}: nøkkelen ble avvist (HTTP ${res.status}). Sjekk at API-nøkkelen er gyldig og lagret under INNSTILLINGER → MODELLER.`,
+        );
+      const tekst = (await res.text().catch(() => "")).slice(0, 160);
+      feil.push(`${url}: HTTP ${res.status}`);
+      if (res.status !== 404 && !/<!DOCTYPE|<html/i.test(tekst)) {
+        throw new Error(`${node.name}: HTTP ${res.status} ${tekst}`);
+      }
+      continue;
+    }
+    const data = await res.json().catch(() => null);
+    const svar = svarTekst(data);
+    if (svar) return svar;
+    feil.push(`${url}: tomt svar${ollama ? " fra Ollama" : ""}`);
   }
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  return data.choices?.[0]?.message?.content ?? "(tomt svar)";
+  throw new Error(
+    `${node.name}: fant ingen AI-tjeneste på ${normaliser(node.baseUrl)}. Sjekk adressen og at modelltjenesten kjører. (${feil.join(" | ")})`,
+  );
 }
 
 export async function pingNode(node: ModelNode): Promise<number | null> {
   const t0 = performance.now();
-  try {
-    const nokkel = (node.apiKey || "").trim();
-    const res = await fetch(`${node.baseUrl.replace(/\/$/, "")}/models`, {
-      ...(nokkel ? { headers: { Authorization: `Bearer ${nokkel}` } } : {}),
-    });
-    if (!res.ok) return null;
-    return Math.round(performance.now() - t0);
-  } catch {
-    return null;
+  const rot = normaliser(node.baseUrl).replace(/\/(v1|api\/chat|chat\/completions|chat)$/i, "");
+  if (!rot) return null;
+  const nokkel = (node.apiKey || "").trim();
+  for (const url of [`${rot}/v1/models`, `${rot}/api/tags`]) {
+    try {
+      const res = await fetch(url, {
+        ...(nokkel ? { headers: { Authorization: `Bearer ${nokkel}` } } : {}),
+      });
+      if (res.ok) return Math.round(performance.now() - t0);
+    } catch {
+      /* prøv neste */
+    }
   }
+  return null;
 }
+
