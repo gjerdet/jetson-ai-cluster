@@ -1217,6 +1217,17 @@ export async function handleApi(req, res, route, url, deps = {}) {
       return json(req, res, 200, { ok: await deleteClip(id), statistikk: clipStats() });
     }
 
+    if (path === "/tts/trening/fortsett" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, {
+          jobb: await fortsettTrening({ mappe: b?.mappe, jobbId: b?.jobbId, epoker: b?.epoker, batch: b?.batch }),
+        });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
     if (path === "/tts/trening/plan" && method === "GET") {
       const q = new URL(req.url, "http://x").searchParams;
       return json(req, res, 200, await treningPlan({ navn: q.get("navn") || "", preset: q.get("preset") || "" }));
