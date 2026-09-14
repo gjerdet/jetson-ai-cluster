@@ -1076,6 +1076,29 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path === "/kunnskap/reindekser" && method === "POST")
       return json(req, res, 200, await reindex());
 
+    // ---- rask vektorindeks (turbovec) ------------------------------------
+    if (path === "/kunnskap/indeks" && method === "GET") {
+      try {
+        return json(req, res, 200, await turbovecStatus());
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path.startsWith("/kunnskap/indeks/") && method === "POST") {
+      if (!admin) return json(req, res, 403, { error: "Kun admin" });
+      const handling = path.slice("/kunnskap/indeks/".length);
+      try {
+        if (handling === "installer") return json(req, res, 200, { jobb: await startInstallasjonTurbovec() });
+        if (handling === "start") return json(req, res, 200, await startTurbovec());
+        if (handling === "stopp") return json(req, res, 200, await stoppTurbovec());
+        if (handling === "bygg") return json(req, res, 200, await rebuildIndex());
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+
     // ---- selvlæring: søk på nettet og lær ---------------------------------
     if (path === "/kunnskap/web-sok" && method === "POST") {
       const b = await readBody(req);
