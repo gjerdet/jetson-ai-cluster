@@ -4,6 +4,7 @@ import { BookOpen, FileUp, Globe, Loader2, RefreshCw, Search, Trash2, Type } fro
 import { backend, safe, backendToken, type KnowledgeDoc, type KnowledgeHit, type RagConfig } from "@/lib/backend";
 import { extractText } from "@/lib/knowledge";
 import { hentNettside } from "@/lib/web-extract.functions";
+import { IndeksSection } from "@/components/hud/settings/IndeksSection";
 
 const inputCls =
   "w-full rounded-full border border-primary/25 bg-primary/[0.04] px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/60";
@@ -128,6 +129,8 @@ export function KnowledgePanel() {
 
       {feil ? <p className="text-xs text-destructive">{feil}</p> : null}
       {melding ? <p className="text-xs text-primary/80">{melding}</p> : null}
+
+      <IndeksSection />
 
       {/* kilder */}
       <section className="grid gap-3 md:grid-cols-3">

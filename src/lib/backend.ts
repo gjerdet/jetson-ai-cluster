@@ -53,6 +53,7 @@ import {
   type PiperSelftest,
   type PiperPreflight,
   type AirllmStatus,
+  type VectorIndexStatus,
   type VoiceClip,
   type MemoryItem,
   type Plan,
@@ -75,6 +76,7 @@ export type {
   PiperSelftest,
   PiperPreflight,
   AirllmStatus,
+  VectorIndexStatus,
   AiConfig,
   KnowledgeDoc,
   KnowledgeHit,
@@ -728,6 +730,21 @@ export const backend = {
   airllmStart: () => call<AirllmStatus>(ROUTES.airllmStart!, { method: "POST" }, { timeoutMs: 120_000, retries: 0 }),
   /** Stopper tjenesten og frigjør minnet. */
   airllmStopp: () => call<AirllmStatus>(ROUTES.airllmStop!, { method: "POST" }, { timeoutMs: 60_000, retries: 0 }),
+
+  // ---- rask vektorindeks (turbovec) ----
+  indeksStatus: () => call<VectorIndexStatus>(ROUTES.indexStatus!, {}, { timeoutMs: 20_000, retries: 0 }),
+  indeksInstaller: () =>
+    call<{ jobb: { id: string } }>(ROUTES.indexInstall!, { method: "POST" }, { timeoutMs: 30_000, retries: 0 }),
+  indeksStart: () =>
+    call<VectorIndexStatus>(ROUTES.indexStart!, { method: "POST" }, { timeoutMs: 60_000, retries: 0 }),
+  indeksStopp: () =>
+    call<VectorIndexStatus>(ROUTES.indexStop!, { method: "POST" }, { timeoutMs: 30_000, retries: 0 }),
+  indeksBygg: () =>
+    call<{ indeksert: number; totalt: number }>(
+      ROUTES.indexRebuild!,
+      { method: "POST" },
+      { timeoutMs: 600_000, retries: 0 },
+    ),
   /** Resultatsammendrag per treningsjobb (skår, epoketid, CPU/CUDA). */
   treningResultater: () =>
     call<{ resultater: TrainingResult[] }>(ROUTES.ttsTrainingResults!, {}, { timeoutMs: 30_000, retries: 0 }),

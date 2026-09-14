@@ -164,6 +164,11 @@ export const ROUTES: {
   airllmInstall: string;
   airllmStart: string;
   airllmStop: string;
+  indexStatus: string;
+  indexInstall: string;
+  indexStart: string;
+  indexStop: string;
+  indexRebuild: string;
   status: string;
   login: string;
   register: string;
@@ -705,6 +710,23 @@ export interface AirllmStatus {
   baseUrl: string;
   config: AirllmConfig;
   modeller: AirllmModel[];
+  installasjonsjobb: string | null;
+  logg: string;
+}
+
+export interface VectorIndexStatus {
+  installert: boolean;
+  venv: string;
+  installerSkript: string;
+  serverSkript: string;
+  kjorer: boolean;
+  vektorer: number;
+  dim: number;
+  bits: number;
+  sisteSokMs: number | null;
+  feil: string;
+  pid: number | null;
+  config: { port: number; bits: number; aktiv: boolean };
   installasjonsjobb: string | null;
   logg: string;
 }
