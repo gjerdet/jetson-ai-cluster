@@ -159,6 +159,9 @@ export const ROUTES: {
   ttsTrainingResults: string;
   ttsTrainingNodes: string;
   ttsTrainingDistribute: string;
+  ttsTrainedVoices: string;
+  ttsTrainedActivate: string;
+  ttsTrainingContinue: string;
   airllmStatus: string;
   airllmConfig: string;
   airllmInstall: string;
