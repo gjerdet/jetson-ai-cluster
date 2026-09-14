@@ -91,11 +91,10 @@ fi
 command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det først (apt install ffmpeg)" >&2; exit 1; }
 command -v espeak-ng >/dev/null 2>&1 || { echo "espeak-ng mangler – installer det først (apt install espeak-ng)" >&2; exit 1; }
 
-# Språket for fonemisering. Engelsk er standard fordi eSpeak-dataene alltid
-# finnes; norsk («nb»/«no») kan velges med PIPER_ESPEAK_VOICE. Piper sin
-# kildeinstallasjon må først kobles til systemets eSpeak-data.
+# Språket for fonemisering. Norsk bokmål (`nb`) prøves først; engelsk brukes
+# bare som reserve hvis norsk språkdata faktisk mangler.
 ESPEAK_STEMME="${PIPER_ESPEAK_VOICE:-}"
-ESPEAK_KANDIDATER="${ESPEAK_STEMME:-en-us en en-gb nb no}"
+ESPEAK_KANDIDATER="${ESPEAK_STEMME:-nb en-us en en-gb}"
 
 
 har_ny_piper() { "$PIPER_PYTHON_BIN" -m piper.train fit --help >/dev/null 2>&1; }
@@ -251,7 +250,7 @@ if [ -n "${PIPER_VALIDATION_SPLIT:-}" ]; then
   VALIDERINGSKLIPP=$(awk -v n="$ANTALL_WAV" -v s="$VALIDERING_SPLITT" 'BEGIN { print int(n * s) }')
 elif [ "$ANTALL_WAV" -ge 4 ]; then
   VALIDERINGSKLIPP=1
-  VALIDERING_SPLITT=$(awk -v n="$ANTALL_WAV" 'BEGIN { printf "%.12f", 1 / n }')
+  VALIDERING_SPLITT=$(awk -v n="$ANTALL_WAV" 'BEGIN { printf "%.12f", 1.000001 / n }')
 else
   VALIDERINGSKLIPP=0
   VALIDERING_SPLITT=0
