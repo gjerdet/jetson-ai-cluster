@@ -23,17 +23,25 @@ export type ChatMsg = {
   time?: number;
 };
 
+/** Tjenester som alltid krever en egen API-nøkkel. */
+const KREVER_NOKKEL = /(openrouter|openai\.com|anthropic|groq|together|mistral|deepseek|fireworks|azure)/i;
+
 export async function callNode(
   node: ModelNode,
   messages: ChatMsg[],
   signal?: AbortSignal,
 ): Promise<string> {
+  const nokkel = (node.apiKey || "").trim();
+  if (!nokkel && KREVER_NOKKEL.test(node.baseUrl || ""))
+    throw new Error(
+      `${node.name}: API-nøkkel mangler. Åpne INNSTILLINGER → MODELLER, lim inn nøkkelen for denne tjenesten og lagre.`,
+    );
   const res = await fetch(`${node.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     ...(signal ? { signal } : {}),
     headers: {
       "Content-Type": "application/json",
-      ...(node.apiKey ? { Authorization: `Bearer ${node.apiKey}` } : {}),
+      ...(nokkel ? { Authorization: `Bearer ${nokkel}` } : {}),
     },
     body: JSON.stringify({
       model: node.model,
@@ -41,7 +49,14 @@ export async function callNode(
       stream: false,
     }),
   });
-  if (!res.ok) throw new Error(`${node.name}: HTTP ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const tekst = await res.text();
+    if (res.status === 401 || res.status === 403)
+      throw new Error(
+        `${node.name}: nøkkelen ble avvist (HTTP ${res.status}). Sjekk at API-nøkkelen er gyldig og lagret under INNSTILLINGER → MODELLER.`,
+      );
+    throw new Error(`${node.name}: HTTP ${res.status} ${tekst}`);
+  }
   const data = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
