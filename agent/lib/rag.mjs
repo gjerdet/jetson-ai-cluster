@@ -11,6 +11,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { DATA_DIR, doc, saveDoc } from "./store.mjs";
+import { turbovecHelse, turbovecLeggTil, turbovecNullstill, turbovecSlett, turbovecSok } from "./turbovec.mjs";
 
 const DB_FILE = path.join(DATA_DIR, "kunnskap.db");
 
