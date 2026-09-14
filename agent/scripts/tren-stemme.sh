@@ -215,18 +215,31 @@ if [ "${PIPER_FINETUNE_NO:-0}" = "1" ] && [ -z "${PIPER_CHECKPOINT:-}" ]; then
 fi
 
 echo "==> Bygger datasett for $NAVN"
+OK_IDER="$UT/ok-ider.txt"
+: > "$OK_IDER"
+HOPPET=0
 while IFS='|' read -r id tekst || [ -n "$id" ]; do
   id="${id%$'\r'}"
   [ -n "$id" ] || continue
   src=$(find "$MAPPE" -maxdepth 1 -type f -name "${id%.wav}.*" | head -n1)
   if [ -z "$src" ]; then
     echo "  hopper over $id (ingen lydfil)" >&2
+    HOPPET=$((HOPPET + 1))
     continue
   fi
   # Manifestet kan ha id både med og uten .wav – vi skriver alltid én .wav
   basisnavn="${id%.wav}"
-  ffmpeg -y -hide_banner -loglevel error -i "$src" -ar 22050 -ac 1 -c:a pcm_s16le "$WAV/$basisnavn.wav"
+  # En ødelagt eller feilnavngitt opptaksfil skal ikke stoppe hele treningen.
+  if ffmpeg -y -hide_banner -loglevel error -i "$src" -ar 22050 -ac 1 -c:a pcm_s16le "$WAV/$basisnavn.wav" 2>"$UT/ffmpeg-feil.txt"; then
+    printf '%s\n' "$basisnavn" >> "$OK_IDER"
+  else
+    echo "  hopper over $id (kunne ikke leses som lyd: $(tr '\n' ' ' < "$UT/ffmpeg-feil.txt" | tail -c 200))" >&2
+    rm -f "$WAV/$basisnavn.wav"
+    HOPPET=$((HOPPET + 1))
+  fi
 done < "$MANIFEST"
+rm -f "$UT/ffmpeg-feil.txt"
+[ "$HOPPET" -gt 0 ] && echo "! $HOPPET klipp ble hoppet over og er utelatt fra treningen." >&2
 
 # Tomt datasett gir en kryptisk Python-feil langt inne i treningen.
 # Stopp tidlig med en forklarende melding i stedet.
