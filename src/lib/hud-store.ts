@@ -579,6 +579,7 @@ export const defaultConfig: HudConfig = {
   loadBalance: true,
   autoRoute: true,
   lokalForst: true,
+  kunLokalt: true,
   eskalerTerskel: 6,
   tokenBudsjett: standardBudsjett,
   keepHistory: true,
