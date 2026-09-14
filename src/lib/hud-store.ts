@@ -477,6 +477,8 @@ export type HudConfig = {
   autoRoute?: boolean;
   /** lokal modell svarer alltid først; tung node brukes kun ved svakt svar */
   lokalForst?: boolean;
+  /** kun lokale noder: aldri kontakt betalte sky-tjenester (OpenRouter o.l.) */
+  kunLokalt?: boolean;
   /** poenggrense (0-10) i selvsjekken for å eskalere til tung node */
   eskalerTerskel?: number;
   /** daglig token-budsjett per konsept for eskalering til betalte noder */
