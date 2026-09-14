@@ -348,7 +348,7 @@ export async function search(sporsmal, { topK, minPoeng } = {}) {
             treff = rekkefolge.map((i) => treff[i]).filter(Boolean);
             metode = "hybrid+airllm";
           }
-          return { treff, metode, msBrukt: msBrukt || Date.now() - start };
+          return { treff, metode, msBrukt: msBrukt || Date.now() - start, embeddingModell: cfg.model };
         }
       }
     }
@@ -362,7 +362,7 @@ export async function search(sporsmal, { topK, minPoeng } = {}) {
       "SELECT b.id, b.dok_id, b.nr, b.tekst, b.vektor, d.tittel, d.kilde, d.type FROM biter b JOIN dokumenter d ON d.id = b.dok_id",
     )
     .all();
-  if (!rader.length) return { treff: [], metode: "tom" };
+  if (!rader.length) return { treff: [], metode: "tom", embeddingModell: cfg.model };
 
   let metode = "vektor";
   let spor = null;
@@ -402,6 +402,7 @@ export async function search(sporsmal, { topK, minPoeng } = {}) {
     treff: treff.length ? treff : scoret.slice(0, Math.min(k, 3)),
     metode,
     msBrukt: Date.now() - start,
+    embeddingModell: cfg.model,
   };
 }
 

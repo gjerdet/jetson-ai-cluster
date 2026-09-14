@@ -610,7 +610,7 @@ export const backend = {
   slettKunnskap: (id: string) =>
     call<{ ok: boolean }>(`${ROUTES.knowledge}/dok/${encodeURIComponent(id)}`, { method: "DELETE" }, { retries: 0 }),
   sokKunnskap: (sporsmal: string, topK?: number) =>
-    call<{ treff: KnowledgeHit[]; metode: string }>(
+    call<{ treff: KnowledgeHit[]; metode: string; embeddingModell?: string; msBrukt?: number }>(
       ROUTES.knowledgeSearch!,
       { method: "POST", body: JSON.stringify({ sporsmal, topK }) },
       { timeoutMs: 8_000, retries: 0 },

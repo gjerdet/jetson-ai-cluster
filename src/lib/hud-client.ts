@@ -14,6 +14,12 @@ export type ChatMsg = {
   role: "system" | "user" | "assistant";
   content: string;
   node?: string;
+  /** modellen som faktisk genererte svaret */
+  modell?: string;
+  /** embedding-modellen som ble brukt i kunnskapssøket */
+  embedModell?: string;
+  /** søkemetoden i kunnskapsbasen (hybrid, vektor, nokkelord) */
+  sokemetode?: string;
   /** verktøy som ble kjørt for å produsere dette svaret */
   runs?: ToolRun[];
   /** kilder fra kunnskapsbasen som svaret bygger på */
