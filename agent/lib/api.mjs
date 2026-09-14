@@ -715,7 +715,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
       try {
         const r = await callChatEndpoint({
           baseUrl,
-          model: model || modeller[0] || "llama3.2:3b",
+          model: model || velgChatModell(modeller) || "llama3.2:3b",
           messages: [{ role: "user", content: "Svar med kun ordet OK." }],
           temperature: 0,
           apiKey: key,
