@@ -233,9 +233,36 @@ export function listDocuments() {
 
 export function deleteDocument(id) {
   initRag();
+  const bitIder = db.prepare("SELECT id FROM biter WHERE dok_id = ?").all(id).map((b) => b.id);
   db.prepare("DELETE FROM biter WHERE dok_id = ?").run(id);
   const r = db.prepare("DELETE FROM dokumenter WHERE id = ?").run(id);
+  // Rydd i den raske indeksen uten å blokkere svaret.
+  if (bitIder.length) void turbovecSlett(bitIder).catch(() => {});
   return Number(r.changes || 0) > 0;
+}
+
+/**
+ * Bygger den raske indeksen på nytt fra vektorene som allerede ligger i
+ * SQLite. Brukes etter modellbytte eller hvis indeksen har blitt ødelagt.
+ */
+export async function rebuildIndex() {
+  initRag();
+  if (!(await turbovecHelse())) throw new Error("Den raske indeksen kjører ikke. Start turbovec først.");
+  await turbovecNullstill();
+  const rader = db.prepare("SELECT id, vektor FROM biter WHERE vektor IS NOT NULL").all();
+  let n = 0;
+  for (let i = 0; i < rader.length; i += 200) {
+    const gruppe = [];
+    for (const r of rader.slice(i, i + 200)) {
+      try {
+        gruppe.push({ id: r.id, vektor: JSON.parse(r.vektor) });
+      } catch {
+        /* hopp over ødelagt vektor */
+      }
+    }
+    n += await turbovecLeggTil(gruppe);
+  }
+  return { indeksert: n, totalt: rader.length };
 }
 
 /** Lager embeddings på nytt for alle biter (f.eks. etter modellbytte). */
