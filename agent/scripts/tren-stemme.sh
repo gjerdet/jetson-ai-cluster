@@ -351,6 +351,14 @@ PYEOF
 
 
   echo "==> Eksporterer ONNX"
+  # Nyere PyTorch krever onnxscript ved torch.onnx.export. Pakken følger ikke
+  # alltid med Piper-venv-et, så installer den ved behov før eksporten.
+  if ! "$PIPER_PYTHON_BIN" -c 'import onnxscript' >/dev/null 2>&1; then
+    echo "==> Installerer onnxscript (trengs for ONNX-eksport)"
+    "$PIPER_PYTHON_BIN" -m pip install --no-cache-dir onnxscript || {
+      echo "Klarte ikke installere onnxscript – eksporten vil sannsynligvis feile." >&2
+    }
+  fi
   CKPT=$(find "$PREP" -name '*.ckpt' -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
   [ -n "$CKPT" ] || { echo "Fant ingen checkpoint"; exit 1; }
   "$PIPER_PYTHON_BIN" -m piper.train.export_onnx --checkpoint "$CKPT" --output-file "$UT/model.onnx"
