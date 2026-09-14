@@ -1,6 +1,6 @@
 import type { ChatMsg } from "./hud-client";
 import { callTracked } from "./balancer";
-import { nodeKlasse } from "./model-router";
+import { nodeKlasse, erSkyNode } from "./model-router";
 import type { HudConfig, ModelNode } from "./hud-store";
 
 /**
@@ -89,7 +89,12 @@ export async function selvsjekk(opts: {
 /** Første tunge node som kan overta ved eskalering. */
 export function tungNode(config: HudConfig, unntatt?: ModelNode): ModelNode | undefined {
   return config.nodes.find(
-    (n) => n.enabled && n.id !== unntatt?.id && nodeKlasse(n) === "tung",
+    (n) =>
+      n.enabled &&
+      n.id !== unntatt?.id &&
+      nodeKlasse(n) === "tung" &&
+      // Kun-lokalt: aldri eskaler til en betalt sky-node.
+      (config.kunLokalt === false || !erSkyNode(n)),
   );
 }
 
