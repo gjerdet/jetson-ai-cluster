@@ -79,7 +79,7 @@ export function velgRute(
   // betalte tokens. Tung node brukes kun hvis selvsjekken underkjenner svaret.
   const lokalForst = config.lokalForst !== false && lokale.length > 0;
   const kandidater = vekt === "tung" && !lokalForst ? [...tunge, ...lokale] : [...lokale, ...tunge];
-  const valgt = kandidater.find(passer) ?? kandidater[0] ?? primary;
+  const valgt = kandidater.find(passer) ?? kandidater[0] ?? brukbare[0] ?? primary;
   if (!valgt) return { vekt, grunn: "ingen aktive noder" };
   const klasse = nodeKlasse(valgt);
   return {
