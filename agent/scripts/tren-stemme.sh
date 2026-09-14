@@ -91,11 +91,10 @@ fi
 command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg mangler – installer det først (apt install ffmpeg)" >&2; exit 1; }
 command -v espeak-ng >/dev/null 2>&1 || { echo "espeak-ng mangler – installer det først (apt install espeak-ng)" >&2; exit 1; }
 
-# Språket for fonemisering. Engelsk er standard fordi eSpeak-dataene alltid
-# finnes; norsk («nb»/«no») kan velges med PIPER_ESPEAK_VOICE. Piper sin
-# kildeinstallasjon må først kobles til systemets eSpeak-data.
+# Språket for fonemisering. Norsk bokmål (`nb`) prøves først; engelsk brukes
+# bare som reserve hvis norsk språkdata faktisk mangler.
 ESPEAK_STEMME="${PIPER_ESPEAK_VOICE:-}"
-ESPEAK_KANDIDATER="${ESPEAK_STEMME:-en-us en en-gb nb no}"
+ESPEAK_KANDIDATER="${ESPEAK_STEMME:-nb en-us en en-gb}"
 
 
 har_ny_piper() { "$PIPER_PYTHON_BIN" -m piper.train fit --help >/dev/null 2>&1; }
@@ -216,7 +215,8 @@ if [ "${PIPER_FINETUNE_NO:-0}" = "1" ] && [ -z "${PIPER_CHECKPOINT:-}" ]; then
 fi
 
 echo "==> Bygger datasett for $NAVN"
-while IFS='|' read -r id tekst; do
+while IFS='|' read -r id tekst || [ -n "$id" ]; do
+  id="${id%$'\r'}"
   [ -n "$id" ] || continue
   src=$(find "$MAPPE" -maxdepth 1 -type f -name "${id%.wav}.*" | head -n1)
   if [ -z "$src" ]; then
@@ -240,10 +240,28 @@ echo "==> $ANTALL_WAV klipp klare i $WAV"
 
 EPOCHS="${PIPER_EPOCHS:-2000}"
 BS="${PIPER_BATCH:-8}"
-# Er batchen større enn treningssettet, kaster Piper bort klipp og logger
-# nesten ingenting. Juster ned automatisk i stedet.
-TRENINGSKLIPP=$(( ANTALL_WAV - (ANTALL_WAV / 10) - 1 ))
+# Aktiv Piper reserverer som standard fem testklipp. Det etterlot bare tre av
+# åtte klipp til trening. Vi trenger ingen separat testmengde her; fra fire
+# klipp reserverer vi ett til validering slik at valideringsmålinger fortsatt
+# kan lagres, og bruker resten til trening.
+TESTKLIPP="${PIPER_TEST_EXAMPLES:-0}"
+if [ -n "${PIPER_VALIDATION_SPLIT:-}" ]; then
+  VALIDERING_SPLITT="$PIPER_VALIDATION_SPLIT"
+  VALIDERINGSKLIPP=$(awk -v n="$ANTALL_WAV" -v s="$VALIDERING_SPLITT" 'BEGIN { print int(n * s) }')
+elif [ "$ANTALL_WAV" -ge 4 ]; then
+  VALIDERINGSKLIPP=1
+  VALIDERING_SPLITT=$(awk -v n="$ANTALL_WAV" 'BEGIN { printf "%.12f", 1.000001 / n }')
+else
+  VALIDERINGSKLIPP=0
+  VALIDERING_SPLITT=0
+fi
+[ "$TESTKLIPP" -lt 0 ] && TESTKLIPP=0
+MAKS_TEST=$(( ANTALL_WAV - VALIDERINGSKLIPP - 1 ))
+[ "$MAKS_TEST" -lt 0 ] && MAKS_TEST=0
+[ "$TESTKLIPP" -gt "$MAKS_TEST" ] && TESTKLIPP="$MAKS_TEST"
+TRENINGSKLIPP=$(( ANTALL_WAV - VALIDERINGSKLIPP - TESTKLIPP ))
 [ "$TRENINGSKLIPP" -lt 1 ] && TRENINGSKLIPP=1
+echo "==> Datasplitt: $TRENINGSKLIPP trening, $VALIDERINGSKLIPP validering, $TESTKLIPP test"
 if [ "$BS" -gt "$TRENINGSKLIPP" ]; then
   echo "! Batchstørrelse $BS er større enn treningssettet ($TRENINGSKLIPP klipp) – setter batch til $TRENINGSKLIPP." >&2
   echo "  Last opp flere klipp (helst 15–30 min lyd) for et brukbart resultat." >&2
@@ -264,8 +282,9 @@ fi
 
 
 if har_ny_piper; then
-  # Ny Piper (Open Home Foundation) bruker lydfilnavn i første CSV-kolonne.
-  awk -F'|' 'BEGIN{OFS="|"} NF>=2 { if ($1 !~ /\.wav$/) $1=$1 ".wav"; print }' "$MANIFEST" > "$DATASET/metadata.csv"
+  # Bruk klipp-ID uten filendelse. Piper prøver selv først eksakt navn og
+  # deretter `<id>.wav`; normaliseringen hindrer `.wav.wav` ved eldre manifest.
+  awk -F'|' 'BEGIN{OFS="|"} NF>=2 { sub(/\r$/, "", $1); while ($1 ~ /\.wav$/) sub(/\.wav$/, "", $1); print }' "$MANIFEST" > "$DATASET/metadata.csv"
   CONFIG="$UT/model.onnx.json"
   echo "==> Trener med aktiv Piper-CLI"
   CMD=("$PIPER_PYTHON_BIN" -m piper.train fit
@@ -277,6 +296,8 @@ if har_ny_piper; then
     --data.cache_dir "$PREP/cache"
     --data.config_path "$CONFIG"
     --data.batch_size "$BS"
+    --data.validation_split "$VALIDERING_SPLITT"
+    --data.num_test_examples "$TESTKLIPP"
     --trainer.max_epochs "$EPOCHS"
     --trainer.log_every_n_steps 1
     --trainer.enable_progress_bar false

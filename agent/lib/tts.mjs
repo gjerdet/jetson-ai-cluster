@@ -245,11 +245,18 @@ export async function deleteClip(id) {
 }
 
 /** LJSpeech-lignende manifest (id|tekst) som piper-train kan bruke. */
-export function trainingManifest() {
-  return listClips()
+export function formatTrainingManifest(klipp) {
+  const linjer = klipp
     .filter((k) => k.tekst && !k.pauset)
-    .map((k) => `${k.fil.replace(/\.[^.]+$/, "")}|${k.tekst.replace(/[\r\n|]+/g, " ")}`)
+    .map((k) => `${k.fil.replace(/(\.(wav|mp3|ogg|webm))+$/gi, "")}|${k.tekst.replace(/[\r\n|]+/g, " ")}`)
     .join("\n");
+  // POSIX-tekstfiler skal ende med linjeskift. Uten dette hopper Bash sin
+  // `while read` over siste klipp, mens Piper fortsatt leser manifestlinjen.
+  return linjer ? `${linjer}\n` : "";
+}
+
+export function trainingManifest() {
+  return formatTrainingManifest(listClips());
 }
 
 export const clipDir = () => CLIP_DIR;
