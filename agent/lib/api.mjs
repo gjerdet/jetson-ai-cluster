@@ -1100,7 +1100,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
         if (handling === "stopp") return json(req, res, 200, await stoppTurbovec());
         if (handling === "bygg") return json(req, res, 200, await rebuildIndex());
         if (handling === "config") {
-          const kropp = await body(req);
+          const kropp = await readBody(req);
           lagreTurbovecConfig(kropp || {});
           return json(req, res, 200, await turbovecStatus());
         }
