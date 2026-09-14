@@ -83,6 +83,59 @@ async function svarerPaaPort(port, ms = 2500) {
   }
 }
 
+/** Sant når AirLLM-motoren svarer akkurat nå. */
+export async function airllmHelse() {
+  return svarerPaaPort(airllmConfig().port);
+}
+
+/**
+ * Rangerer kandidattekster mot spørsmålet med den lokale AirLLM-motoren.
+ * Returnerer null hvis motoren ikke svarer eller svaret ikke kan tolkes,
+ * slik at søket faller tilbake til vanlig poengsum.
+ */
+export async function airllmRangerTreff(sporsmal, kandidater, { timeoutMs = 120_000 } = {}) {
+  if (!kandidater?.length) return null;
+  const cfg = airllmConfig();
+  const helse = await svarerPaaPort(cfg.port);
+  if (!helse || helse.opptatt) return null;
+
+  const liste = kandidater
+    .map((k, i) => `[${i}] ${String(k.tekst || "").slice(0, 600).replace(/\s+/g, " ")}`)
+    .join("\n");
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(`http://127.0.0.1:${cfg.port}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        model: cfg.modell || "airllm",
+        max_tokens: 120,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Du rangerer tekstbiter etter hvor godt de svarer på spørsmålet. Svar kun med JSON: {\"rekkefolge\":[indekser]}",
+          },
+          { role: "user", content: `Spørsmål: ${sporsmal}\n\nBiter:\n${liste}` },
+        ],
+      }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    const tekst = data?.choices?.[0]?.message?.content || "";
+    const treff = tekst.match(/\[[^\]]*\]/);
+    if (!treff) return null;
+    const rekkefolge = JSON.parse(treff[0]).map(Number).filter((n) => Number.isInteger(n) && kandidater[n]);
+    return rekkefolge.length ? rekkefolge : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Alt GUI-et trenger: installert, kjører, modell, siste svartid og logg. */
 export async function airllmStatus() {
   const cfg = airllmConfig();
