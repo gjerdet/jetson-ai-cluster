@@ -1,6 +1,6 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { chatEndpoints, chatPayload, chatText } from "./ai-endpoint.mjs";
+import { chatEndpoints, chatPayload, chatText, erEmbedModell, erModellMangler, velgChatModell } from "./ai-endpoint.mjs";
 
 test("normaliserer OpenAI-base", () => {
   assert.deepEqual(chatEndpoints("http://hermes:11434/v1/"), ["http://hermes:11434/v1/chat/completions"]);
