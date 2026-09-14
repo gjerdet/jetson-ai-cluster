@@ -356,11 +356,15 @@ export function ChatPanel({
       let context = "";
       // kunnskapsinnhenting: hent relevante biter fra den lokale kunnskapsbasen
       let sources: Citation[] = [];
+      let embedModell = "";
+      let sokemetode = "";
       if (config.knowledge !== false && !smaaprat) {
         setStage("henter kunnskap");
         const rag = await retrieveContext(text);
         context += rag.context;
         sources = rag.sources;
+        embedModell = rag.embeddingModell ?? "";
+        sokemetode = rag.metode ?? "";
         setStage("tenker");
       }
       if (!smaaprat && BRIEF_TRIGGERS.test(text)) {
@@ -386,6 +390,7 @@ export function ChatPanel({
       const out: ChatMsg[] = [...next];
       let answer = "";
       let answeredBy = viaBackend ? "BACKEND" : (primary?.name ?? "AI");
+      let svarModell = "";
       const runs: ToolRun[] = [];
 
       // verktøykall-loop: modellen kan hente ekte data før den svarer
@@ -439,6 +444,7 @@ export function ChatPanel({
                   logSelfEvent("warn", `Backend hoppet over ${r.hoppetOver.map((h) => h.node).join(", ")}`);
                 return {
                   text: r.svar,
+                  modell: r.model,
                   node: {
                     ...(primary ?? active[0]),
                     name: `BACKEND · ${r.nodeNavn || r.model || primary?.model || "AI"}`,
@@ -460,6 +466,7 @@ export function ChatPanel({
 
         const raw = call.text;
         answeredBy = call.node.name;
+        svarModell = (call as { modell?: string }).modell ?? call.node?.model ?? "";
         const calls = parseToolCalls(raw, customToolNames(config));
         trace({
           turId,
@@ -502,7 +509,13 @@ export function ChatPanel({
         }
 
         const visible = stripToolCalls(raw);
-        if (visible) out.push({ role: "assistant", content: visible, node: call.node.name });
+        if (visible)
+          out.push({
+            role: "assistant",
+            content: visible,
+            node: call.node.name,
+            ...(svarModell ? { modell: svarModell } : {}),
+          });
         thread.push({ role: "assistant", content: raw });
         const results: string[] = [];
         for (const c of calls) {
