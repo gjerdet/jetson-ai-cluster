@@ -43,10 +43,10 @@ export type Citation = { tittel: string; kilde: string; utdrag: string; poeng: n
 export async function retrieveContext(
   sporsmal: string,
   topK = 5,
-): Promise<{ context: string; sources: Citation[] }> {
-  if (!backendToken()) return { context: "", sources: [] };
+): Promise<{ context: string; sources: Citation[]; metode?: string; embeddingModell?: string }> {
   // Kunnskapsbasen skal aldri henge chatten: gi opp etter 8 sekunder.
   const tom = { context: "", sources: [] as Citation[] };
+  if (!backendToken()) return tom;
   const resultat = await Promise.race([
     safe(() => backend.sokKunnskap(sporsmal, topK)),
     new Promise<null>((r) => setTimeout(() => r(null), 8_000)),
@@ -54,7 +54,7 @@ export async function retrieveContext(
   if (!resultat) return tom;
   const { data } = resultat;
   const treff: KnowledgeHit[] = data?.treff ?? [];
-  if (!treff.length) return { context: "", sources: [] };
+  if (!treff.length) return tom;
   const sources: Citation[] = treff.map((t) => ({
     tittel: t.tittel,
     kilde: t.kilde,
@@ -66,5 +66,10 @@ export async function retrieveContext(
     treff
       .map((t, i) => `[${i + 1}] ${t.tittel}${t.kilde ? ` (${t.kilde})` : ""}\n${t.tekst}`)
       .join("\n\n");
-  return { context, sources };
+  return {
+    context,
+    sources,
+    ...(data?.metode ? { metode: data.metode } : {}),
+    ...(data?.embeddingModell ? { embeddingModell: data.embeddingModell } : {}),
+  };
 }
