@@ -14,41 +14,40 @@ import os
 
 tekst = open(sys.argv[1], encoding="utf-8").read()
 
-# Vi legger ikke lenger til en ekstra ModelCheckpoint – Lightning godtar bare én.
+# Vi legger ikke til en ekstra ModelCheckpoint.
 assert "--trainer.callbacks" not in tekst, "Ekstra ModelCheckpoint gir duplikatfeil"
 
 treff = re.search(r"cat > \"\$SHIM\" <<'PYEOF'\n(.*?)\nPYEOF\n", tekst, re.DOTALL)
-assert treff, "Fant ikke shim-koden som bytter kontrollpunktmåling"
+assert treff, "Fant ikke shim-koden som filtrerer kontrollpunktregler"
 shim = treff.group(1)
-assert 'kwargs.get("monitor") == "val_mos"' in shim
-assert 'kwargs["monitor"] = "val_mel"' in shim
+assert 'getattr(cb, "monitor", None) != "val_mos"' in shim
+assert 'Trainer.__init__ = _trainer_init' in shim
 assert 'runpy.run_module("piper.train"' in shim
 assert '"$PIPER_PYTHON_BIN" "$SHIM" fit' in tekst
 
 # Shimen må være gyldig Python.
 compile(shim, "shim.py", "exec")
 
-# Selve ombyttingen må fungere på en etterligning av Lightning-klassen.
+# Filtreringen må fjerne bare val_mos og bevare Pipers val_mel-regel.
 prove = shim.split("sys.argv = ")[0]
 harness = (
-    "class ModelCheckpoint:\n"
-    "    def __init__(self, **kw):\n"
-    "        self.kw = kw\n"
+    "class Trainer:\n"
+    "    def __init__(self, *args, **kwargs):\n"
+    "        self.callbacks = kwargs.get('callbacks', [])\n"
     "import types, sys\n"
-    "m = types.ModuleType('lightning.pytorch.callbacks')\n"
-    "m.ModelCheckpoint = ModelCheckpoint\n"
     "p1 = types.ModuleType('lightning'); p2 = types.ModuleType('lightning.pytorch')\n"
+    "p2.Trainer = Trainer\n"
     "sys.modules['lightning'] = p1; sys.modules['lightning.pytorch'] = p2\n"
-    "sys.modules['lightning.pytorch.callbacks'] = m\n"
+    "class Callback:\n"
+    "    def __init__(self, monitor): self.monitor = monitor\n"
 )
 rom = {}
 exec(harness + prove, rom)
-c = rom["ModelCheckpoint"](monitor="val_mos", filename="epoch={epoch}-{val_mos:.2f}")
-assert c.kw["monitor"] == "val_mel", c.kw
-assert c.kw["mode"] == "min"
-assert "val_mel" in c.kw["filename"]
-u = rom["ModelCheckpoint"](monitor="val_loss")
-assert u.kw["monitor"] == "val_loss"
+val_mel = rom["Callback"]("val_mel")
+val_mos = rom["Callback"]("val_mos")
+annen = rom["Callback"]("val_loss")
+trainer = rom["Trainer"](callbacks=[val_mel, val_mos, annen])
+assert trainer.callbacks == [val_mel, annen], [c.monitor for c in trainer.callbacks]
 
-print("OK: Pipers egen kontrollpunktregel bytter val_mos til val_mel")
+print("OK: val_mos fjernes og Pipers val_mel-regel bevares")
 PY

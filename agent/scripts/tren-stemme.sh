@@ -300,36 +300,31 @@ if har_ny_piper; then
   awk -F'|' -v ok="$OK_IDER" 'BEGIN{OFS="|"; while ((getline l < ok) > 0) g[l]=1} NF>=2 { sub(/\r$/, "", $1); while ($1 ~ /\.wav$/) sub(/\.wav$/, "", $1); if ($1 in g) print }' "$MANIFEST" > "$DATASET/metadata.csv"
   CONFIG="$UT/model.onnx.json"
   echo "==> Trener med aktiv Piper-CLI"
-  # Enkelte Piper1-GPL-utgaver lager sin egen ModelCheckpoint som følger val_mos.
-  # UTMOS lastes ikke alltid på Jetson, og da avslutter Lightning hele treningen
-  # selv om de vanlige valideringsmålingene finnes. Vi kan ikke legge til en egen
-  # kontrollpunktregel (Lightning godtar bare én ModelCheckpoint), så i stedet
-  # bytter vi målingen i Pipers egen regel til val_mel før treningen starter.
+  # Aktiv Piper lager både en stabil val_mel-regel og en valgfri val_mos-regel.
+  # UTMOS lastes ikke alltid på Jetson, og da finnes ikke val_mos. Den gamle
+  # løsningen endret val_mos til val_mel, men nyere Piper har allerede val_mel og
+  # Lightning avviser da de to like ModelCheckpoint-reglene. Fjern derfor bare
+  # den valgfrie val_mos-regelen før Trainer validerer callback-listen.
   SHIM="$PREP/piper_ckpt_shim.py"
   mkdir -p "$PREP"
   cat > "$SHIM" <<'PYEOF'
 import runpy
 import sys
 
-try:
-    from lightning.pytorch.callbacks import ModelCheckpoint
-except Exception:  # pragma: no cover - eldre miljø
-    ModelCheckpoint = None
+from lightning.pytorch import Trainer
 
-if ModelCheckpoint is not None:
-    _orig_init = ModelCheckpoint.__init__
+_orig_trainer_init = Trainer.__init__
 
-    def _init(self, *args, **kwargs):
-        if kwargs.get("monitor") == "val_mos":
-            kwargs["monitor"] = "val_mel"
-            kwargs["mode"] = "min"
-            filnavn = kwargs.get("filename")
-            if isinstance(filnavn, str) and "val_mos" in filnavn:
-                kwargs["filename"] = filnavn.replace("val_mos", "val_mel")
-            print("==> Bytter kontrollpunktmåling val_mos -> val_mel", flush=True)
-        return _orig_init(self, *args, **kwargs)
+def _trainer_init(self, *args, **kwargs):
+    callbacks = kwargs.get("callbacks")
+    if callbacks:
+        filtrert = [cb for cb in callbacks if getattr(cb, "monitor", None) != "val_mos"]
+        if len(filtrert) != len(callbacks):
+            kwargs["callbacks"] = filtrert
+            print("==> Deaktiverer valgfri val_mos-lagring; bruker val_mel", flush=True)
+    return _orig_trainer_init(self, *args, **kwargs)
 
-    ModelCheckpoint.__init__ = _init
+Trainer.__init__ = _trainer_init
 
 sys.argv = ["piper.train", *sys.argv[1:]]
 runpy.run_module("piper.train", run_name="__main__")
