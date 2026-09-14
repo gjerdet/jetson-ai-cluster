@@ -247,6 +247,34 @@ if [ "${HOPP_OVER_STEMME:-0}" != "1" ]; then
   fi
 fi
 
+# ── 3c. Rask vektorindeks (turbovec) ─────────────────────────────────────────
+# Valgfri: feiler den, søker kunnskapsbasen som før. HOPP_OVER_TURBOVEC=1 slår av.
+if [ "${HOPP_OVER_TURBOVEC:-0}" != "1" ]; then
+  TURBOVEC_VENV_STI=""
+  [ -f /var/lib/jarvis/data/turbovec-venv.sti ] &&
+    TURBOVEC_VENV_STI="$(cat /var/lib/jarvis/data/turbovec-venv.sti 2>/dev/null || true)"
+  [ -z "$TURBOVEC_VENV_STI" ] && [ -x /opt/jarvis/turbovec/.venv/bin/python ] &&
+    TURBOVEC_VENV_STI="/opt/jarvis/turbovec/.venv"
+
+  TURBOVEC_OK=0
+  if [ -n "$TURBOVEC_VENV_STI" ] && [ -x "$TURBOVEC_VENV_STI/bin/python" ]; then
+    "$TURBOVEC_VENV_STI/bin/python" -c 'import turbovec' >/dev/null 2>&1 && TURBOVEC_OK=1
+  fi
+
+  if [ "$TURBOVEC_OK" -eq 1 ]; then
+    ok "Rask vektorindeks er allerede på plass"
+  else
+    si "Installerer rask vektorindeks (turbovec) …"
+    if bash "$APP_DIR/scripts/installer-turbovec.sh"; then
+      ok "turbovec installert"
+    else
+      adv "turbovec-installasjonen feilet – kunnskapssøket kjører videre på dagens metode"
+    fi
+  fi
+fi
+
+
+
 
 
 # ── 4. Bygg GUI ───────────────────────────────────────────────────────────────
