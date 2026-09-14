@@ -679,6 +679,16 @@ export function SettingsPanel({
             <label className="flex items-center gap-2 text-foreground/80">
               <input
                 type="checkbox"
+                checked={config.kunLokalt !== false}
+                onChange={(e) => update({ ...config, kunLokalt: e.target.checked })}
+                className="accent-[oklch(0.78_0.13_200)]"
+              />
+              Kun lokale modeller – aldri kontakt OpenRouter eller andre betalte tjenester
+            </label>
+
+            <label className="flex items-center gap-2 text-foreground/80">
+              <input
+                type="checkbox"
                 checked={config.lokalForst !== false}
                 onChange={(e) => update({ ...config, lokalForst: e.target.checked })}
                 className="accent-[oklch(0.78_0.13_200)]"
