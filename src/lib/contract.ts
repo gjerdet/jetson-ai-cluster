@@ -71,6 +71,7 @@ export type {
   AirllmStatus,
   AirllmConfig,
   AirllmModel,
+  VectorIndexStatus,
   TrainingPreset,
   TrainingTelemetry,
   RagConfig,
