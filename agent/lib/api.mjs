@@ -170,7 +170,7 @@ import { hentLogg, loggKilder } from "./logger.mjs";
 import { corsBlocked, corsHeaders, rateLimit } from "./security.mjs";
 
 import { decryptSecret, encryptSecret, maskSecret } from "./secrets.mjs";
-import { callChatEndpoint, listModels } from "./ai-endpoint.mjs";
+import { callChatEndpoint, listModels, velgChatModell } from "./ai-endpoint.mjs";
 import { listBackups, runBackup } from "./backup.mjs";
 import { ipSjekk, lagringsStatus } from "./system-tools.mjs";
 
@@ -773,7 +773,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
       let chosenModel = model;
       if (!chosenModel && /openrouter\.ai/i.test(baseUrl)) {
         const modeller = await listModels(baseUrl, { apiKey: key }).catch(() => []);
-        if (modeller.length) chosenModel = modeller[0];
+        if (modeller.length) chosenModel = velgChatModell(modeller) || modeller[0];
       }
       // Hvis OpenRouter er valgt, men modellen ikkje finst i providerens
       // modelliste, foreslår vi første tilgjengelige i staden for å sende
@@ -781,7 +781,7 @@ export async function handleApi(req, res, route, url, deps = {}) {
       if (/openrouter\.ai/i.test(baseUrl) && chosenModel) {
         const tilgjengelige = await listModels(baseUrl, { apiKey: key }).catch(() => []);
         if (tilgjengelige.length && !tilgjengelige.some((m) => String(m).toLowerCase() === String(chosenModel).toLowerCase())) {
-          chosenModel = tilgjengelige[0];
+          chosenModel = velgChatModell(tilgjengelige) || tilgjengelige[0];
         }
       }
       const personalityPrompt = buildPersonalityPrompt(cfg.personality) || cfg.system || "";
