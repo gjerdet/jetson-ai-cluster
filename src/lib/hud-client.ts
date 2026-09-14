@@ -66,8 +66,9 @@ export async function callNode(
 export async function pingNode(node: ModelNode): Promise<number | null> {
   const t0 = performance.now();
   try {
+    const nokkel = (node.apiKey || "").trim();
     const res = await fetch(`${node.baseUrl.replace(/\/$/, "")}/models`, {
-      ...(node.apiKey ? { headers: { Authorization: `Bearer ${node.apiKey}` } } : {}),
+      ...(nokkel ? { headers: { Authorization: `Bearer ${nokkel}` } } : {}),
     });
     if (!res.ok) return null;
     return Math.round(performance.now() - t0);
