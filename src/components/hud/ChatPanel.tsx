@@ -643,6 +643,7 @@ export function ChatPanel({
             if (bedre.trim()) {
               answer = bedre.trim();
               answeredBy = `${tung.name} · eskalert (lokal ${sjekk.poeng}/10)`;
+              svarModell = tung.model ?? svarModell;
               selvsjekkNotat =
                 `Lokalt svar fikk ${sjekk.poeng}/10 (${sjekk.grunn}) – eskalerte til ${tung.name}. ` +
                 `Bokført ~${brukt} tokens på «${konsept}».`;
@@ -676,8 +677,11 @@ export function ChatPanel({
         content: answer,
         node: answeredBy,
         time: Date.now(),
+        ...(svarModell ? { modell: svarModell } : {}),
         ...(runs.length ? { runs } : {}),
         ...(sources.length ? { sources } : {}),
+        ...(sources.length && embedModell ? { embedModell } : {}),
+        ...(sources.length && sokemetode ? { sokemetode } : {}),
       });
 
       if (selvsjekkNotat)
@@ -791,7 +795,12 @@ export function ChatPanel({
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "text-right" : ""}>
             {m.node ? (
-              <p className="hud-title mb-1 text-[9px] text-primary/70">{m.node}</p>
+              <p className="hud-title mb-1 text-[9px] text-primary/70">
+                {m.node}
+                {m.modell ? (
+                  <span className="text-foreground/50"> · GENERERING: {m.modell}</span>
+                ) : null}
+              </p>
             ) : null}
             <div
               className={
@@ -807,6 +816,10 @@ export function ChatPanel({
                 <summary className="hud-title flex cursor-pointer items-center gap-1 text-[9px] text-primary/70">
                   <BookOpen className="size-3" /> {m.sources.length} kilde
                   {m.sources.length > 1 ? "r" : ""} fra kunnskapsbasen
+                  {m.embedModell ? (
+                    <span className="text-foreground/50"> · EMBEDDING: {m.embedModell}</span>
+                  ) : null}
+                  {m.sokemetode ? <span className="text-foreground/40"> · {m.sokemetode}</span> : null}
                 </summary>
                 <ol className="mt-1 space-y-1">
                   {m.sources.map((s, si) => (
