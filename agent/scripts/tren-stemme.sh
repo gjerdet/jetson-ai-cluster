@@ -300,13 +300,41 @@ if har_ny_piper; then
   awk -F'|' -v ok="$OK_IDER" 'BEGIN{OFS="|"; while ((getline l < ok) > 0) g[l]=1} NF>=2 { sub(/\r$/, "", $1); while ($1 ~ /\.wav$/) sub(/\.wav$/, "", $1); if ($1 in g) print }' "$MANIFEST" > "$DATASET/metadata.csv"
   CONFIG="$UT/model.onnx.json"
   echo "==> Trener med aktiv Piper-CLI"
-  # Enkelte Piper1-GPL-utgaver legger inn en ekstra ModelCheckpoint som følger
-  # val_mos. UTMOS lastes ikke alltid på Jetson, og nyere Lightning avslutter da
-  # hele treningen selv om de vanlige valideringsmålingene finnes. Erstatt
-  # standardlisten med én robust kontrollpunktregel basert på val_mel, som
-  # Piper alltid logger når vi har en valideringsmengde.
-  CHECKPOINT_CALLBACKS='[{"class_path":"lightning.pytorch.callbacks.ModelCheckpoint","init_args":{"monitor":"val_mel","mode":"min","save_top_k":5,"save_last":true,"filename":"epoch={epoch}-val_mel={val_mel:.4f}","auto_insert_metric_name":false}}]'
-  CMD=("$PIPER_PYTHON_BIN" -m piper.train fit
+  # Enkelte Piper1-GPL-utgaver lager sin egen ModelCheckpoint som følger val_mos.
+  # UTMOS lastes ikke alltid på Jetson, og da avslutter Lightning hele treningen
+  # selv om de vanlige valideringsmålingene finnes. Vi kan ikke legge til en egen
+  # kontrollpunktregel (Lightning godtar bare én ModelCheckpoint), så i stedet
+  # bytter vi målingen i Pipers egen regel til val_mel før treningen starter.
+  SHIM="$PREP/piper_ckpt_shim.py"
+  mkdir -p "$PREP"
+  cat > "$SHIM" <<'PYEOF'
+import runpy
+import sys
+
+try:
+    from lightning.pytorch.callbacks import ModelCheckpoint
+except Exception:  # pragma: no cover - eldre miljø
+    ModelCheckpoint = None
+
+if ModelCheckpoint is not None:
+    _orig_init = ModelCheckpoint.__init__
+
+    def _init(self, *args, **kwargs):
+        if kwargs.get("monitor") == "val_mos":
+            kwargs["monitor"] = "val_mel"
+            kwargs["mode"] = "min"
+            filnavn = kwargs.get("filename")
+            if isinstance(filnavn, str) and "val_mos" in filnavn:
+                kwargs["filename"] = filnavn.replace("val_mos", "val_mel")
+            print("==> Bytter kontrollpunktmåling val_mos -> val_mel", flush=True)
+        return _orig_init(self, *args, **kwargs)
+
+    ModelCheckpoint.__init__ = _init
+
+sys.argv = ["piper.train", *sys.argv[1:]]
+runpy.run_module("piper.train", run_name="__main__")
+PYEOF
+  CMD=("$PIPER_PYTHON_BIN" "$SHIM" fit
     --data.voice_name "$NAVN"
     --data.csv_path "$DATASET/metadata.csv"
     --data.audio_dir "$WAV"
@@ -320,12 +348,12 @@ if har_ny_piper; then
     --trainer.max_epochs "$EPOCHS"
     --trainer.log_every_n_steps 1
     --trainer.enable_progress_bar false
-    --trainer.callbacks "$CHECKPOINT_CALLBACKS"
     --trainer.accelerator "$AKSEL"
     --trainer.devices 1
     --trainer.default_root_dir "$PREP")
   [ -n "${PIPER_CHECKPOINT:-}" ] && CMD+=(--ckpt_path "$PIPER_CHECKPOINT")
   "${CMD[@]}"
+
 
   echo "==> Eksporterer ONNX"
   CKPT=$(find "$PREP" -name '*.ckpt' -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
