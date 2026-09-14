@@ -1,3 +1,5 @@
+import { fetchLokal } from "./https-lokal.mjs";
+
 /** Retter opp vanlige skrivefeil i adressen til kjente skytjenester. */
 export function normalizeBase(input) {
   let base = String(input || "").trim().replace(/\/+$/, "");
@@ -53,7 +55,7 @@ export async function listModels(baseUrl, { apiKey, signal } = {}) {
   if (!root) return [];
   for (const url of [`${root}/v1/models`, `${root}/api/tags`]) {
     try {
-      const r = await fetch(url, {
+      const r = await fetchLokal(url, {
         headers: { ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}), ...providerHeaders(url) },
         signal,
       });
@@ -114,7 +116,7 @@ export async function callChatEndpoint(input) {
     signal?.addEventListener?.("abort", avbrytt);
     const timer = setTimeout(avbrytt, timeoutMs);
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetchLokal(endpoint, {
         method: "POST",
         headers: {
           "content-type": "application/json",
