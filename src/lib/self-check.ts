@@ -1,6 +1,6 @@
 import type { ChatMsg } from "./hud-client";
 import { callTracked } from "./balancer";
-import { nodeKlasse } from "./model-router";
+import { nodeKlasse, erSkyNode } from "./model-router";
 import type { HudConfig, ModelNode } from "./hud-store";
 
 /**
