@@ -1159,6 +1159,18 @@ export async function handleApi(req, res, route, url, deps = {}) {
       }
     }
 
+    if (path === "/tts/stemmer/trente" && method === "GET")
+      return json(req, res, 200, { stemmer: await lokaleStemmer() });
+
+    if (path === "/tts/stemmer/trente/aktiver" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, await aktiverStemme(b?.fil));
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
     if (path === "/tts/stemmer" && method === "GET")
       return json(req, res, 200, { stemmer: await piperStemmer() });
 
