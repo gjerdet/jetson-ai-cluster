@@ -739,6 +739,12 @@ export const backend = {
     call<VectorIndexStatus>(ROUTES.indexStart!, { method: "POST" }, { timeoutMs: 60_000, retries: 0 }),
   indeksStopp: () =>
     call<VectorIndexStatus>(ROUTES.indexStop!, { method: "POST" }, { timeoutMs: 30_000, retries: 0 }),
+  indeksConfig: (verdier: { vert?: string; port?: number; token?: string; delt?: boolean }) =>
+    call<VectorIndexStatus>(
+      ROUTES.indexConfig!,
+      { method: "POST", body: JSON.stringify(verdier) },
+      { timeoutMs: 30_000, retries: 0 },
+    ),
   indeksBygg: () =>
     call<{ indeksert: number; totalt: number }>(
       ROUTES.indexRebuild!,

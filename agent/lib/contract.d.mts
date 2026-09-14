@@ -169,6 +169,7 @@ export const ROUTES: {
   indexStart: string;
   indexStop: string;
   indexRebuild: string;
+  indexConfig: string;
   status: string;
   login: string;
   register: string;
@@ -726,7 +727,9 @@ export interface VectorIndexStatus {
   sisteSokMs: number | null;
   feil: string;
   pid: number | null;
-  config: { port: number; bits: number; aktiv: boolean };
+  fjern: boolean;
+  baseUrl: string;
+  config: { port: number; bits: number; aktiv: boolean; vert: string; token: string; delt: boolean };
   installasjonsjobb: string | null;
   logg: string;
 }

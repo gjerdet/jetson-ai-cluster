@@ -114,6 +114,7 @@ export const ROUTES = {
   indexStart: "/kunnskap/indeks/start",
   indexStop: "/kunnskap/indeks/stopp",
   indexRebuild: "/kunnskap/indeks/bygg",
+  indexConfig: "/kunnskap/indeks/config",
   logs: "/logger",
   logSources: "/logger/kilder",
   clusterLocal: "/klynge/lokal",
