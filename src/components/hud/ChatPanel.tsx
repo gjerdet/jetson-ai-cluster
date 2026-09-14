@@ -165,7 +165,11 @@ export function ChatPanel({
   }, [busy]);
 
 
-  const active = config.nodes.filter((n) => n.enabled);
+  // Kun-lokalt: betalte sky-noder tas helt ut av poolen.
+  const aktiverte = config.nodes.filter((n) => n.enabled);
+  const lokalePool = aktiverte.filter((n) => !erSkyNode(n));
+  const active =
+    config.kunLokalt !== false && lokalePool.length ? lokalePool : aktiverte;
   // valgt AI-node (f.eks. Hermes) vinner over rollen «primary»
   const chosen = config.aiNodeId ? active.find((n) => n.id === config.aiNodeId) : undefined;
   const primary = chosen ?? active.find((n) => n.role === "primary") ?? active[0];
