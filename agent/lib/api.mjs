@@ -72,6 +72,9 @@ import {
   treningResultater,
   treningNoder,
   fordelTrening,
+  lokaleStemmer,
+  aktiverStemme,
+  fortsettTrening,
 } from "./trening.mjs";
 
 import {
