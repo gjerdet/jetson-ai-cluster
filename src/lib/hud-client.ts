@@ -47,7 +47,8 @@ export function chatEndepunkter(input: string): string[] {
     return [base, `${rot}/v1/chat/completions`, `${rot}/api/chat`];
   }
   if (/\/v1$/i.test(base)) return [`${base}/chat/completions`];
-  return [`${base}/v1/chat/completions`, `${base}/api/chat`, `${base}/chat`];
+  // Siste kandidat er Jarvis-agentens eget endepunkt (backend på 8443).
+  return [`${base}/v1/chat/completions`, `${base}/api/chat`, `${base}/chat`, `${base}/api/ai/chat`];
 }
 
 function svarTekst(data: unknown): string {
@@ -56,10 +57,18 @@ function svarTekst(data: unknown): string {
     message?: { content?: string };
     response?: string;
     content?: string;
+    svar?: string;
+    tekst?: string;
   };
   const verdi =
-    d?.choices?.[0]?.message?.content ?? d?.message?.content ?? d?.response ?? d?.content;
+    d?.choices?.[0]?.message?.content ??
+    d?.message?.content ??
+    d?.response ??
+    d?.svar ??
+    d?.tekst ??
+    d?.content;
   return typeof verdi === "string" ? verdi.trim() : "";
+
 }
 
 export async function callNode(
