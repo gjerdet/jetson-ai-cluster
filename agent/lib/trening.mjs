@@ -459,6 +459,138 @@ export function publiser(id, modell) {
   return { modell: fil };
 }
 
+// ---- ferdige stemmer på disk --------------------------------------------
+
+const MODELL_ROT = () => path.join(DATA_DIR, "stemmemodeller");
+
+/** Alle filer under en mappe som matcher et suffiks (rekursivt, tåler manglende mappe). */
+async function finnFiler(rot, suffiks) {
+  const treff = [];
+  const filer = await fs.readdir(rot, { recursive: true, withFileTypes: true }).catch(() => []);
+  for (const f of filer) {
+    if (!f.isFile?.() || !f.name.endsWith(suffiks)) continue;
+    treff.push(path.join(f.parentPath || f.path || rot, f.name));
+  }
+  return treff;
+}
+
+/** Nyeste checkpoint i en treningsmappe – grunnlaget for «tren mer». */
+export async function sisteCheckpoint(utMappe) {
+  const ckpt = await finnFiler(utMappe, ".ckpt");
+  let beste = "";
+  let tid = 0;
+  for (const f of ckpt) {
+    const s = await fs.stat(f).catch(() => null);
+    if (s && s.mtimeMs > tid) {
+      tid = s.mtimeMs;
+      beste = f;
+    }
+  }
+  return beste;
+}
+
+/**
+ * Lister alle ferdigtrente Piper-stemmer som ligger på noden, slik at GUI-et
+ * kan la brukeren velge dem direkte i stedet for å lime inn en filsti.
+ */
+export async function lokaleStemmer() {
+  const rot = MODELL_ROT();
+  const aktiv = String(ttsConfig().modell || "").trim();
+  const mapper = await fs.readdir(rot, { withFileTypes: true }).catch(() => []);
+  const stemmer = [];
+  for (const m of mapper) {
+    if (!m.isDirectory()) continue;
+    const utMappe = path.join(rot, m.name);
+    const onnx = await finnFiler(utMappe, ".onnx");
+    const ckpt = await sisteCheckpoint(utMappe);
+    if (!onnx.length && !ckpt) continue;
+    const fil = onnx[0] || "";
+    const st = fil ? await fs.stat(fil).catch(() => null) : null;
+    const jobb = listJobber().find((j) => j.utMappe === utMappe) || null;
+    stemmer.push({
+      id: m.name,
+      navn: jobb?.navn || m.name,
+      mappe: utMappe,
+      fil,
+      konfig: fil ? `${fil}.json` : "",
+      checkpoint: ckpt,
+      kanTreneMer: Boolean(ckpt),
+      storrelseMb: st ? Math.round((st.size / 1048576) * 10) / 10 : null,
+      endret: st ? new Date(st.mtimeMs).toISOString() : "",
+      aktiv: Boolean(fil) && fil === aktiv,
+      jobbId: jobb?.id || "",
+    });
+  }
+  return stemmer.sort((a, b) => (a.endret < b.endret ? 1 : -1));
+}
+
+/** Setter en ferdigtrent .onnx som aktiv Piper-stemme. */
+export async function aktiverStemme(fil) {
+  const sti = String(fil || "").trim();
+  if (!sti) throw new Error("Ingen modellfil oppgitt.");
+  if (!sti.startsWith(MODELL_ROT())) throw new Error("Modellen må ligge under stemmemodeller-mappa.");
+  if (!(await fileFinnes(sti))) throw new Error(`Fant ikke modellfila: ${sti}`);
+  saveTtsConfig({ modell: sti });
+  return { modell: sti };
+}
+
+/**
+ * Trener videre på en eksisterende stemme: starter Piper på nytt fra siste
+ * checkpoint i samme mappe, med oppdatert manifest (nye klipp blir med).
+ */
+export async function fortsettTrening({ mappe = "", jobbId = "", epoker = 1000, batch = 0 } = {}) {
+  const fraJobb = jobbId ? hentJobb(jobbId) : null;
+  const utMappe = String(mappe || fraJobb?.utMappe || "").trim();
+  if (!utMappe) throw new Error("Ingen stemmemappe oppgitt.");
+  if (!utMappe.startsWith(MODELL_ROT())) throw new Error("Stemmemappa må ligge under stemmemodeller-mappa.");
+  if (!(await fileFinnes(utMappe))) throw new Error(`Fant ikke stemmemappa: ${utMappe}`);
+
+  const ckpt = await sisteCheckpoint(utMappe);
+  if (!ckpt)
+    throw new Error("Fant ingen checkpoint i denne stemmemappa – kjør en ny trening i stedet for å trene videre.");
+
+  const stat = clipStats();
+  if (!stat.medTekst) throw new Error("Ingen aktive klipp med transkripsjon – legg til tekst før du trener videre.");
+
+  const navn = fraJobb?.navn || path.basename(utMappe).replace(/-[0-9a-f]{8}$/i, "");
+  const manifestFil = path.join(utMappe, "metadata.csv");
+  await fs.writeFile(manifestFil, trainingManifest());
+
+  const ekstraEpoker = Math.max(50, Math.min(20_000, Number(epoker) || 1000));
+  const env = [
+    "JARVIS_AUTO_INSTALL=1",
+    `PIPER_CHECKPOINT=${shellArg(ckpt)}`,
+    `PIPER_EPOCHS=${ekstraEpoker}`,
+    ...(Number(batch) > 0 ? [`PIPER_BATCH=${Number(batch)}`] : []),
+  ].join(" ");
+  const kommando = `${env} bash ${shellArg(TRENING_SKRIPT)} ${shellArg(clipDir())} ${shellArg(manifestFil)} ${shellArg(
+    navn,
+  )} ${shellArg(utMappe)}`;
+
+  const id = randomUUID();
+  const jobb = {
+    id,
+    navn: `${navn} (videre trening)`,
+    status: "kø",
+    fremdrift: 0,
+    klipp: stat.medTekst,
+    sekunder: stat.aktiveSekunder,
+    manifest: manifestFil,
+    utMappe,
+    fortsetterFra: ckpt,
+    kommando,
+    logg: [`fortsetter fra checkpoint: ${ckpt}`],
+    telemetri: [],
+    feil: "",
+    opprettet: new Date().toISOString(),
+    startet: "",
+    ferdig: "",
+  };
+  lagre([...(jobbDoc().list || []), jobb]);
+  kjorNeste();
+  return jobb;
+}
+
 function kjorNeste() {
   if (prosesser.size) return;
   const neste = (jobbDoc().list || []).find((j) => j.status === "kø");
