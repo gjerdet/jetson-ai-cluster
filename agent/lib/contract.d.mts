@@ -164,6 +164,11 @@ export const ROUTES: {
   airllmInstall: string;
   airllmStart: string;
   airllmStop: string;
+  indexStatus: string;
+  indexInstall: string;
+  indexStart: string;
+  indexStop: string;
+  indexRebuild: string;
   status: string;
   login: string;
   register: string;
