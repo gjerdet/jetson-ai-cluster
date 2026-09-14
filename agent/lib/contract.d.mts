@@ -709,6 +709,23 @@ export interface AirllmStatus {
   logg: string;
 }
 
+export interface VectorIndexStatus {
+  installert: boolean;
+  venv: string;
+  installerSkript: string;
+  serverSkript: string;
+  kjorer: boolean;
+  vektorer: number;
+  dim: number;
+  bits: number;
+  sisteSokMs: number | null;
+  feil: string;
+  pid: number | null;
+  config: { port: number; bits: number; aktiv: boolean };
+  installasjonsjobb: string | null;
+  logg: string;
+}
+
 export interface TrainingEpoch {
   nummer: number;
   tid: number;
