@@ -14,6 +14,7 @@ import { byggVerktoy, rollbackTool, verktoyMedProblemer } from "./toolgen.mjs";
 import { diagnoserAlle } from "./kollega.mjs";
 import { gpuStatus } from "./gpu.mjs";
 import { planleggLaering, laerTema, selvQuiz, konsoliderLaering } from "./selvlaering.mjs";
+import { dagsRapport, retrospektiv, trengerRetrospektiv, lagKodeforslag, godkjennKodeforslag, erAuto } from "./selvforbedring.mjs";
 
 let aktiv = false;
 let timer = null;
