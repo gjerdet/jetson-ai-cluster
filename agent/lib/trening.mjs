@@ -45,6 +45,9 @@ export function finnSkript(navn, envVerdi = "") {
 /** Skriptet som gjør hele Piper-jobben lokalt (datasett → trening → onnx). */
 export const TRENING_SKRIPT = finnSkript("tren-stemme.sh", process.env.JARVIS_TRENING_SKRIPT || "");
 
+/** Skriptet som bare eksporterer model.onnx fra et lagret checkpoint. */
+export const EKSPORT_SKRIPT = finnSkript("eksporter-stemme.sh", process.env.JARVIS_EKSPORT_SKRIPT || "");
+
 /** Skriptet som installerer selve Piper-treningsmiljøet. */
 export const INSTALLER_SKRIPT = finnSkript("installer-piper.sh", process.env.JARVIS_INSTALLER_SKRIPT || "");
 
