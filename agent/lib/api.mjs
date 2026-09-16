@@ -1229,6 +1229,15 @@ export async function handleApi(req, res, route, url, deps = {}) {
       }
     }
 
+    if (path === "/tts/trening/eksporter" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, { jobb: await eksporterStemme({ mappe: b?.mappe, jobbId: b?.jobbId }) });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
     if (path === "/tts/trening/plan" && method === "GET") {
       const q = new URL(req.url, "http://x").searchParams;
       return json(req, res, 200, await treningPlan({ navn: q.get("navn") || "", preset: q.get("preset") || "" }));
