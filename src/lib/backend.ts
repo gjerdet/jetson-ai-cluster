@@ -803,6 +803,38 @@ export const backend = {
       { method: "POST", body: JSON.stringify(v) },
       { timeoutMs: 30_000, retries: 0 },
     ),
+  // ---- selvlæring --------------------------------------------------------
+  /** Status, kunnskapshull og gjennomførte læringsøkter. */
+  hentLaering: () =>
+    call<{ status: LearningStatus; hull: LearningGap[]; okter: LearningSession[] }>(
+      ROUTES.learning!,
+      {},
+      { timeoutMs: 30_000, retries: 0 },
+    ),
+  /** Slår selvlæringen av eller på. */
+  settLaering: (aktiv: boolean) =>
+    call<{ aktiv: boolean }>(ROUTES.learningToggle!, { method: "POST", body: JSON.stringify({ aktiv }) }, { retries: 0 }),
+  /** Ber ham lære om et tema nå, eller legge det i køen til han er ledig. */
+  laerTema: (tema: string, straks = true) =>
+    call<{ tema: string; kilder?: number; ok?: boolean; kø?: boolean }>(
+      ROUTES.learningTopic!,
+      { method: "POST", body: JSON.stringify({ tema, straks }) },
+      { timeoutMs: 180_000, retries: 0 },
+    ),
+  /** Kjører en selvtest mot egen kunnskapsbase. */
+  kjorSelvtest: () =>
+    call<{ sporsmal?: string; score?: number | null; svakt?: boolean; hoppet?: string }>(
+      ROUTES.learningSelftest!,
+      { method: "POST" },
+      { timeoutMs: 300_000, retries: 0 },
+    ),
+  /** Oppsummerer ny kunnskap til varige notater. */
+  konsoliderLaering: () =>
+    call<{ notater?: number; hoppet?: string }>(
+      ROUTES.learningConsolidate!,
+      { method: "POST" },
+      { timeoutMs: 180_000, retries: 0 },
+    ),
   publiserTrening: (id: string, modell?: string) =>
     call<{ modell: string }>(
       `${ROUTES.ttsTraining}/${encodeURIComponent(id)}/publiser`,
