@@ -1168,7 +1168,7 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
     try {
       const r = await backend.hentVerktoybibliotek();
       const bygde = r.verktoy.map((t) =>
-        `${t.name} (${t.enabled ? "testet og aktivt" : "ikke aktivt"}) – ${t.description || t.beskrivelse || "ingen beskrivelse"}\n  argumenter: ${JSON.stringify(t.inputSchema ?? {})}`,
+        `${t.name} (${t.enabled ? "testet og aktivt" : "ikke aktivt"}) – ${t.description || "ingen beskrivelse"}\n  argumenter: ${JSON.stringify(t.inputSchema ?? {})}`,
       );
       const enkle = (config.customTools ?? []).map(
         (t) => `${t.name} (${t.kind}${t.enabled ? "" : ", avslått"}) – ${t.description || "ingen beskrivelse"}`,
