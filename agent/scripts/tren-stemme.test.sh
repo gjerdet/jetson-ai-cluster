@@ -51,3 +51,19 @@ assert trainer.callbacks == [val_mel, annen], [c.monitor for c in trainer.callba
 
 print("OK: val_mos fjernes og Pipers val_mel-regel bevares")
 PY
+
+python3 - "$SKRIPT" <<'PY'
+import re
+import sys
+
+tekst = open(sys.argv[1], encoding="utf-8").read()
+treff = re.search(r'cat > "\$EXPORT_SHIM" <<\'PYEOF\'\n(.*?)\nPYEOF\n', tekst, re.DOTALL)
+assert treff, "Fant ikke kompatibilitetskode for ONNX-eksport"
+shim = treff.group(1)
+assert 'kwargs["dynamo"] = False' in shim, "ONNX-eksporten må slå av dynamo"
+assert 'runpy.run_module("piper.train.export_onnx"' in shim
+assert 'onnx.checker.check_model(model)' in tekst, "Den eksporterte modellen må valideres"
+assert 'MODEL_TMP="$UT/model.onnx.tmp"' in tekst, "Ufullstendig eksport må ikke bli aktiv modell"
+compile(shim, "piper_onnx_compat.py", "exec")
+print("OK: ONNX-eksport bruker dynamo=False og validerer modellen")
+PY

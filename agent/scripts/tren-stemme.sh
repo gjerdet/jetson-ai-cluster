@@ -351,17 +351,57 @@ PYEOF
 
 
   echo "==> Eksporterer ONNX"
-  # Nyere PyTorch krever onnxscript ved torch.onnx.export. Pakken følger ikke
-  # alltid med Piper-venv-et, så installer den ved behov før eksporten.
-  if ! "$PIPER_PYTHON_BIN" -c 'import onnxscript' >/dev/null 2>&1; then
-    echo "==> Installerer onnxscript (trengs for ONNX-eksport)"
-    "$PIPER_PYTHON_BIN" -m pip install --no-cache-dir onnxscript || {
-      echo "Klarte ikke installere onnxscript – eksporten vil sannsynligvis feile." >&2
-    }
-  fi
   CKPT=$(find "$PREP" -name '*.ckpt' -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
   [ -n "$CKPT" ] || { echo "Fant ingen checkpoint"; exit 1; }
-  "$PIPER_PYTHON_BIN" -m piper.train.export_onnx --checkpoint "$CKPT" --output-file "$UT/model.onnx"
+
+  # PyTorch 2.9 bruker den nye dynamo/torch.export-baserte ONNX-eksportøren
+  # som standard. Pipers VITS-modell har en gyldig, datastyrt spline-kontroll
+  # som denne eksportøren feilaktig gjør til en guard (`discriminant >= 0`).
+  # Den stabile TorchScript-eksportøren støtter modellen og samme ONNX-opset.
+  EXPORT_SHIM="$PREP/piper_onnx_compat.py"
+  cat > "$EXPORT_SHIM" <<'PYEOF'
+import runpy
+import sys
+
+import torch
+
+_original_export = torch.onnx.export
+
+def _legacy_export(*args, **kwargs):
+    kwargs["dynamo"] = False
+    return _original_export(*args, **kwargs)
+
+torch.onnx.export = _legacy_export
+sys.argv = ["piper.train.export_onnx", *sys.argv[1:]]
+runpy.run_module("piper.train.export_onnx", run_name="__main__")
+PYEOF
+  MODEL_TMP="$UT/model.onnx.tmp"
+  rm -f "$MODEL_TMP"
+  if "$PIPER_PYTHON_BIN" "$EXPORT_SHIM" --checkpoint "$CKPT" --output-file "$MODEL_TMP"; then
+    "$PIPER_PYTHON_BIN" - "$MODEL_TMP" <<'PY'
+import sys
+import onnx
+
+model = onnx.load(sys.argv[1])
+onnx.checker.check_model(model)
+print("==> ONNX-modellen er kontrollert og gyldig")
+PY
+  else
+    echo "Kompatibel ONNX-eksport feilet – prøver Pipers ordinære eksportør én gang." >&2
+    rm -f "$MODEL_TMP"
+    # Den ordinære eksportøren trenger onnxscript i nyere PyTorch.
+    if ! "$PIPER_PYTHON_BIN" -c 'import onnxscript' >/dev/null 2>&1; then
+      echo "==> Installerer onnxscript for ordinær ONNX-eksport"
+      "$PIPER_PYTHON_BIN" -m pip install --no-cache-dir onnxscript || true
+    fi
+    if ! "$PIPER_PYTHON_BIN" -m piper.train.export_onnx --checkpoint "$CKPT" --output-file "$MODEL_TMP"; then
+      rm -f "$MODEL_TMP"
+      echo "ONNX-eksporten feilet med både kompatibel og ordinær PyTorch-eksportør. Kontrollpunktet er bevart; oppdater Jarvis før du prøver TREN MER igjen." >&2
+      exit 1
+    fi
+  fi
+  [ -s "$MODEL_TMP" ] || { echo "ONNX-eksporten laget ingen modellfil. Kontrollpunktet er bevart." >&2; exit 1; }
+  mv "$MODEL_TMP" "$UT/model.onnx"
 else
   # Kompatibilitet for noder som fortsatt har et fungerende eldre miljø.
   awk -F'|' -v ok="$OK_IDER" 'BEGIN{OFS="|"; while ((getline l < ok) > 0) g[l]=1} NF>=2 { sub(/\r$/, "", $1); n=$1; while (n ~ /\.wav$/) sub(/\.wav$/, "", n); if (n in g) print }' "$MANIFEST" > "$DATASET/metadata.csv"
