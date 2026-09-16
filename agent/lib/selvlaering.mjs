@@ -273,6 +273,9 @@ export function planleggLaering() {
     prioritet: Math.min(9, 6 + (h.antall || 1)),
     data: { tema: h.tema },
   }));
+  // Har han ingen hull å tette, finner han selv ut hva han bør bli bedre på.
+  if (apne.length < 2)
+    jobber.push({ type: "finn-mal", tekst: "Finn selv nye temaer å bli bedre på", prioritet: 6 });
   jobber.push({ type: "selvtest", tekst: "Selvtest mot egen kunnskapsbase", prioritet: 4 });
   jobber.push({ type: "konsolider-laering", tekst: "Oppsummer ny kunnskap til varige notater", prioritet: 3 });
   return jobber;
