@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
-import { Brain, Loader2, RefreshCw, Sprout } from "lucide-react";
-import { backend, safe, type LearningGap, type LearningSession, type LearningStatus } from "@/lib/backend";
+import { Brain, Loader2, RefreshCw, Sprout, Target } from "lucide-react";
+import {
+  backend,
+  safe,
+  type LearningEngine,
+  type LearningGap,
+  type LearningPlanItem,
+  type LearningSession,
+  type LearningStatus,
+} from "@/lib/backend";
 
 const inputCls =
   "w-full rounded-full border border-primary/25 bg-primary/[0.04] px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/60";
@@ -14,6 +22,8 @@ export function SelvlaeringSection() {
   const [status, setStatus] = useState<LearningStatus | null>(null);
   const [hull, setHull] = useState<LearningGap[]>([]);
   const [okter, setOkter] = useState<LearningSession[]>([]);
+  const [plan, setPlan] = useState<LearningPlanItem[]>([]);
+  const [motor, setMotor] = useState<LearningEngine | null>(null);
   const [tema, setTema] = useState("");
   const [jobber, setJobber] = useState("");
   const [melding, setMelding] = useState<string | null>(null);
@@ -26,10 +36,15 @@ export function SelvlaeringSection() {
     setStatus(data.status);
     setHull(data.hull);
     setOkter(data.okter);
+    setPlan(data.plan ?? []);
+    setMotor(data.motor ?? null);
   };
 
   useEffect(() => {
     void last();
+    // Livebilde: hent status hvert 10. sekund så man ser at han faktisk jobber.
+    const t = setInterval(() => void last(), 10_000);
+    return () => clearInterval(t);
   }, []);
 
   const kjor = async (navn: string, fn: () => Promise<string>) => {
@@ -98,6 +113,61 @@ export function SelvlaeringSection() {
           {status.sisteOkt ? ` · sist ${klokke(status.sisteOkt.tid)}` : ""}
         </p>
       ) : null}
+
+      <div className="rounded-lg border border-primary/20 bg-primary/[0.04] px-2.5 py-2">
+        <p className="flex items-center gap-2 text-[11px]">
+          <span
+            className={`h-2 w-2 rounded-full ${
+              motor?.jobberNa ? "animate-pulse bg-primary" : motor?.lever ? "bg-primary/50" : "bg-muted-foreground/40"
+            }`}
+          />
+          {motor?.jobberNa ? (
+            <span className="text-primary/90">LÆRER NÅ: {motor.jobberNa}</span>
+          ) : motor?.lever ? (
+            <span className="text-muted-foreground">
+              {motor.aktiv
+                ? motor.ledig
+                  ? "Motoren er i gang – venter på neste jobb."
+                  : "Motoren venter til du er ferdig med å bruke ham."
+                : "Motoren er slått av."}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Fikk ikke livstegn fra bakgrunnsmotoren.</span>
+          )}
+        </p>
+        {motor?.sisteJobb ? (
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Sist: {motor.sisteJobb.jobb}
+            {motor.sisteJobb.resultat ? ` → ${motor.sisteJobb.resultat}` : ""} · {klokke(motor.sisteJobb.tid)}
+          </p>
+        ) : null}
+        {motor?.hjerteslag ? (
+          <p className="mt-0.5 text-[10px] text-muted-foreground/70">
+            Livstegn {klokke(motor.hjerteslag)} · {motor.ko} jobber i kø
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <p className="hud-title mb-1 flex items-center gap-1.5 text-[9px] text-muted-foreground">
+          <Target className="h-3 w-3" /> MÅL HAN JOBBER MOT
+        </p>
+        {plan.length ? (
+          <ul className="space-y-1">
+            {plan.slice(0, 6).map((p, i) => (
+              <li
+                key={`${p.type}-${i}`}
+                className="flex items-center justify-between gap-2 rounded-lg border border-primary/15 px-2 py-1 text-[11px]"
+              >
+                <span className="truncate">{p.tekst}</span>
+                <span className="shrink-0 text-muted-foreground">prioritet {p.prioritet}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">Ingen mål i planen akkurat nå.</p>
+        )}
+      </div>
 
       <div className="flex gap-2">
         <input

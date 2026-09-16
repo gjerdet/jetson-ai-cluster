@@ -338,6 +338,27 @@ export interface LearningSession {
   ok?: boolean;
 }
 
+/** En planlagt læringsjobb (mål han vil jobbe med når maskinen er ledig). */
+export interface LearningPlanItem {
+  type: string;
+  tekst: string;
+  prioritet: number;
+  data?: { tema?: string };
+}
+
+/** Livstegn fra bakgrunnsmotoren som utfører læringen. */
+export interface LearningEngine {
+  aktiv: boolean;
+  ledig: boolean;
+  lever: boolean;
+  egenProsess: boolean;
+  hjerteslag: number;
+  jobberNa: string | null;
+  sisteJobb: { tid: number; jobb: string; resultat?: string } | null;
+  sisteChat: number;
+  ko: number;
+}
+
 /** Oversikt over selvlæringen. */
 export interface LearningStatus {
   aktiv: boolean;
