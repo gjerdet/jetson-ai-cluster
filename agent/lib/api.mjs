@@ -1850,8 +1850,27 @@ export async function handleApi(req, res, route, url, deps = {}) {
     }
 
     // ---- selvlæring --------------------------------------------------------
-    if (path === "/laering" && method === "GET")
-      return json(req, res, 200, { status: laeringStatus(), hull: listHull(30), okter: listOkter(20) });
+    if (path === "/laering" && method === "GET") {
+      // Motorstatus og planlagte jobber vises i GUI-et så man ser at han faktisk jobber.
+      const ini = initiativeStatus();
+      return json(req, res, 200, {
+        status: laeringStatus(),
+        hull: listHull(30),
+        okter: listOkter(20),
+        plan: planleggLaering(),
+        motor: {
+          aktiv: !!ini.aktiv,
+          ledig: !!ini.ledig,
+          lever: !!ini.motor?.lever,
+          egenProsess: !!ini.motor?.egenProsess,
+          hjerteslag: Number(ini.motor?.hjerteslag || 0),
+          jobberNa: ini.jobberNa || null,
+          sisteJobb: ini.motor?.sisteJobb || null,
+          sisteChat: Number(ini.sisteChat || 0),
+          ko: Number(ini.ko || 0),
+        },
+      });
+    }
 
     if (path === "/laering/av-pa" && method === "POST") {
       const b = await readBody(req);
