@@ -419,6 +419,20 @@ export function AgiPanel() {
               <div className="text-[10px] text-muted-foreground">
                 Siste kjøring: {initiativ?.sisteKjøring ? new Date(initiativ.sisteKjøring).toLocaleString("no") : "aldri"}
               </div>
+              {initiativ?.motor?.egenProsess ? (
+                <div className="text-[10px] text-muted-foreground">
+                  Egen bakgrunnsprosess:{" "}
+                  <span className={initiativ.motor.lever ? "text-emerald-400" : "text-destructive"}>
+                    {initiativ.motor.lever ? "kjører" : "svarer ikke"}
+                  </span>
+                  {initiativ.motor.hjerteslag
+                    ? ` · livstegn ${new Date(initiativ.motor.hjerteslag).toLocaleTimeString("no")}`
+                    : ""}
+                  {initiativ.motor.sisteJobb
+                    ? ` · sist: ${initiativ.motor.sisteJobb.jobb} → ${initiativ.motor.sisteJobb.resultat ?? ""}`
+                    : ""}
+                </div>
+              ) : null}
               <div className="flex gap-2">
                 <button onClick={() => void toggleInitiativ()} className="hud-button flex-1">
                   {initiativ?.aktiv ? "SKRU AV" : "SKRU PÅ"}

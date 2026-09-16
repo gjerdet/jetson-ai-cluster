@@ -86,6 +86,28 @@ WantedBy=multi-user.target
 sudo systemctl enable --now jarvis-agent
 ```
 
+## Bakgrunnsmotor som egen prosess
+
+Initiativ- og selvlæringsarbeidet kjører i `motor.mjs` som en egen tjeneste,
+`jarvis-motor`, slik at det fortsetter selv om GUI-et er lukket eller backenden
+startes på nytt.
+
+```bash
+sudo systemctl enable --now jarvis-motor
+sudo systemctl status jarvis-motor
+journalctl -u jarvis-motor -f
+```
+
+- `JARVIS_EGEN_MOTOR=1` i `/etc/jarvis/agent.env` gjør at backenden ikke kjører
+  løkka selv (settes automatisk av oppsett- og oppdateringsskriptene).
+- Av/på-bryteren i GUI-et og brukeraktivitet deles gjennom `data/motor.json`.
+  Motoren skriver livstegn dit hvert minutt; GUI-et viser det under INITIATIV.
+- Motoren har ikke Telegram/MQTT selv: autonome varsler legges i
+  `data/motor-utboks.json`, og backenden sender dem videre hvert 20. sekund.
+- Bakgrunnsarbeid nedprioriteres (`Nice=10`, `IOSchedulingClass=idle`) og stopper
+  ved brukeraktivitet eller GPU-last over 60 %.
+
+
 ## Sikkerhet (v2)
 
 - **CORS**: kun origins i `AGENT_ORIGINS` (standard: localhost + `*.lovable.app`). Alt annet får 403.

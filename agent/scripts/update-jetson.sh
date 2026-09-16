@@ -315,6 +315,7 @@ fi
 
 systemctl stop "$SERVICE" 2>/dev/null || true
 systemctl stop "$GUI_SERVICE" 2>/dev/null || true
+systemctl stop jarvis-motor 2>/dev/null || true
 frigjor_port "$AGENT_PORT"
 frigjor_port "$AGENT_TLS_PORT"
 frigjor_port "${JARVIS_GUI_PORT:-8080}"
@@ -327,6 +328,15 @@ if [ -f "$AGENT_SERVICE_MAL" ] && [ -f "/etc/systemd/system/$SERVICE.service" ];
     cp "$AGENT_SERVICE_MAL" "/etc/systemd/system/$SERVICE.service"
   fi
 fi
+MOTOR_SERVICE_MAL="$APP_DIR/jarvis-motor.service"
+if [ -f "$MOTOR_SERVICE_MAL" ]; then
+  if ! cmp -s "$MOTOR_SERVICE_MAL" /etc/systemd/system/jarvis-motor.service 2>/dev/null; then
+    si "Oppdaterer systemd-unit for jarvis-motor (bakgrunnsmotoren)"
+    cp "$MOTOR_SERVICE_MAL" /etc/systemd/system/jarvis-motor.service
+  fi
+  grep -q '^JARVIS_EGEN_MOTOR=' "$ENV_FILE" 2>/dev/null || echo 'JARVIS_EGEN_MOTOR=1' >> "$ENV_FILE"
+  systemctl enable jarvis-motor >/dev/null 2>&1 || adv "jarvis-motor kunne ikke aktiveres"
+fi
 # GPU-tilgang for treningsjobber (ellers faller Piper tilbake til CPU).
 for grp in video render; do
   getent group "$grp" >/dev/null 2>&1 && usermod -aG "$grp" jarvis 2>/dev/null || true
@@ -337,6 +347,7 @@ systemctl daemon-reload
 si "Starter tjenester på nytt …"
 systemctl restart "$SERVICE"
 systemctl restart "$GUI_SERVICE" 2>/dev/null || adv "$GUI_SERVICE kunne ikke startes"
+systemctl restart jarvis-motor 2>/dev/null || adv "jarvis-motor kunne ikke startes"
 sleep 3
 
 # ── 8. Verifiser at agenten svarer ────────────────────────────────────────────

@@ -21,9 +21,17 @@ let sisteKjøring = 0;
 let sisteChat = Date.now();
 let jobberNa = null;
 let deps = { publish: null, notify: null };
+let sisteAktivitetSkrevet = 0;
 
 /** Ledig tid = ingen chat på 10 minutter. */
 export const IDLE_MS = 10 * 60 * 1000;
+
+/** Denne prosessen ER bakgrunnsmotoren (agent/motor.mjs). */
+export const ER_MOTOR = process.env.JARVIS_MOTOR_PROSESS === "1";
+/** Bakgrunnsmotoren kjører som egen tjeneste; backenden skal da ikke kjøre løkka selv. */
+export const EGEN_MOTOR = ER_MOTOR || process.env.JARVIS_EGEN_MOTOR === "1";
+/** Motoren regnes som levende når hjerteslaget er nyere enn dette. */
+const HJERTESLAG_FRIST = 5 * 60 * 1000;
 
 function db() {
   return doc("initiative", { forslag: [], audit: [], ko: [], revisjoner: [] });
@@ -33,12 +41,32 @@ function persist(item) {
   saveDoc("initiative", item);
 }
 
+/** Delt tilstand mellom backend-prosessen og motorprosessen (fil på disk). */
+function motorDb() {
+  return doc("motor", { aktiv: false, sisteAktivitet: 0, hjerteslag: 0, pid: 0, jobberNa: null, sisteJobb: null });
+}
+
+function settMotor(patch) {
+  const d = { ...motorDb(), ...patch };
+  saveDoc("motor", d);
+  return d;
+}
+
+/** Sant når en egen motorprosess har gitt livstegn nylig. */
+export function motorLever() {
+  const m = motorDb();
+  return !!m.hjerteslag && Date.now() - m.hjerteslag < HJERTESLAG_FRIST;
+}
+
 export function isActive() {
-  return aktiv;
+  return EGEN_MOTOR && !ER_MOTOR ? !!motorDb().aktiv : aktiv;
 }
 
 export function setActive(value) {
   aktiv = !!value;
+  settMotor({ aktiv });
+  // Når motoren har egen prosess, er dette bare et signal – løkka kjører der.
+  if (EGEN_MOTOR && !ER_MOTOR) return { aktiv };
   if (aktiv) start(60 * 1000);
   else stop();
   return { aktiv };
@@ -51,10 +79,25 @@ export function setDeps(d) {
 /** Kalles ved hver chat-melding: brukeraktivitet stopper bakgrunnsarbeid. */
 export function markerBrukeraktivitet() {
   sisteChat = Date.now();
+  // Skriv til disk så motorprosessen også ser at brukeren er til stede (maks hvert 15. sek).
+  if (sisteChat - sisteAktivitetSkrevet > 15_000) {
+    sisteAktivitetSkrevet = sisteChat;
+    try {
+      settMotor({ sisteAktivitet: sisteChat });
+    } catch {
+      /* lagring skal aldri stoppe en samtale */
+    }
+  }
 }
 
 export function erLedig() {
-  return Date.now() - sisteChat >= IDLE_MS;
+  let sist = sisteChat;
+  try {
+    sist = Math.max(sist, Number(motorDb().sisteAktivitet || 0));
+  } catch {
+    /* bruk lokal verdi */
+  }
+  return Date.now() - sist >= IDLE_MS;
 }
 
 export function listSuggestions(limit = 20) {
@@ -322,13 +365,47 @@ function sensorSnapshot() {
   return out;
 }
 
+/** Utboks: motorprosessen har ikke Telegram/MQTT selv – backenden sender for den. */
+function leggIUtboks(handling, tekst) {
+  const d = doc("motor-utboks", { ko: [] });
+  d.ko = [...(d.ko || []), { tid: Date.now(), handling, tekst: String(tekst || "").slice(0, 1000) }].slice(-100);
+  saveDoc("motor-utboks", d);
+  return "lagt i utboks";
+}
+
+/** Backenden tømmer utboksen og sender meldingene videre. */
+export async function tommUtboks({ publish, notify } = {}) {
+  const d = doc("motor-utboks", { ko: [] });
+  const ko = d.ko || [];
+  if (!ko.length) return 0;
+  saveDoc("motor-utboks", { ko: [] });
+  let sendt = 0;
+  for (const post of ko) {
+    try {
+      const h = post.handling || {};
+      if (h.type === "telegram" && notify) {
+        await notify(String(h.payload || post.tekst).slice(0, 1000));
+        sendt++;
+      } else if (h.type === "mqtt" && publish && h.emne) {
+        await publish(String(h.emne), String(h.payload ?? ""));
+        sendt++;
+      }
+    } catch (e) {
+      console.error("[initiativ] utboks-feil:", e?.message || e);
+    }
+  }
+  return sendt;
+}
+
 async function execute(handling, tekst) {
   try {
-    if (handling.type === "telegram" && deps.notify) {
+    if (handling.type === "telegram") {
+      if (!deps.notify) return leggIUtboks(handling, tekst);
       await deps.notify(String(handling.payload || tekst).slice(0, 1000));
       return "telegram-sendt";
     }
-    if (handling.type === "mqtt" && deps.publish && handling.emne) {
+    if (handling.type === "mqtt" && handling.emne) {
+      if (!deps.publish) return leggIUtboks(handling, tekst);
       await deps.publish(String(handling.emne), String(handling.payload ?? ""));
       return "mqtt-publisert";
     }
@@ -377,19 +454,36 @@ Svar KUN med JSON: {"forslag": [{"tekst":"...","risiko":"lav|medium|høy","handl
 
 /** Ett tikk: kjør forbedringskøen når maskinen er ledig, ellers vurder sensorer sjelden. */
 async function tikk() {
+  if (ER_MOTOR) {
+    // Motorprosessen leser av/på-bryteren fra disk, så GUI-et styrer den uten omstart.
+    const m = settMotor({ hjerteslag: Date.now(), pid: process.pid, jobberNa });
+    aktiv = !!m.aktiv;
+  }
   if (!aktiv) return;
   if (erLedig()) {
-    await kjorKo().catch((e) => console.error("[initiativ] kø-feil:", e?.message || e));
+    const r = await kjorKo().catch((e) => {
+      console.error("[initiativ] kø-feil:", e?.message || e);
+      return null;
+    });
+    if (ER_MOTOR && r?.jobb) settMotor({ sisteJobb: { tid: Date.now(), jobb: r.jobb, resultat: r.resultat || r.feil } });
     if (Date.now() - sisteKjøring > 15 * 60 * 1000) await vurder().catch(() => {});
   }
 }
 
 export function start(intervalMs = 60 * 1000) {
   stop();
+  if (ER_MOTOR) {
+    // Etter omstart skal motoren bruke brukerens siste aktivitet, ikke starttidspunktet –
+    // ellers ville hver omstart utsette bakgrunnsarbeidet med ti nye minutter.
+    const lagret = Number(motorDb().sisteAktivitet || 0);
+    if (lagret) sisteChat = lagret;
+    settMotor({ hjerteslag: Date.now(), pid: process.pid });
+  }
   timer = setInterval(() => {
     tikk().catch((e) => console.error("[initiativ] feil:", e));
   }, intervalMs);
-  timer.unref?.();
+  // Motorprosessen har ingenting annet å gjøre – den må holde seg i live.
+  if (!ER_MOTOR) timer.unref?.();
 }
 
 export function stop() {
@@ -399,16 +493,24 @@ export function stop() {
 
 export function initiativeStatus() {
   const d = db();
+  const m = motorDb();
   return {
-    aktiv,
+    aktiv: isActive(),
     sisteKjøring,
     ledig: erLedig(),
-    sisteChat,
-    jobberNa,
+    sisteChat: Math.max(sisteChat, Number(m.sisteAktivitet || 0)),
+    jobberNa: jobberNa || (EGEN_MOTOR ? m.jobberNa : null),
     antallForslag: d.forslag.length,
     antallAudit: d.audit.length,
     ko: (d.ko || []).filter((k) => k.status === "venter").length,
     revisjoner: (d.revisjoner || []).length,
+    motor: {
+      egenProsess: EGEN_MOTOR,
+      lever: motorLever(),
+      hjerteslag: Number(m.hjerteslag || 0),
+      pid: Number(m.pid || 0),
+      sisteJobb: m.sisteJobb || null,
+    },
   };
 }
 

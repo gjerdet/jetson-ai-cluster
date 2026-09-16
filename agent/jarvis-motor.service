@@ -1,0 +1,35 @@
+[Unit]
+Description=Jarvis bakgrunnsmotor (initiativ og selvlæring)
+Documentation=file:///opt/jarvis-agent/README.md
+After=network-online.target jarvis-agent.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jarvis
+Group=jarvis
+# Uten video/render får GPU-kallene «NvRmMemInitNvmap failed: Permission denied».
+SupplementaryGroups=video render
+WorkingDirectory=/opt/jarvis-agent
+EnvironmentFile=/etc/jarvis/agent.env
+Environment=JARVIS_MOTOR_PROSESS=1
+ExecStart=/usr/bin/node /opt/jarvis-agent/motor.mjs
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jarvis-motor
+
+NoNewPrivileges=false
+ProtectSystem=full
+ProtectKernelTunables=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/jarvis /var/log/jarvis /etc/jarvis /opt/jarvis
+LimitNOFILE=8192
+# Bakgrunnsarbeid skal aldri stjele ressurser fra samtaler eller trening.
+Nice=10
+IOSchedulingClass=idle
+CPUWeight=30
+
+[Install]
+WantedBy=multi-user.target
