@@ -382,6 +382,38 @@ export function nettstedIMelding(tekst: string): string {
   return normaliserUrl(m[0]);
 }
 
+/** Steder/vær: «hvordan blir været i Åsmarka i dag?» */
+const VAER_SPM = /\b(vær|været|vaeret|temperatur|regn|snø|vind|yr\.no|nedbør|meldinga?\s+for)\b/i;
+/** Plukker ut stedsnavnet i et værspørsmål. */
+function stedIVaerSporsmal(tekst: string): string {
+  const m = /\b(?:i|på|for)\s+([A-ZÆØÅ][\wÆØÅæøå-]+(?:\s+[A-ZÆØÅ][\wÆØÅæøå-]+)?)/.exec(String(tekst ?? ""));
+  return m?.[1]?.trim() ?? "";
+}
+
+/**
+ * Når modellen gir opp uten å ha prøvd, velger vi verktøyet den burde ha valgt:
+ * vær → vaer, nevnt nettsted → les_url, ellers nettsøk. Returnerer null hvis vi
+ * ikke har noe fornuftig å prøve.
+ */
+export function redningsKall(sporsmal: string): ToolCall | null {
+  const tekst = String(sporsmal ?? "").trim();
+  if (!tekst) return null;
+  if (VAER_SPM.test(tekst)) {
+    const sted = stedIVaerSporsmal(tekst);
+    if (sted) {
+      const args = { sted };
+      return { name: "vaer", args, raw: `VERKTØY: vaer ${JSON.stringify(args)}` };
+    }
+  }
+  const url = nettstedIMelding(tekst);
+  if (url) {
+    const args = { url };
+    return { name: "les_url", args, raw: `VERKTØY: les_url ${JSON.stringify(args)}` };
+  }
+  const args = { sok: tekst.slice(0, 200), antall: 5 };
+  return { name: "web_sok", args, raw: `VERKTØY: web_sok ${JSON.stringify(args)}` };
+}
+
 /**
  * Modellene velger ofte World Monitor når brukeren spør om nyheter på et navngitt
  * nettsted. World Monitor er vår egen interne hendelsesstrøm og kan ikke lese
