@@ -478,15 +478,18 @@ export function ChatPanel({
         let calls = korrigerVerktoyvalg(parseToolCalls(raw, customToolNames(config)), text);
         // Gir modellen opp uten å ha prøvd noe? Da velger vi verktøyet selv og
         // kjører det, i stedet for å sende en bortforklaring til brukeren.
-        if (!calls.length && !runs.length && !smaaprat && GIR_OPP.test(raw)) {
+        const maaHaFerskeData = !smaaprat && krevesFerskeData(text);
+        if (!calls.length && !runs.length && !smaaprat && (GIR_OPP.test(raw) || maaHaFerskeData)) {
           const redning = redningsKall(text);
           if (redning) {
             calls = [redning];
             trace({
               turId,
               kind: "dult",
-              title: `modellen ga opp – kjører ${redning.name} selv`,
-              why: "svaret sa at den ikke hadde tilgang, uten at et eneste verktøy var kjørt",
+              title: `svarte uten verktøy – kjører ${redning.name} selv`,
+              why: maaHaFerskeData
+                ? "spørsmålet krever ferske data utenfra, men ingen verktøy var kjørt"
+                : "svaret sa at den ikke hadde tilgang, uten at et eneste verktøy var kjørt",
               detail: raw,
             });
           }
