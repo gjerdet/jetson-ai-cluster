@@ -258,7 +258,49 @@ export const ROUTES: {
   initiativeRun: string;
   initiativeRollback: string;
   initiativeLearn: string;
+  learning: string;
+  learningToggle: string;
+  learningTopic: string;
+  learningSelftest: string;
+  learningConsolidate: string;
 };
+
+/** Et kunnskapshull Jarvis har oppdaget i egne svar. */
+export interface LearningGap {
+  id: string;
+  tema: string;
+  grunn: string;
+  antall: number;
+  tid: number;
+  sist: number;
+  status: string;
+  resultat?: string;
+  lukket?: number;
+}
+
+/** En gjennomført lærings- eller selvtestøkt. */
+export interface LearningSession {
+  tid: number;
+  type: string;
+  tema?: string;
+  sporsmal?: string;
+  kilder?: number;
+  notater?: number;
+  score?: number | null;
+  svakt?: boolean;
+  ok?: boolean;
+}
+
+/** Oversikt over selvlæringen. */
+export interface LearningStatus {
+  aktiv: boolean;
+  apneHull: number;
+  lukkedeHull: number;
+  laerteTemaer: number;
+  okter: number;
+  sisteOkt: { tid: number; type: string; tema: string; ok: boolean } | null;
+  samtaler: number;
+}
 
 /** En loggkilde HUD-en kan lese (systemd-enhet eller loggfil). */
 export interface LogSource {

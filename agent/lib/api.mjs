@@ -127,7 +127,24 @@ import {
   oppdaterSteg,
   resumePlan,
 } from "./planner.mjs";
-import { evaluate as evaluateReply, evaluateChatReply, evaluationStats, listEvaluations } from "./evaluator.mjs";
+import {
+  evaluate as evaluateReply,
+  evaluateChatReply,
+  evaluateChatReplyInBackground,
+  evaluationStats,
+  listEvaluations,
+} from "./evaluator.mjs";
+import {
+  registrerSamtale,
+  registrerHull,
+  listHull,
+  listOkter,
+  laerTema,
+  selvQuiz,
+  konsoliderLaering,
+  laeringStatus,
+  settPa as settSelvlaering,
+} from "./selvlaering.mjs";
 import {
   approveSuggestion,
   initiativeStatus,
@@ -241,7 +258,7 @@ async function readBody(req, maks = 5_000_000) {
  * `deps`: { publish(emne, payload), mqttStatus() }
  */
 /** Rutene backend-API-et eier, med eller uten «/api»-prefiks. */
-export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram", "/verktoy", "/identitet", "/kollega", "/initiativ", "/minne", "/planer", "/evalueringer", "/utstyr", "/refleksjon"];
+export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram", "/verktoy", "/identitet", "/kollega", "/initiativ", "/minne", "/planer", "/evalueringer", "/utstyr", "/refleksjon", "/laering"];
 
 /**
  * Innlogging kan slås av mens systemet kjører i et lukket lokalt miljø.
@@ -805,11 +822,13 @@ export async function handleApi(req, res, route, url, deps = {}) {
       // Nettsøk skjer via laer_om-verktøyet når modellen oppdager et hull;
       // resultatet lagres i RAG og kommer deretter inn her uten nytt nettsøk.
       let kunnskapsMelding = [];
+      let antallTreff = 0;
       if (sisteBrukerMelding) {
         try {
           const kunnskap = await search(sisteBrukerMelding, { topK: 5 });
-          const utdrag = (kunnskap?.treff || [])
-            .filter((treff) => Number(treff?.poeng ?? 0) > 0)
+          const brukbare = (kunnskap?.treff || []).filter((treff) => Number(treff?.poeng ?? 0) > 0);
+          antallTreff = brukbare.length;
+          const utdrag = brukbare
             .map((treff, indeks) => {
               const tittel = String(treff?.tittel || `Kilde ${indeks + 1}`).slice(0, 240);
               const kilde = String(treff?.kilde || "lokal kunnskapsbase").slice(0, 500);
@@ -919,6 +938,11 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
       try {
         const { resultat, node, ms, forsok } = await kjorBalansert(pool, kall, { oppgave, foretrukket });
+        // Lær av samtalen: noter kunnskapshull og evaluer eget svar i bakgrunnen.
+        if (sisteBrukerMelding) {
+          registrerSamtale({ sporsmal: sisteBrukerMelding, svar: resultat.svar, treff: antallTreff });
+          evaluateChatReplyInBackground({ spørsmål: sisteBrukerMelding, svar: resultat.svar });
+        }
         return json(req, res, 200, {
           svar: resultat.svar,
           model: resultat.model,
@@ -1809,6 +1833,32 @@ export async function handleApi(req, res, route, url, deps = {}) {
       });
       return json(req, res, 200, { evaluering: ev });
     }
+
+    // ---- selvlæring --------------------------------------------------------
+    if (path === "/laering" && method === "GET")
+      return json(req, res, 200, { status: laeringStatus(), hull: listHull(30), okter: listOkter(20) });
+
+    if (path === "/laering/av-pa" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, settSelvlaering(b.aktiv !== false));
+    }
+
+    if (path === "/laering/tema" && method === "POST") {
+      const b = await readBody(req);
+      const tema = str(b.tema, "Tema", { maks: 200, min: 2 });
+      if (b.straks === false) {
+        registrerHull(tema, "lagt inn manuelt");
+        return json(req, res, 200, { kø: true, tema });
+      }
+      const r = await laerTema(tema, { antall: Number(b.antall) || 3 });
+      return json(req, res, 200, r);
+    }
+
+    if (path === "/laering/selvtest" && method === "POST")
+      return json(req, res, 200, await selvQuiz());
+
+    if (path === "/laering/konsolider" && method === "POST")
+      return json(req, res, 200, await konsoliderLaering());
 
     if (path === "/oppgave/planlegg" && method === "POST") {
       const b = await readBody(req);
