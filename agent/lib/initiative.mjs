@@ -150,6 +150,8 @@ export function rullTilbake(id) {
   if (post.tilbakerullet) throw new Error("Denne endringen er allerede rullet tilbake.");
   if (post.type === "verktoy" && post.ref) {
     rollbackTool(post.ref);
+  } else if (post.type === "kode" && post.ref) {
+    rullTilbakeKode(post.ref);
   } else if (post.type === "regel" && post.ref) {
     const l = doc("laering", { regler: [] });
     l.regler = (l.regler || []).filter((r) => r.id !== post.ref);
