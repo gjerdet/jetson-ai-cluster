@@ -454,19 +454,30 @@ Svar KUN med JSON: {"forslag": [{"tekst":"...","risiko":"lav|medium|høy","handl
 
 /** Ett tikk: kjør forbedringskøen når maskinen er ledig, ellers vurder sensorer sjelden. */
 async function tikk() {
+  if (ER_MOTOR) {
+    // Motorprosessen leser av/på-bryteren fra disk, så GUI-et styrer den uten omstart.
+    const m = settMotor({ hjerteslag: Date.now(), pid: process.pid, jobberNa });
+    aktiv = !!m.aktiv;
+  }
   if (!aktiv) return;
   if (erLedig()) {
-    await kjorKo().catch((e) => console.error("[initiativ] kø-feil:", e?.message || e));
+    const r = await kjorKo().catch((e) => {
+      console.error("[initiativ] kø-feil:", e?.message || e);
+      return null;
+    });
+    if (ER_MOTOR && r?.jobb) settMotor({ sisteJobb: { tid: Date.now(), jobb: r.jobb, resultat: r.resultat || r.feil } });
     if (Date.now() - sisteKjøring > 15 * 60 * 1000) await vurder().catch(() => {});
   }
 }
 
 export function start(intervalMs = 60 * 1000) {
   stop();
+  if (ER_MOTOR) settMotor({ hjerteslag: Date.now(), pid: process.pid });
   timer = setInterval(() => {
     tikk().catch((e) => console.error("[initiativ] feil:", e));
   }, intervalMs);
-  timer.unref?.();
+  // Motorprosessen har ingenting annet å gjøre – den må holde seg i live.
+  if (!ER_MOTOR) timer.unref?.();
 }
 
 export function stop() {
@@ -476,16 +487,24 @@ export function stop() {
 
 export function initiativeStatus() {
   const d = db();
+  const m = motorDb();
   return {
-    aktiv,
+    aktiv: isActive(),
     sisteKjøring,
     ledig: erLedig(),
-    sisteChat,
-    jobberNa,
+    sisteChat: Math.max(sisteChat, Number(m.sisteAktivitet || 0)),
+    jobberNa: jobberNa || (EGEN_MOTOR ? m.jobberNa : null),
     antallForslag: d.forslag.length,
     antallAudit: d.audit.length,
     ko: (d.ko || []).filter((k) => k.status === "venter").length,
     revisjoner: (d.revisjoner || []).length,
+    motor: {
+      egenProsess: EGEN_MOTOR,
+      lever: motorLever(),
+      hjerteslag: Number(m.hjerteslag || 0),
+      pid: Number(m.pid || 0),
+      sisteJobb: m.sisteJobb || null,
+    },
   };
 }
 
