@@ -463,6 +463,19 @@ export const backend = {
       { method: "POST", body: JSON.stringify({ subnett, porter }) },
       { timeoutMs: porter ? 190_000 : 100_000, retries: 0 },
     ),
+  /** Værvarsel for et sted, hentet lokalt fra MET Norway (Yr). */
+  vaer: (sted: string, timer = 12) =>
+    call<{
+      sted: string; oppdatert: string; tekst: string;
+      na: { klokke: string; temperatur: number | null; vind: number | null; nedbor: number | null; vaer: string } | null;
+      min: number | null; maks: number | null; nedborSum: number;
+      timer: { klokke: string; temperatur: number | null; vind: number | null; nedbor: number | null; vaer: string }[];
+      kilde: string;
+    }>(
+      "/verktoy/vaer",
+      { method: "POST", body: JSON.stringify({ sted, timer }) },
+      { timeoutMs: 30_000, retries: 0 },
+    ),
   ping: (host: string, antall = 2, timeout = 5) =>
     call<BackendToolResult>(
       "/verktoy/ping",

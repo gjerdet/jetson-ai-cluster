@@ -141,6 +141,13 @@ export const TOOL_CATALOG: ToolSpec[] = [
     builtin: true,
   },
   {
+    name: "vaer",
+    category: "verden",
+    description:
+      "Værvarsel for et hvilket som helst sted: nå, min/maks og time for time. Henter ekte data fra MET Norway (Yr).",
+    args: '{"sted": "Åsmarka", "timer": 12}',
+  },
+  {
     name: "web_sok",
     category: "minne",
     summary: "Fritekstsøk på nettet – gir tittel, URL og et kort utdrag fra hver kilde i chatten.",
@@ -410,6 +417,9 @@ Tilgjengelige verktøy:
 - kollega_diagnose {"node": "Hermes"} – ende-til-ende diagnose av en kollega-node.
 - laer_om {"tema": "Junos BGP-konfigurasjon", "antall": 3} – skaff deg NY kunnskap: søker på nettet,
   leser kildene og lagrer dem varig i den lokale kunnskapsbasen. Du kan også gi {"urler": ["https://..."]}.
+- vaer {"sted": "Åsmarka", "timer": 12} – ekte værvarsel fra MET Norway (Yr) for stedet: temperatur nå,
+  min/maks, vind og nedbør time for time. Spør noen om været, bruk ALLTID dette – aldri gjett, og aldri
+  svar at du ikke har tilgang til værdata.
 - web_sok {"sok": "TrueNAS API pools", "antall": 5} – finn kilder: tittel, URL og et kort utdrag fra hver
   kilde. Treffene vises som et eget søkekort i chatten der brukeren kan lagre en kilde i kunnskapsbasen.
 - les_url {"url": "https://www.tek.no"} – les en hvilken som helst nettside som ren tekst: forsiden av et
@@ -1036,6 +1046,21 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
       );
     } catch (e) {
       return `Klarte ikke lære om «${tema}»: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "vaer" || call.name === "vaer_hent") {
+    const sted = str(call.args["sted"] ?? call.args["sted_navn"] ?? call.args["by"] ?? call.args["plass"]).trim();
+    if (!sted) return "Mangler «sted».";
+    const timer = Math.max(1, Math.min(Number(call.args["timer"] ?? 12) || 12, 24));
+    try {
+      const v = await backend.vaer(sted, timer);
+      const linjer = v.timer
+        .map((t) => `${t.klokke}: ${t.vaer}, ${t.temperatur ?? "?"} °C, vind ${t.vind ?? "?"} m/s${t.nedbor ? `, ${t.nedbor} mm` : ""}`)
+        .join("\n");
+      return `${v.tekst}\n\nTime for time:\n${linjer}`;
+    } catch (e) {
+      return `Klarte ikke hente været for «${sted}»: ${e instanceof Error ? e.message : String(e)}`;
     }
   }
 
