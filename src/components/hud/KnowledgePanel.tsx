@@ -5,6 +5,7 @@ import { backend, safe, backendToken, type KnowledgeDoc, type KnowledgeHit, type
 import { extractText } from "@/lib/knowledge";
 import { hentNettside } from "@/lib/web-extract.functions";
 import { IndeksSection } from "@/components/hud/settings/IndeksSection";
+import { SelvlaeringSection } from "@/components/hud/SelvlaeringSection";
 
 const inputCls =
   "w-full rounded-full border border-primary/25 bg-primary/[0.04] px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/60";
@@ -131,6 +132,8 @@ export function KnowledgePanel() {
       {melding ? <p className="text-xs text-primary/80">{melding}</p> : null}
 
       <IndeksSection />
+
+      <SelvlaeringSection />
 
       {/* kilder */}
       <section className="grid gap-3 md:grid-cols-3">
