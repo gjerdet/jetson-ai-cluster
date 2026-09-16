@@ -66,9 +66,15 @@ import {
   type GeneratedTool,
   type InitiativeStatus,
   type MemoryStats,
+  type ImproveDay,
+  type ImproveStatus,
+  type CodeProposal,
 } from "@/lib/contract";
 
 export type {
+  ImproveDay,
+  ImproveStatus,
+  CodeProposal,
   LearningGap,
   LearningSession,
   LearningStatus,
@@ -827,6 +833,48 @@ export const backend = {
       ROUTES.learningSelftest!,
       { method: "POST" },
       { timeoutMs: 300_000, retries: 0 },
+    ),
+  // ---- daglig selvforbedring ---------------------------------------------
+  /** Dagskort, egne kodeforslag og hvilke filer han kan endre. */
+  hentSelvforbedring: () =>
+    call<{ status: ImproveStatus; dager: ImproveDay[]; kodeforslag: CodeProposal[]; filer: { fil: string; bytes: number }[] }>(
+      ROUTES.improve!,
+      {},
+      { timeoutMs: 30_000, retries: 0 },
+    ),
+  /** Lar ham endre egen kode uten å spørre først. */
+  settSelvforbedringAuto: (auto: boolean) =>
+    call<{ auto: boolean }>(ROUTES.improveAuto!, { method: "POST", body: JSON.stringify({ auto }) }, { retries: 0 }),
+  /** Måler dagens framgang nå. */
+  kjorDagsrapport: () =>
+    call<{ idag: ImproveDay; forrige: ImproveDay | null; endring: Record<string, number | null> | null }>(
+      ROUTES.improveReport!,
+      { method: "POST" },
+      { timeoutMs: 60_000, retries: 0 },
+    ),
+  /** Ber ham vurdere seg selv og planlegge egne forbedringer. */
+  kjorRetrospektiv: () =>
+    call<{ vurdering: string; jobber: { type: string; tekst: string; prioritet: number }[] }>(
+      ROUTES.improveRetro!,
+      { method: "POST" },
+      { timeoutMs: 300_000, retries: 0 },
+    ),
+  /** Ber ham skrive et forslag til endring i sin egen kode. */
+  lagKodeforslag: (beskrivelse: string, fil = "") =>
+    call<CodeProposal>(
+      ROUTES.improveCode!,
+      { method: "POST", body: JSON.stringify({ beskrivelse, fil }) },
+      { timeoutMs: 420_000, retries: 0 },
+    ),
+  /** Henter hele koden i et forslag. */
+  hentKodeforslag: (id: string) =>
+    call<CodeProposal>(`${ROUTES.improveCode}/${encodeURIComponent(id)}`, {}, { timeoutMs: 30_000, retries: 0 }),
+  /** Godkjenn, avvis eller rull tilbake en kodeendring. */
+  kodeforslagHandling: (id: string, handling: "godkjenn" | "avvis" | "tilbake") =>
+    call<CodeProposal & { omstartKreves?: boolean }>(
+      ROUTES.improveCodeAction!,
+      { method: "POST", body: JSON.stringify({ id, handling }) },
+      { timeoutMs: 60_000, retries: 0 },
     ),
   /** Oppsummerer ny kunnskap til varige notater. */
   konsoliderLaering: () =>

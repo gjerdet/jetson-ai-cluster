@@ -14,6 +14,15 @@ import { byggVerktoy, rollbackTool, verktoyMedProblemer } from "./toolgen.mjs";
 import { diagnoserAlle } from "./kollega.mjs";
 import { gpuStatus } from "./gpu.mjs";
 import { planleggLaering, laerTema, selvQuiz, konsoliderLaering } from "./selvlaering.mjs";
+import {
+  dagsRapport,
+  retrospektiv,
+  trengerRetrospektiv,
+  lagKodeforslag,
+  godkjennKodeforslag,
+  rullTilbakeKode,
+  erAuto,
+} from "./selvforbedring.mjs";
 
 let aktiv = false;
 let timer = null;
@@ -149,6 +158,8 @@ export function rullTilbake(id) {
   if (post.tilbakerullet) throw new Error("Denne endringen er allerede rullet tilbake.");
   if (post.type === "verktoy" && post.ref) {
     rollbackTool(post.ref);
+  } else if (post.type === "kode" && post.ref) {
+    rullTilbakeKode(post.ref);
   } else if (post.type === "regel" && post.ref) {
     const l = doc("laering", { regler: [] });
     l.regler = (l.regler || []).filter((r) => r.id !== post.ref);
@@ -252,6 +263,11 @@ async function planleggForbedringer() {
 
   // Selvlæring: tett kunnskapshull, test seg selv og oppsummer ny kunnskap.
   for (const jobb of planleggLaering()) leggIKo(jobb);
+
+  // Daglig framgang: mål seg selv og bestem selv hva som skal bli bedre i morgen.
+  leggIKo({ type: "dagsrapport", tekst: "Mål egen framgang i dag", prioritet: 3 });
+  if (trengerRetrospektiv())
+    leggIKo({ type: "retrospektiv", tekst: "Se på gårsdagen og velg egne forbedringer", prioritet: 7 });
 }
 
 async function utforJobb(jobb) {
@@ -326,6 +342,35 @@ async function utforJobb(jobb) {
     if (jobb.type === "konsolider-laering") {
       const r = await konsoliderLaering();
       return r.hoppet || `${r.notater} nye varige notater`;
+    }
+    if (jobb.type === "dagsrapport") {
+      const r = dagsRapport();
+      const e = r.endring;
+      return e
+        ? `dagskort lagret (feilrate ${e.verktoyFeilrate >= 0 ? "+" : ""}${e.verktoyFeilrate} %, hull ${e.apneHull >= 0 ? "+" : ""}${e.apneHull})`
+        : "første dagskort lagret";
+    }
+    if (jobb.type === "retrospektiv") {
+      const r = await retrospektiv();
+      for (const j of r.jobber) leggIKo(j);
+      loggRevisjon({
+        hva: "Daglig retrospektiv",
+        hvorfor: r.vurdering || "Bli litt bedre hver dag",
+        type: "annet",
+        resultat: `${r.jobber.length} egne tiltak planlagt`,
+      });
+      return `${r.jobber.length} tiltak planlagt${r.vurdering ? ` – ${r.vurdering}` : ""}`;
+    }
+    if (jobb.type === "kodeforbedring") {
+      const f = await lagKodeforslag(jobb.data?.beskrivelse || jobb.tekst, { fil: jobb.data?.fil || "" });
+      let resultat = f.syntaksOk ? `forslag til ${f.fil} klart til godkjenning` : `forslag til ${f.fil} strøk på syntakssjekk`;
+      // AUTO-modus: brukeren har selv gitt ham lov til å endre koden sin uten å spørre.
+      if (f.syntaksOk && erAuto()) {
+        godkjennKodeforslag(f.id);
+        resultat = `endret ${f.fil} selv (omstart av tjenesten kreves)`;
+      }
+      loggRevisjon({ hva: `Kodeforslag: ${f.fil}`, hvorfor: jobb.tekst, type: "kode", ref: f.id, resultat });
+      return resultat;
     }
     return "ukjent jobbtype";
   } finally {

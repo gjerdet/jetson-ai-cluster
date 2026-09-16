@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { backend } from "@/lib/backend";
 import { UtviklingSection } from "./UtviklingSection";
+import { SelvforbedringSection } from "./SelvforbedringSection";
 import type {
   Evaluation,
   GeneratedTool,
@@ -483,7 +484,12 @@ export function AgiPanel() {
           </>
         ) : null}
 
-        {tab === "utvikling" ? <UtviklingSection /> : null}
+        {tab === "utvikling" ? (
+          <>
+            <SelvforbedringSection />
+            <UtviklingSection />
+          </>
+        ) : null}
 
         {tab === "verktoy" ? (
           <>

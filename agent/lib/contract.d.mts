@@ -263,7 +263,54 @@ export const ROUTES: {
   learningTopic: string;
   learningSelftest: string;
   learningConsolidate: string;
+  improve: string;
+  improveAuto: string;
+  improveReport: string;
+  improveRetro: string;
+  improveCode: string;
+  improveCodeAction: string;
 };
+
+/** Måltall for én dag med selvforbedring. */
+export interface ImproveDay {
+  dato: string;
+  tid: number;
+  verktoyKall: number;
+  verktoyFeilrate: number;
+  svarScore: number | null;
+  apneHull: number;
+  kunnskapsbiter: number;
+  selvtestScore: number | null;
+  regler: number;
+}
+
+/** Et forslag Jarvis har skrevet til sin egen kildekode. */
+export interface CodeProposal {
+  id: string;
+  tid: number;
+  fil: string;
+  onske: string;
+  sammendrag: string;
+  risiko: string;
+  linjerFor: number;
+  linjerEtter: number;
+  syntaksOk: boolean;
+  syntaksFeil: string;
+  status: string;
+  iverksatt?: number;
+  kode?: string;
+}
+
+/** Samlet status for daglig selvforbedring. */
+export interface ImproveStatus {
+  auto: boolean;
+  sisteRetro: number;
+  dager: ImproveDay[];
+  idag: ImproveDay | null;
+  kodeforslag: CodeProposal[];
+  filer: number;
+}
+
 
 /** Et kunnskapshull Jarvis har oppdaget i egne svar. */
 export interface LearningGap {

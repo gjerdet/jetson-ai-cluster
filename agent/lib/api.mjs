@@ -146,6 +146,20 @@ import {
   settPa as settSelvlaering,
 } from "./selvlaering.mjs";
 import {
+  selvforbedringStatus,
+  dagsRapport,
+  listDager,
+  retrospektiv,
+  lagKodeforslag,
+  listKodeforslag,
+  hentKodeforslag,
+  godkjennKodeforslag,
+  avvisKodeforslag,
+  rullTilbakeKode,
+  egneFiler,
+  settAuto as settSelvforbedringAuto,
+} from "./selvforbedring.mjs";
+import {
   approveSuggestion,
   initiativeStatus,
   isActive as isInitiativeActive,
@@ -258,7 +272,7 @@ async function readBody(req, maks = 5_000_000) {
  * `deps`: { publish(emne, payload), mqttStatus() }
  */
 /** Rutene backend-API-et eier, med eller uten «/api»-prefiks. */
-export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram", "/verktoy", "/identitet", "/kollega", "/initiativ", "/minne", "/planer", "/evalueringer", "/utstyr", "/refleksjon", "/laering"];
+export const BACKEND_PREFIKSER = ["/auth", "/ai", "/config", "/klynge", "/noder", "/mqtt", "/regler", "/malinger", "/logger", "/versjon", "/rag", "/tts", "/telegram", "/verktoy", "/identitet", "/kollega", "/initiativ", "/minne", "/planer", "/evalueringer", "/utstyr", "/refleksjon", "/laering", "/selvforbedring"];
 
 /**
  * Innlogging kan slås av mens systemet kjører i et lukket lokalt miljø.
@@ -1859,6 +1873,55 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
     if (path === "/laering/konsolider" && method === "POST")
       return json(req, res, 200, await konsoliderLaering());
+
+    // ---- daglig selvforbedring og selvendring av egen kode -----------------
+    if (path === "/selvforbedring" && method === "GET")
+      return json(req, res, 200, { status: selvforbedringStatus(), dager: listDager(30), kodeforslag: listKodeforslag(20), filer: egneFiler() });
+
+    if (path === "/selvforbedring/auto" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, settSelvforbedringAuto(b.auto === true));
+    }
+
+    if (path === "/selvforbedring/rapport" && method === "POST")
+      return json(req, res, 200, dagsRapport());
+
+    if (path === "/selvforbedring/retrospektiv" && method === "POST") {
+      const r = await retrospektiv();
+      for (const j of r.jobber) leggIKo(j);
+      return json(req, res, 200, r);
+    }
+
+    if (path === "/selvforbedring/kode" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, await lagKodeforslag(String(b.beskrivelse ?? ""), { fil: String(b.fil ?? "") }));
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path.startsWith("/selvforbedring/kode/") && method === "GET") {
+      try {
+        const f = hentKodeforslag(decodeURIComponent(path.split("/").pop() || ""));
+        return json(req, res, 200, f);
+      } catch (e) {
+        return json(req, res, 404, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/selvforbedring/kode/handling" && method === "POST") {
+      const b = await readBody(req);
+      const id = String(b.id ?? "");
+      try {
+        if (b.handling === "godkjenn") return json(req, res, 200, godkjennKodeforslag(id));
+        if (b.handling === "tilbake") return json(req, res, 200, rullTilbakeKode(id));
+        return json(req, res, 200, avvisKodeforslag(id));
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
 
     if (path === "/oppgave/planlegg" && method === "POST") {
       const b = await readBody(req);
