@@ -315,6 +315,7 @@ fi
 
 systemctl stop "$SERVICE" 2>/dev/null || true
 systemctl stop "$GUI_SERVICE" 2>/dev/null || true
+systemctl stop jarvis-motor 2>/dev/null || true
 frigjor_port "$AGENT_PORT"
 frigjor_port "$AGENT_TLS_PORT"
 frigjor_port "${JARVIS_GUI_PORT:-8080}"

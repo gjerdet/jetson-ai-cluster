@@ -31,7 +31,13 @@ import { evaluate, rulesStatus } from "./lib/rules.mjs";
 import { notifyAll, startTelegram } from "./lib/telegram.mjs";
 import { corsBlocked, corsHeaders, rateLimit, validateEnv, withRequestLog, allowedOrigins, logDir } from "./lib/security.mjs";
 import { startBackups } from "./lib/backup.mjs";
-import { start as startInitiative, setActive as setInitiativeActive, setDeps as setInitiativeDeps } from "./lib/initiative.mjs";
+import {
+  start as startInitiative,
+  setActive as setInitiativeActive,
+  setDeps as setInitiativeDeps,
+  tommUtboks as tommMotorUtboks,
+  EGEN_MOTOR,
+} from "./lib/initiative.mjs";
 import { pruneExpired as pruneMemory } from "./lib/memory.mjs";
 
 const PORT = Number(process.env.AGENT_PORT || 8787);
@@ -537,10 +543,19 @@ await warmLatest();
 startMqtt();
 startTelegram({ rulesStatus });
 startBackups();
-startInitiative();
 setInitiativeDeps({ publish, notify: notifyAll });
-// Autonomi er av som standard; brukeren må skru den på i GUI-et.
-setInitiativeActive(false);
+if (EGEN_MOTOR) {
+  // Bakgrunnsmotoren kjører som egen tjeneste (jarvis-motor). Backenden sender
+  // bare meldingene motoren legger i utboksen, og lar den styre seg selv.
+  console.log("[jarvis-agent] bakgrunnsmotor kjører som egen prosess (jarvis-motor)");
+  setInterval(() => {
+    tommMotorUtboks({ publish, notify: notifyAll }).catch(() => {});
+  }, 20_000).unref();
+} else {
+  startInitiative();
+  // Autonomi er av som standard; brukeren må skru den på i GUI-et.
+  setInitiativeActive(false);
+}
 setInterval(() => pruneSamples().catch(() => {}), 6 * 60 * 60 * 1000);
 setInterval(() => pruneMemory().catch((e) => console.error("[jarvis-agent] minne-rydding feil:", e)), 60 * 60 * 1000);
 setInterval(() => flushNow(), 30_000).unref();
