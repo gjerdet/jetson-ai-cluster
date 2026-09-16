@@ -1793,15 +1793,6 @@ export async function handleApi(req, res, route, url, deps = {}) {
       });
     }
 
-    if (path === "/minne/tidslinje" && method === "GET") {
-      const q = url.searchParams;
-      return json(req, res, 200, {
-        minner: memoryTimeline({
-          limit: num(q.get("maks"), "Antall", { min: 1, maks: 200, standard: 50 }),
-          type: q.get("type") || undefined,
-        }),
-      });
-    }
 
     // ---- AGI: planer ------------------------------------------------------
     if (path === "/planer" && method === "GET")
