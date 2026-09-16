@@ -979,6 +979,19 @@ export interface InitiativeStatus {
   sisteKjøring: number;
   antallForslag: number;
   antallAudit: number;
+  ledig?: boolean;
+  sisteChat?: number;
+  jobberNa?: string | null;
+  ko?: number;
+  revisjoner?: number;
+  /** Bakgrunnsmotoren som egen systemtjeneste. */
+  motor?: {
+    egenProsess: boolean;
+    lever: boolean;
+    hjerteslag: number;
+    pid: number;
+    sisteJobb: { tid: number; jobb: string; resultat?: string } | null;
+  };
 }
 
 export interface MemoryStats {
