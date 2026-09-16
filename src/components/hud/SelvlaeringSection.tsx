@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
-import { Brain, Loader2, RefreshCw, Sprout } from "lucide-react";
-import { backend, safe, type LearningGap, type LearningSession, type LearningStatus } from "@/lib/backend";
+import { Brain, Loader2, RefreshCw, Sprout, Target } from "lucide-react";
+import {
+  backend,
+  safe,
+  type LearningEngine,
+  type LearningGap,
+  type LearningPlanItem,
+  type LearningSession,
+  type LearningStatus,
+} from "@/lib/backend";
 
 const inputCls =
   "w-full rounded-full border border-primary/25 bg-primary/[0.04] px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/60";
