@@ -805,11 +805,13 @@ export async function handleApi(req, res, route, url, deps = {}) {
       // Nettsøk skjer via laer_om-verktøyet når modellen oppdager et hull;
       // resultatet lagres i RAG og kommer deretter inn her uten nytt nettsøk.
       let kunnskapsMelding = [];
+      let antallTreff = 0;
       if (sisteBrukerMelding) {
         try {
           const kunnskap = await search(sisteBrukerMelding, { topK: 5 });
-          const utdrag = (kunnskap?.treff || [])
-            .filter((treff) => Number(treff?.poeng ?? 0) > 0)
+          const brukbare = (kunnskap?.treff || []).filter((treff) => Number(treff?.poeng ?? 0) > 0);
+          antallTreff = brukbare.length;
+          const utdrag = brukbare
             .map((treff, indeks) => {
               const tittel = String(treff?.tittel || `Kilde ${indeks + 1}`).slice(0, 240);
               const kilde = String(treff?.kilde || "lokal kunnskapsbase").slice(0, 500);
