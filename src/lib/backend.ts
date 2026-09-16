@@ -816,7 +816,13 @@ export const backend = {
   // ---- selvlæring --------------------------------------------------------
   /** Status, kunnskapshull og gjennomførte læringsøkter. */
   hentLaering: () =>
-    call<{ status: LearningStatus; hull: LearningGap[]; okter: LearningSession[] }>(
+    call<{
+      status: LearningStatus;
+      hull: LearningGap[];
+      okter: LearningSession[];
+      plan?: LearningPlanItem[];
+      motor?: LearningEngine;
+    }>(
       ROUTES.learning!,
       {},
       { timeoutMs: 30_000, retries: 0 },
