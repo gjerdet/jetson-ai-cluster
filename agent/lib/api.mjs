@@ -146,6 +146,20 @@ import {
   settPa as settSelvlaering,
 } from "./selvlaering.mjs";
 import {
+  selvforbedringStatus,
+  dagsRapport,
+  listDager,
+  retrospektiv,
+  lagKodeforslag,
+  listKodeforslag,
+  hentKodeforslag,
+  godkjennKodeforslag,
+  avvisKodeforslag,
+  rullTilbakeKode,
+  egneFiler,
+  settAuto as settSelvforbedringAuto,
+} from "./selvforbedring.mjs";
+import {
   approveSuggestion,
   initiativeStatus,
   isActive as isInitiativeActive,
