@@ -13,6 +13,7 @@ import { maskinKort, selvtest } from "./identitet.mjs";
 import { byggVerktoy, rollbackTool, verktoyMedProblemer } from "./toolgen.mjs";
 import { diagnoserAlle } from "./kollega.mjs";
 import { gpuStatus } from "./gpu.mjs";
+import { planleggLaering, laerTema, selvQuiz, konsoliderLaering } from "./selvlaering.mjs";
 
 let aktiv = false;
 let timer = null;
