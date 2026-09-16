@@ -143,6 +143,7 @@ import {
   selvQuiz,
   konsoliderLaering,
   laeringStatus,
+  planleggLaering,
   settPa as settSelvlaering,
 } from "./selvlaering.mjs";
 import {
