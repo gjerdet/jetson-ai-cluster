@@ -21,9 +21,17 @@ let sisteKjøring = 0;
 let sisteChat = Date.now();
 let jobberNa = null;
 let deps = { publish: null, notify: null };
+let sisteAktivitetSkrevet = 0;
 
 /** Ledig tid = ingen chat på 10 minutter. */
 export const IDLE_MS = 10 * 60 * 1000;
+
+/** Denne prosessen ER bakgrunnsmotoren (agent/motor.mjs). */
+export const ER_MOTOR = process.env.JARVIS_MOTOR_PROSESS === "1";
+/** Bakgrunnsmotoren kjører som egen tjeneste; backenden skal da ikke kjøre løkka selv. */
+export const EGEN_MOTOR = ER_MOTOR || process.env.JARVIS_EGEN_MOTOR === "1";
+/** Motoren regnes som levende når hjerteslaget er nyere enn dette. */
+const HJERTESLAG_FRIST = 5 * 60 * 1000;
 
 function db() {
   return doc("initiative", { forslag: [], audit: [], ko: [], revisjoner: [] });
@@ -33,12 +41,32 @@ function persist(item) {
   saveDoc("initiative", item);
 }
 
+/** Delt tilstand mellom backend-prosessen og motorprosessen (fil på disk). */
+function motorDb() {
+  return doc("motor", { aktiv: false, sisteAktivitet: 0, hjerteslag: 0, pid: 0, jobberNa: null, sisteJobb: null });
+}
+
+function settMotor(patch) {
+  const d = { ...motorDb(), ...patch };
+  saveDoc("motor", d);
+  return d;
+}
+
+/** Sant når en egen motorprosess har gitt livstegn nylig. */
+export function motorLever() {
+  const m = motorDb();
+  return !!m.hjerteslag && Date.now() - m.hjerteslag < HJERTESLAG_FRIST;
+}
+
 export function isActive() {
-  return aktiv;
+  return EGEN_MOTOR && !ER_MOTOR ? !!motorDb().aktiv : aktiv;
 }
 
 export function setActive(value) {
   aktiv = !!value;
+  settMotor({ aktiv });
+  // Når motoren har egen prosess, er dette bare et signal – løkka kjører der.
+  if (EGEN_MOTOR && !ER_MOTOR) return { aktiv };
   if (aktiv) start(60 * 1000);
   else stop();
   return { aktiv };
@@ -51,10 +79,25 @@ export function setDeps(d) {
 /** Kalles ved hver chat-melding: brukeraktivitet stopper bakgrunnsarbeid. */
 export function markerBrukeraktivitet() {
   sisteChat = Date.now();
+  // Skriv til disk så motorprosessen også ser at brukeren er til stede (maks hvert 15. sek).
+  if (sisteChat - sisteAktivitetSkrevet > 15_000) {
+    sisteAktivitetSkrevet = sisteChat;
+    try {
+      settMotor({ sisteAktivitet: sisteChat });
+    } catch {
+      /* lagring skal aldri stoppe en samtale */
+    }
+  }
 }
 
 export function erLedig() {
-  return Date.now() - sisteChat >= IDLE_MS;
+  let sist = sisteChat;
+  try {
+    sist = Math.max(sist, Number(motorDb().sisteAktivitet || 0));
+  } catch {
+    /* bruk lokal verdi */
+  }
+  return Date.now() - sist >= IDLE_MS;
 }
 
 export function listSuggestions(limit = 20) {
