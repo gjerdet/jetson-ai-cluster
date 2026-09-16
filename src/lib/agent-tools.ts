@@ -241,8 +241,15 @@ export const TOOL_CATALOG: ToolSpec[] = [
   {
     name: "verktoy_liste",
     category: "verktoy",
-    summary: "Lister alle egendefinerte verktøy som er laget.",
+    summary: "Lister alle lokale verktøy Jarvis har bygget og testet, med argumentene de trenger.",
     args: "{}",
+    builtin: true,
+  },
+  {
+    name: "verktoy_kjor",
+    category: "verktoy",
+    summary: "Kjører et aktivert verktøy som Jarvis tidligere har bygget og testet i den låste sandkassen.",
+    args: '{"navn": "disk_sjekk", "args": {"vert": "192.168.1.20"}}',
     builtin: true,
   },
   {
@@ -385,6 +392,8 @@ export function nettstedIMelding(tekst: string): string {
 
 /** Steder/vær: «hvordan blir været i Åsmarka i dag?» */
 const VAER_SPM = /\b(vær|været|vaeret|temperatur|regn|snø|vind|yr\.no|nedbør|meldinga?\s+for)\b/i;
+const HANDLINGSOPPGAVE =
+  /\b(skann|sjekk|finn|hent|mål|test|kjør|start|restart|feilsøk|diagnos|overvåk|lag|bygg|sett opp|installer|fiks|rett|analyser|konverter|beregn|sammenlign|send|les|undersøk)\b/i;
 /** Plukker ut stedsnavnet i et værspørsmål. */
 function stedIVaerSporsmal(tekst: string): string {
   const m = /\b(?:i|på|for)\s+([A-ZÆØÅ][\wÆØÅæøå-]+(?:\s+[A-ZÆØÅ][\wÆØÅæøå-]+)?)/.exec(String(tekst ?? ""));
@@ -393,8 +402,8 @@ function stedIVaerSporsmal(tekst: string): string {
 
 /**
  * Når modellen gir opp uten å ha prøvd, velger vi verktøyet den burde ha valgt:
- * vær → vaer, nevnt nettsted → les_url, ellers nettsøk. Returnerer null hvis vi
- * ikke har noe fornuftig å prøve.
+ * vær → vaer, nevnt nettsted → les_url, praktisk oppgave → lokalt verktøybibliotek,
+ * ellers nettsøk. Modellen får deretter velge et testet verktøy eller bygge et nytt.
  */
 export function redningsKall(sporsmal: string): ToolCall | null {
   const tekst = String(sporsmal ?? "").trim();
@@ -410,6 +419,9 @@ export function redningsKall(sporsmal: string): ToolCall | null {
   if (url) {
     const args = { url };
     return { name: "les_url", args, raw: `VERKTØY: les_url ${JSON.stringify(args)}` };
+  }
+  if (HANDLINGSOPPGAVE.test(tekst)) {
+    return { name: "verktoy_liste", args: {}, raw: "VERKTØY: verktoy_liste {}" };
   }
   const args = { sok: tekst.slice(0, 200), antall: 5 };
   return { name: "web_sok", args, raw: `VERKTØY: web_sok ${JSON.stringify(args)}` };
@@ -466,6 +478,8 @@ Tilgjengelige verktøy:
 - laer_regel {"tekst": "...", "hvorfor": "..."} – lagrer en varig adferdsregel om HVORDAN du skal jobbe.
   Reglene lastes inn i systemprompten din i alle senere samtaler (selvforbedring).
 - verktoy_liste {} – dine egendefinerte verktøy.
+- verktoy_kjor {"navn": "disk_sjekk", "args": {...}} – kjør et lokalt verktøy som allerede er bygget,
+  testet og aktivert. Etter verktoy_bygg: bruk dette med navnet og riktige argumenter for å løse oppgaven.
 - verktoy_paa_node {"nodeId": "...", "navn": "...", "args": {...}} – kjører et bibliotek-verktøy på en annen
   Jetson-node. Bruk det når jobben hører hjemme på den maskinen (dens disk, dens nett, dens GPU).
 - verktoy_lag {"navn": "hent_vaer", "type": "http", "beskrivelse": "...", "url": "http://...", "metode": "GET"} – lag nytt verktøy. Typer: http, mqtt (krever "emne" og "payload"), prompt (krever "tekst").
@@ -521,6 +535,10 @@ R10. Mangler du et verktøy for oppgaven, bygg det: verktoy_bygg lager, tester o
     har feilet to ganger med eksisterende verktøy; (c) oppgaven gjentar seg og du løser den med
     engangs-skript hver gang; (d) brukeren spør om noe målbart lokalt som ingen verktøy dekker.
     Rekkefølge: skript_test for engangsjobber → verktoy_bygg når det skal kunne gjenbrukes.
+    Før du bygger: kjør verktoy_liste og gjenbruk et aktivert verktøy hvis det dekker behovet.
+    Etter vellykket verktoy_bygg: oppgaven er IKKE ferdig. Kjør det nye verktøyet med verktoy_kjor,
+    kontroller resultatet, og lever først deretter dataene til brukeren. Et grønt bygg er bare en test,
+    ikke et svar på oppgaven.
 
 R11. SELVFORBEDRING: lærer du noe om HVORDAN du bør jobbe, lagrer du det med laer_regel i samme
     svar – uoppfordret. Dette gjelder når brukeren korrigerer deg, når du finner ut hvilket
@@ -614,6 +632,8 @@ ARBEIDSMÅTE (viktigst av alt): du er en handlende agent, ikke en chatbot.
 3. Finnes det ikke et verktøy for oppgaven? Skriv ditt eget: skript_test med bash/python for
    engangsjobber, eller verktoy_lag for noe du trenger igjen. Lag og test det selv; ikke stopp
    for å be brukeren lage verktøyet. Test alltid før du konkluderer.
+   Gjenbrukbare verktøy bygges med verktoy_bygg og kjøres deretter med verktoy_kjor. Du skal ikke
+   stoppe etter «verktøyet er bygget»; bruk det og send det faktiske resultatet.
 4. Aldri svar «jeg registrerer ingen enheter» eller «det har jeg ikke tilgang til» før du
    faktisk har kjørt minst ett relevant verktøy og sett resultatet. Tomt resultat rapporteres
    som «kjørte X, fant ingenting» – med hva du kjørte.
@@ -892,7 +912,7 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
         .map((h) => `  runde ${h.runde}: ${h.ok ? "bestod" : "feilet"}`)
         .join("\n");
       return r.ok
-        ? `Bygde og testet verktøyet «${r.verktoy?.name ?? "ukjent"}» i sandkassen.\n${logg}`
+        ? `Bygde, testet og aktiverte verktøyet «${r.verktoy?.name ?? "ukjent"}» i sandkassen.\n${logg}\nNeste obligatoriske steg: kjør VERKTØY: verktoy_kjor {"navn":"${r.verktoy?.name ?? "ukjent"}","args":${JSON.stringify(r.verktoy?.testArgs ?? {})}} med argumenter for brukerens faktiske oppgave.`
         : `Klarte ikke få verktøyet til å bestå testen etter ${runder} runder.\n${logg}`;
     } catch (e) {
       return `Verktøybygging feilet: ${e instanceof Error ? e.message : String(e)}`;
@@ -1145,14 +1165,35 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
   }
 
   if (call.name === "verktoy_liste") {
-    const list = config.customTools ?? [];
-    if (!list.length) return "Ingen egendefinerte verktøy er laget enda.";
-    return list
-      .map(
-        (t) =>
-          `${t.name} (${t.kind}${t.enabled ? "" : ", avslått"}, laget av ${t.createdBy}) – ${t.description || "ingen beskrivelse"}`,
-      )
-      .join("\n");
+    try {
+      const r = await backend.hentVerktoybibliotek();
+      const bygde = r.verktoy.map((t) =>
+        `${t.name} (${t.enabled ? "testet og aktivt" : "ikke aktivt"}) – ${t.description || t.beskrivelse || "ingen beskrivelse"}\n  argumenter: ${JSON.stringify(t.inputSchema ?? {})}`,
+      );
+      const enkle = (config.customTools ?? []).map(
+        (t) => `${t.name} (${t.kind}${t.enabled ? "" : ", avslått"}) – ${t.description || "ingen beskrivelse"}`,
+      );
+      const alle = [...bygde, ...enkle];
+      return alle.length
+        ? `${alle.join("\n")}\n\nVelg et aktivt verktøy med verktoy_kjor. Hvis ingen dekker oppgaven, bruk verktoy_bygg.`
+        : "Verktøybiblioteket er tomt. Bygg og test det som trengs med verktoy_bygg.";
+    } catch (e) {
+      return `Klarte ikke lese verktøybiblioteket: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  if (call.name === "verktoy_kjor") {
+    const navn = str(call.args["navn"] ?? call.args["name"]).trim();
+    const args = call.args["args"] && typeof call.args["args"] === "object"
+      ? call.args["args"] as Record<string, unknown>
+      : {};
+    if (!navn) return "Mangler navn på verktøyet som skal kjøres.";
+    try {
+      const r = await backend.kjorGenerertVerktoy(navn, args);
+      return `Resultat fra det testede verktøyet «${navn}»:\n${JSON.stringify(r.resultat, null, 2).slice(0, 8000)}`;
+    } catch (e) {
+      return `Verktøyet «${navn}» feilet under den faktiske oppgaven: ${e instanceof Error ? e.message : String(e)}. Les feilen, reparer med verktoy_bygg og prøv igjen.`;
+    }
   }
 
   if (call.name === "verktoy_lag") {

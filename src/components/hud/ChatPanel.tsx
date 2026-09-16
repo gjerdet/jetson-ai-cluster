@@ -80,6 +80,8 @@ const UNNVIKELSE =
 /** Svar der modellen gir opp uten å ha prøvd et eneste verktøy. */
 const GIR_OPP =
   /(har (jeg )?ingen tilgang|har ikke tilgang|ikke tilgang til|kan ikke (kjøre|bruke|hente|søke|sjekke)|som en (virtuell |virtual )?assistent|som en ai|jeg er en (språkmodell|ai)|anbefaler (jeg )?(deg )?å (søke|sjekke|prøve)|du kan (selv )?(søke|sjekke)|sanntid|i sanntid|aktuelle data|oppdaterte data)/i;
+const VERKTOYFEIL =
+  /^(?:Feil:|Ukjent |Klarte ikke|Kan ikke|Mangler |Ingen .*tilgjengelig|.*\bfeilet\b)/i;
 
 export function ChatPanel({
   config,
@@ -545,6 +547,7 @@ export function ChatPanel({
           let ok = true;
           try {
             res = await runTool(c, { config, ...(update ? { update } : {}), topics: mqtt.topics });
+            ok = !VERKTOYFEIL.test(res.trim());
           } catch (e) {
             ok = false;
             res = `Feil: ${e instanceof Error ? e.message : "ukjent"}`;
@@ -581,7 +584,7 @@ export function ChatPanel({
         }
         thread.push({
           role: "user",
-          content: `VERKTØYRESULTAT:\n${results.join("\n\n")}\n\nLes resultatene og fortsett å arbeide hvis oppgaven ikke er løst. Mangler riktig verktøy, lag og test det lokalt nå. Svar først når du har et faktisk resultat eller en konkret teknisk feil etter at du har prøvd.`,
+          content: `VERKTØYRESULTAT:\n${results.join("\n\n")}\n\nLes resultatene og fortsett å arbeide hvis oppgaven ikke er løst. Mangler riktig verktøy, sjekk verktoy_liste, bygg og test det lokalt, og kjør det deretter på den faktiske oppgaven med verktoy_kjor. Feilet et verktøy, rett fremgangsmåten og prøv igjen; ikke gjenta samme feil mer enn to ganger. Svar først når du har et faktisk resultat eller en konkret teknisk sperre etter at alternative løsninger er prøvd.`,
         });
         setStage("tenker");
         answer = "";
