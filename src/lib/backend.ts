@@ -52,6 +52,8 @@ import {
   type LearningGap,
   type LearningSession,
   type LearningStatus,
+  type LearningPlanItem,
+  type LearningEngine,
   type TrainingNodes,
   type TrainingDistribution,
   type PiperSelftest,
