@@ -333,6 +333,35 @@ async function utforJobb(jobb) {
       const r = await konsoliderLaering();
       return r.hoppet || `${r.notater} nye varige notater`;
     }
+    if (jobb.type === "dagsrapport") {
+      const r = dagsRapport();
+      const e = r.endring;
+      return e
+        ? `dagskort lagret (feilrate ${e.verktoyFeilrate >= 0 ? "+" : ""}${e.verktoyFeilrate} %, hull ${e.apneHull >= 0 ? "+" : ""}${e.apneHull})`
+        : "første dagskort lagret";
+    }
+    if (jobb.type === "retrospektiv") {
+      const r = await retrospektiv();
+      for (const j of r.jobber) leggIKo(j);
+      loggRevisjon({
+        hva: "Daglig retrospektiv",
+        hvorfor: r.vurdering || "Bli litt bedre hver dag",
+        type: "annet",
+        resultat: `${r.jobber.length} egne tiltak planlagt`,
+      });
+      return `${r.jobber.length} tiltak planlagt${r.vurdering ? ` – ${r.vurdering}` : ""}`;
+    }
+    if (jobb.type === "kodeforbedring") {
+      const f = await lagKodeforslag(jobb.data?.beskrivelse || jobb.tekst, { fil: jobb.data?.fil || "" });
+      let resultat = f.syntaksOk ? `forslag til ${f.fil} klart til godkjenning` : `forslag til ${f.fil} strøk på syntakssjekk`;
+      // AUTO-modus: brukeren har selv gitt ham lov til å endre koden sin uten å spørre.
+      if (f.syntaksOk && erAuto()) {
+        godkjennKodeforslag(f.id);
+        resultat = `endret ${f.fil} selv (omstart av tjenesten kreves)`;
+      }
+      loggRevisjon({ hva: `Kodeforslag: ${f.fil}`, hvorfor: jobb.tekst, type: "kode", ref: f.id, resultat });
+      return resultat;
+    }
     return "ukjent jobbtype";
   } finally {
     jobberNa = null;
