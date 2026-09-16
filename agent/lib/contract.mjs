@@ -167,6 +167,14 @@ export const ROUTES = {
   learningTopic: "/laering/tema",
   learningSelftest: "/laering/selvtest",
   learningConsolidate: "/laering/konsolider",
+
+  // daglig selvforbedring + selvendring av egen kode
+  improve: "/selvforbedring",
+  improveAuto: "/selvforbedring/auto",
+  improveReport: "/selvforbedring/rapport",
+  improveRetro: "/selvforbedring/retrospektiv",
+  improveCode: "/selvforbedring/kode",
+  improveCodeAction: "/selvforbedring/kode/handling",
 };
 
 
