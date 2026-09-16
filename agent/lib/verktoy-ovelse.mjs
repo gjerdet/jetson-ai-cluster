@@ -12,24 +12,45 @@ import { laerTema, registrerHull } from "./selvlaering.mjs";
 
 const NOKKEL = "verktoy-ovelse";
 
+/** Varierende norske steder han trener værvarsel på – ikke fast sted. */
+const STEDER = [
+  "Oslo", "Bergen", "Trondheim", "Tromsø", "Kristiansand",
+  "Bodø", "Ålesund", "Hamar", "Lillehammer", "Ringsaker",
+  "Åsmarka", "Stavanger", "Alta", "Røros", "Sogndal",
+];
+
 function db() {
-  return doc(NOKKEL, { logg: [], sisteKjoring: 0, sted: "Åsmarka" });
+  return doc(NOKKEL, { logg: [], sisteKjoring: 0, sted: "", indeks: 0 });
 }
 
 function persist(d) {
   saveDoc(NOKKEL, d);
 }
 
-/** Stedet han øver værvarsel på (brukerens eget sted). */
+/**
+ * Stedet han øver værvarsel på denne runden.
+ * Har brukeren satt et eget sted, brukes det – ellers roterer han
+ * gjennom en liste av norske steder, slik at øvelsen aldri er den samme.
+ */
 export function ovelseSted() {
-  return String(db().sted || "Åsmarka");
+  const d = db();
+  if (d.sted) return String(d.sted);
+  const i = Number(d.indeks || 0) % STEDER.length;
+  return STEDER[i];
 }
 
+/** Brukeren kan sette et fast øvelsessted; tom streng = tilbake til rotasjon. */
 export function settOvelseSted(sted) {
   const d = db();
-  d.sted = String(sted || "Åsmarka").slice(0, 80);
+  d.sted = String(sted || "").trim().slice(0, 80);
   persist(d);
-  return { sted: d.sted };
+  return { sted: d.sted || "(roterer)" };
+}
+
+function roterSted() {
+  const d = db();
+  d.indeks = (Number(d.indeks || 0) + 1) % STEDER.length;
+  persist(d);
 }
 
 /** Alle øvelser han kan trene på. */
