@@ -1,5 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 
+const avkodHtml = (s: string) => s
+  .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<")
+  .replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#0?39;|&#x27;/gi, "'");
+
 /**
  * Henter en nettside og trekker ut ren tekst, slik at den kan indekseres
  * i kunnskapsbasen. Kjøres på server-siden for å unngå CORS-sperrer.
@@ -20,13 +24,10 @@ export const hentNettside = createServerFn({ method: "POST" })
       .replace(/<div[^>]*(cookie|consent|samtykke|paywall)[^>]*>[\s\S]*?<\/div>/gi, " ");
 
     const rens = (s: string) =>
-      s
+      avkodHtml(s
         .replace(/<[^>]+>/g, " ")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&amp;/g, "&")
-        .replace(/&#39;/g, "'")
         .replace(/\s+/g, " ")
-        .trim();
+        .trim());
 
     const overskrifter: string[] = [];
     const hRe = /<h([1-3])[^>]*>([\s\S]*?)<\/h\1>/gi;
@@ -34,6 +35,23 @@ export const hentNettside = createServerFn({ method: "POST" })
     while ((m = hRe.exec(utenRamme)) && overskrifter.length < 20) {
       const t = rens(m[2] ?? "");
       if (t.length >= 18 && t.length <= 200 && !overskrifter.includes(t)) overskrifter.push(t);
+    }
+    // JavaScript-tunge nyhetssider har ofte sakene i strukturert JSON-LD.
+    const jsonRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    while ((m = jsonRe.exec(html)) && overskrifter.length < 20) {
+      try {
+        const besok = (v: unknown): void => {
+          if (!v || typeof v !== "object") return;
+          if (Array.isArray(v)) return v.forEach(besok);
+          const o = v as Record<string, unknown>;
+          if (/NewsArticle|Article|BlogPosting/i.test(String(o["@type"] ?? ""))) {
+            const t = String(o["headline"] ?? o["name"] ?? "").replace(/\s+/g, " ").trim();
+            if (t.length >= 12 && !overskrifter.includes(t)) overskrifter.push(t);
+          }
+          Object.values(o).forEach(besok);
+        };
+        besok(JSON.parse(avkodHtml(m[1] ?? "")));
+      } catch { /* ugyldig JSON-LD */ }
     }
     const topp = overskrifter.length
       ? `TOPPSAKER PÅ SIDEN (nyeste øverst):\n${overskrifter.map((o, i) => `${i + 1}. ${o}`).join("\n")}\n\n`

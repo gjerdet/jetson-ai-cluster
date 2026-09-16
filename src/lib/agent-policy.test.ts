@@ -28,4 +28,9 @@ describe("værspørsmål med små bokstaver", () => {
     expect(krevesFerskeData("kommer det mer regn i åsmarka i dag?")).toBe(true);
     expect(krevesFerskeData("hva er 2 + 2")).toBe(false);
   });
+  it("sender hele spørsmålet med når et nettsted skal leses", () => {
+    const k = redningsKall("hva er nyeste nyheten hos fjuken.no?");
+    expect(k?.name).toBe("les_url");
+    expect(k?.args).toMatchObject({ url: "https://fjuken.no", sporsmal: "hva er nyeste nyheten hos fjuken.no?" });
+  });
 });
