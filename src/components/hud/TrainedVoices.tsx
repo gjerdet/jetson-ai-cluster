@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, RefreshCw, Sparkles, Volume2 } from "lucide-react";
+import { Check, Download, RefreshCw, Sparkles, Volume2 } from "lucide-react";
 import { backend, safe, type TrainedVoice } from "@/lib/backend";
 
 /**
