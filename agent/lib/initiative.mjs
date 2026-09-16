@@ -14,6 +14,7 @@ import { byggVerktoy, rollbackTool, verktoyMedProblemer } from "./toolgen.mjs";
 import { diagnoserAlle } from "./kollega.mjs";
 import { gpuStatus } from "./gpu.mjs";
 import { planleggLaering, laerTema, selvQuiz, konsoliderLaering, foreslaMal } from "./selvlaering.mjs";
+import { kjorOvelse, ovelseJobber, trengerOvelse } from "./verktoy-ovelse.mjs";
 import {
   dagsRapport,
   retrospektiv,
@@ -264,6 +265,9 @@ async function planleggForbedringer() {
   // Selvlæring: tett kunnskapshull, test seg selv og oppsummer ny kunnskap.
   for (const jobb of planleggLaering()) leggIKo(jobb);
 
+  // Verktøyøvelser: kjør ekte verktøykall (vær m.fl.), lær av feil og prøv igjen.
+  if (trengerOvelse()) for (const jobb of ovelseJobber()) leggIKo(jobb);
+
   // Daglig framgang: mål seg selv og bestem selv hva som skal bli bedre i morgen.
   leggIKo({ type: "dagsrapport", tekst: "Mål egen framgang i dag", prioritet: 3 });
   if (trengerRetrospektiv())
@@ -345,6 +349,18 @@ async function utforJobb(jobb) {
           resultat: r.mal.join("; ").slice(0, 200),
         });
       return r.antall ? `${r.antall} egne mål: ${r.mal.join("; ")}` : "fant ingen nye mål";
+    }
+    if (jobb.type === "verktoy-ovelse") {
+      const r = await kjorOvelse(jobb.data?.navn || "vaer");
+      loggRevisjon({
+        hva: `Verktøyøvelse: ${r.tittel || r.navn}`,
+        hvorfor: "Trener på egne verktøy hver dag så de virker når brukeren spør",
+        type: "verktoy",
+        ref: r.navn,
+        resultat: r.ok ? `virker – ${r.resultat}` : `feilet: ${r.feil}`,
+      });
+      if (r.ok) return `${r.navn} virker${r.laerte ? " etter at han leste seg opp og prøvde igjen" : ""} – ${r.resultat}`;
+      return `${r.navn} feilet etter ${r.forsok} forsøk: ${r.feil}`;
     }
     if (jobb.type === "selvtest") {
       const r = await selvQuiz();
