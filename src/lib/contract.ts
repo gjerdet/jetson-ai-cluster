@@ -102,4 +102,7 @@ export type {
   GeneratedTool,
   InitiativeStatus,
   MemoryStats,
+  ImproveDay,
+  ImproveStatus,
+  CodeProposal,
 } from "../../agent/lib/contract.mjs";
