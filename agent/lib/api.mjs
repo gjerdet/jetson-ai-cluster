@@ -921,6 +921,11 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
       try {
         const { resultat, node, ms, forsok } = await kjorBalansert(pool, kall, { oppgave, foretrukket });
+        // Lær av samtalen: noter kunnskapshull og evaluer eget svar i bakgrunnen.
+        if (sisteBrukerMelding) {
+          registrerSamtale({ sporsmal: sisteBrukerMelding, svar: resultat.svar, treff: antallTreff });
+          evaluateChatReplyInBackground({ spørsmål: sisteBrukerMelding, svar: resultat.svar });
+        }
         return json(req, res, 200, {
           svar: resultat.svar,
           model: resultat.model,
