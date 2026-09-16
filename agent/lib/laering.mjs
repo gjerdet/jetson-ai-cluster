@@ -39,7 +39,57 @@ function sjekkUrl(url) {
   return u;
 }
 
-/** Henter en nettside og returnerer tittel + ren tekst. */
+/** Fjerner meny, bunntekst, sidefelt og samtykkebokser før teksten trekkes ut. */
+function fjernRamme(html) {
+  return String(html || "")
+    .replace(/<(nav|header|footer|aside|form|svg)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<div[^>]*(cookie|consent|samtykke|sp_message|paywall|newsletter)[^>]*>[\s\S]*?<\/div>/gi, " ");
+}
+
+const JUNK =
+  /^(logg inn|logg ut|meny|søk|abonnement|abonner|e-avis|kontakt|kontakt oss|annonse|annonser|personvern|cookies|informasjonskapsler|samtykke|tips oss|del|les mer|nyheter|sport|kultur|debatt|podcast|forside|om oss)$/i;
+
+/**
+ * Plukker ut overskriftene på siden: <h1>–<h3> og lenketekster som ser ut som
+ * artikkeltitler. Dette er det som faktisk svarer på «hva er siste nyhet».
+ */
+export function overskrifterFraHtml(html, baseUrl = "") {
+  const rent = fjernRamme(html);
+  const funn = [];
+  const sett = new Set();
+  const legg = (tittel, href = "") => {
+    const t = tekstFraHtml(tittel).replace(/\s+/g, " ").trim();
+    if (!t || t.length < 18 || t.length > 200) return;
+    if (JUNK.test(t)) return;
+    const nokkel = t.toLowerCase();
+    if (sett.has(nokkel)) return;
+    sett.add(nokkel);
+    let lenke = "";
+    try {
+      if (href) lenke = new URL(avkod(href), baseUrl || undefined).toString();
+    } catch {
+      /* ugyldig lenke – overskriften står likevel */
+    }
+    funn.push({ tittel: t, url: lenke });
+  };
+
+  let m;
+  const hRe = /<h([1-3])[^>]*>([\s\S]*?)<\/h\1>/gi;
+  while ((m = hRe.exec(rent))) {
+    const inni = m[2];
+    const a = /<a[^>]+href="([^"]+)"/i.exec(inni);
+    legg(inni, a ? a[1] : "");
+  }
+  const aRe = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  while ((m = aRe.exec(rent))) {
+    const t = tekstFraHtml(m[2]).replace(/\s+/g, " ").trim();
+    if (t.split(/\s+/).length < 4) continue;
+    legg(m[2], m[1]);
+  }
+  return funn.slice(0, 20);
+}
+
+/** Henter en nettside og returnerer tittel + ren tekst (med toppsaker først). */
 export async function hentUrl(url, { timeoutMs = 20_000, maksTegn = 200_000 } = {}) {
   const u = sjekkUrl(url);
   const ctrl = new AbortController();
@@ -49,14 +99,28 @@ export async function hentUrl(url, { timeoutMs = 20_000, maksTegn = 200_000 } = 
     if (!r.ok) throw new Error(`Kilden svarte ${r.status}`);
     const raa = await r.text();
     const type = String(r.headers.get("content-type") || "");
-    const tekst = /json|text\/plain|markdown/i.test(type) ? raa.trim() : tekstFraHtml(raa);
+    const erHtml = !/json|text\/plain|markdown/i.test(type);
+    const brodtekst = erHtml ? tekstFraHtml(fjernRamme(raa)) || tekstFraHtml(raa) : raa.trim();
+    const overskrifter = erHtml ? overskrifterFraHtml(raa, u.toString()) : [];
+    const topp = overskrifter.length
+      ? `TOPPSAKER PÅ SIDEN (nyeste øverst):\n${overskrifter
+          .map((o, i) => `${i + 1}. ${o.tittel}${o.url ? `\n   ${o.url}` : ""}`)
+          .join("\n")}\n\n`
+      : "";
+    const tekst = `${topp}${brodtekst}`.trim();
     const tittel = avkod(/<title[^>]*>([\s\S]*?)<\/title>/i.exec(raa)?.[1] || "").trim() || u.hostname + u.pathname;
     if (!tekst) throw new Error("Fant ingen lesbar tekst på siden.");
-    return { url: u.toString(), tittel: tittel.slice(0, 300), tekst: tekst.slice(0, maksTegn) };
+    return {
+      url: u.toString(),
+      tittel: tittel.slice(0, 300),
+      tekst: tekst.slice(0, maksTegn),
+      overskrifter,
+    };
   } finally {
     clearTimeout(timer);
   }
 }
+
 
 /** Kort utdrag som hører til treffet like etter posisjonen i søkeresultatet. */
 function utdragEtter(html, fra) {
