@@ -91,26 +91,15 @@ ${minneKontekst ? `Relevant minne:\n${minneKontekst}` : ""}`;
 export async function evaluateChatReply({ spørsmål, svar, verktøy = [] }) {
   const cfg = doc("settings", {});
   const threshold = Number(cfg.evaluatorThreshold) || 8;
-  let ev = await evaluate({ spørsmål, svar, verktøy, threshold });
-  if (ev && (ev.score === null || ev.score < 7)) {
-    try {
-      const tidligere = listEvaluations(3).filter(e => e.spørsmål === spørsmål).slice(0, 2);
-      const tidligereFeil = tidligere.map(e => `- Forrige forsøk (${e.score}/10): ${e.problemer}. Forbedring: ${e.forbedring}`).join("\n");
-      const raw1 = await askAi(`${prompt}
+  return evaluate({ spørsmål, svar, verktøy, threshold });
+}
 
-Tidligere feil ved lignende spørsmål:\n${tidligereFeil || "Ingen tidligere feil."}
-
-Forsøk 2: forbedre svaret basert på kritikken og tidligere feil. Svar KUN med JSON.`, {
-        timeoutMs: 30_000,
-        temperature: 0.7,
-      });
-      const ev2 = parseEvaluation(raw1);
-      if (ev2.score > ev.score) return ev2;
-    } catch (e) {
-      // Ignorer retry-feil
-    }
-  }
-  return ev;
+/**
+ * Bakgrunnsevaluering av et chat-svar. Kaster aldri – chatten er viktigere
+ * enn evalueringen, og resultatet brukes bare til å lære av egne svar.
+ */
+export function evaluateChatReplyInBackground(input) {
+  evaluateChatReply(input).catch((e) => console.error("[evaluator] bakgrunnsfeil:", e?.message || e));
 }
 
 
