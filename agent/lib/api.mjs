@@ -75,6 +75,7 @@ import {
   lokaleStemmer,
   aktiverStemme,
   fortsettTrening,
+  eksporterStemme,
 } from "./trening.mjs";
 
 import {
