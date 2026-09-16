@@ -265,6 +265,9 @@ async function planleggForbedringer() {
   // Selvlæring: tett kunnskapshull, test seg selv og oppsummer ny kunnskap.
   for (const jobb of planleggLaering()) leggIKo(jobb);
 
+  // Verktøyøvelser: kjør ekte verktøykall (vær m.fl.), lær av feil og prøv igjen.
+  if (trengerOvelse()) for (const jobb of ovelseJobber()) leggIKo(jobb);
+
   // Daglig framgang: mål seg selv og bestem selv hva som skal bli bedre i morgen.
   leggIKo({ type: "dagsrapport", tekst: "Mål egen framgang i dag", prioritet: 3 });
   if (trengerRetrospektiv())
