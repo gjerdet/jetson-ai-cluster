@@ -646,6 +646,48 @@ export async function fortsettTrening({ mappe = "", jobbId = "", epoker = 1000, 
   return jobb;
 }
 
+/**
+ * Eksporterer en ferdig stemmefil (model.onnx) fra siste checkpoint – uten å
+ * trene én eneste epoke. Kjøres på CPU, så jobben kan ikke bli drept av tomt
+ * GPU-minne slik en ny treningsrunde kan.
+ */
+export async function eksporterStemme({ mappe = "", jobbId = "" } = {}) {
+  const fraJobb = jobbId ? hentJobb(jobbId) : null;
+  const utMappe = String(mappe || fraJobb?.utMappe || "").trim();
+  if (!utMappe) throw new Error("Ingen stemmemappe oppgitt.");
+  if (!utMappe.startsWith(MODELL_ROT())) throw new Error("Stemmemappa må ligge under stemmemodeller-mappa.");
+  if (!(await fileFinnes(utMappe))) throw new Error(`Fant ikke stemmemappa: ${utMappe}`);
+
+  const ckpt = await sisteCheckpoint(utMappe);
+  if (!ckpt) throw new Error("Fant ingen lagret checkpoint i denne stemmemappa – stemmen må trenes først.");
+
+  const navn = fraJobb?.navn || path.basename(utMappe).replace(/-[0-9a-f]{8}$/i, "");
+  const kommando = `bash ${shellArg(EKSPORT_SKRIPT)} ${shellArg(utMappe)} ${shellArg(ckpt)}`;
+
+  const id = randomUUID();
+  const jobb = {
+    id,
+    navn: `${navn} (eksport)`,
+    status: "kø",
+    fremdrift: 0,
+    klipp: 0,
+    sekunder: 0,
+    manifest: "",
+    utMappe,
+    fortsetterFra: ckpt,
+    kommando,
+    logg: [`eksporterer stemmefil fra checkpoint: ${ckpt}`],
+    telemetri: [],
+    feil: "",
+    opprettet: new Date().toISOString(),
+    startet: "",
+    ferdig: "",
+  };
+  lagre([...(jobbDoc().list || []), jobb]);
+  kjorNeste();
+  return jobb;
+}
+
 function kjorNeste() {
   if (prosesser.size) return;
   const neste = (jobbDoc().list || []).find((j) => j.status === "kø");
