@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { backend } from "@/lib/backend";
 import { UtviklingSection } from "./UtviklingSection";
+import { SelvforbedringSection } from "./SelvforbedringSection";
 import type {
   Evaluation,
   GeneratedTool,
