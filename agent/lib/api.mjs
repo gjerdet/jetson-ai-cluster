@@ -1874,6 +1874,55 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path === "/laering/konsolider" && method === "POST")
       return json(req, res, 200, await konsoliderLaering());
 
+    // ---- daglig selvforbedring og selvendring av egen kode -----------------
+    if (path === "/selvforbedring" && method === "GET")
+      return json(req, res, 200, { status: selvforbedringStatus(), dager: listDager(30), kodeforslag: listKodeforslag(20), filer: egneFiler() });
+
+    if (path === "/selvforbedring/auto" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, settSelvforbedringAuto(b.auto === true));
+    }
+
+    if (path === "/selvforbedring/rapport" && method === "POST")
+      return json(req, res, 200, dagsRapport());
+
+    if (path === "/selvforbedring/retrospektiv" && method === "POST") {
+      const r = await retrospektiv();
+      for (const j of r.jobber) leggIKo(j);
+      return json(req, res, 200, r);
+    }
+
+    if (path === "/selvforbedring/kode" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, await lagKodeforslag(String(b.beskrivelse ?? ""), { fil: String(b.fil ?? "") }));
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path.startsWith("/selvforbedring/kode/") && method === "GET") {
+      try {
+        const f = hentKodeforslag(decodeURIComponent(path.split("/").pop() || ""));
+        return json(req, res, 200, f);
+      } catch (e) {
+        return json(req, res, 404, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/selvforbedring/kode/handling" && method === "POST") {
+      const b = await readBody(req);
+      const id = String(b.id ?? "");
+      try {
+        if (b.handling === "godkjenn") return json(req, res, 200, godkjennKodeforslag(id));
+        if (b.handling === "tilbake") return json(req, res, 200, rullTilbakeKode(id));
+        return json(req, res, 200, avvisKodeforslag(id));
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+
     if (path === "/oppgave/planlegg" && method === "POST") {
       const b = await readBody(req);
       const mål = str(b.mål ?? b.oppgave ?? "", "Mål", { maks: 1000, min: 1 });
