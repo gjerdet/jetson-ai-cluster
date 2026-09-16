@@ -154,6 +154,12 @@ function shellArg(verdi) {
  */
 export const TRENING_PRESETS = [
   {
+    id: "jetson-minst",
+    navn: "Jetson · minimum minne",
+    beskrivelse: "Batch 2 og få epoker. Bruker minst mulig minne – bruk denne hvis lav VRAM også kræsjer.",
+    env: { PIPER_BATCH: "2", PIPER_EPOCHS: "1000", PIPER_QUALITY: "low" },
+  },
+  {
     id: "jetson-lav",
     navn: "Jetson · lav VRAM (trygg)",
     beskrivelse: "Liten batch og low quality. Bruker minst minne – start her hvis trening kræsjer.",
@@ -791,7 +797,7 @@ function tolkFeil(logg = "") {
 
   if (/espeak/i.test(t) && /not found|mangler/i.test(t)) return "espeak-ng mangler – sudo apt install espeak-ng.";
 
-  if (/out of memory|CUDA out of memory|Killed/i.test(t)) return "Tom for minne – velg presetet «Jetson · lav VRAM».";
+  if (/out of memory|CUDA out of memory|Killed/i.test(t)) return "Tom for minne – velg presetet «Jetson · minimum minne» i rullegardinmenyen.";
   if (/ModelCheckpoint\(monitor=['"]val_mos['"]\).*could not find the monitored key/i.test(t))
     return "Piper-versjonen overvåket en valgfri stemmekvalitetsmåling som ikke ble laget. Oppdater Jarvis og bruk «TREN MER» for å fortsette fra siste kontrollpunkt.";
   if (/more than one stateful callback of type [`'"]ModelCheckpoint/i.test(t))
