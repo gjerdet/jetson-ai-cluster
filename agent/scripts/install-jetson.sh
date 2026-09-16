@@ -113,8 +113,12 @@ chown -R jarvis:jarvis /opt/jarvis-agent
 
 si "Installerer systemd-tjenesten"
 cp "$AGENT_DIR/jarvis-agent.service" /etc/systemd/system/jarvis-agent.service
+# Bakgrunnsmotoren kjører som egen tjeneste, så den lever videre uavhengig av GUI-et.
+cp "$AGENT_DIR/jarvis-motor.service" /etc/systemd/system/jarvis-motor.service
+grep -q '^JARVIS_EGEN_MOTOR=' /etc/jarvis/agent.env 2>/dev/null || echo 'JARVIS_EGEN_MOTOR=1' >> /etc/jarvis/agent.env
 systemctl daemon-reload
 systemctl enable --now jarvis-agent
+systemctl enable --now jarvis-motor
 sleep 2
 
 IP="$(hostname -I | awk '{print $1}')"
