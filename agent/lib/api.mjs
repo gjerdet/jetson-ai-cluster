@@ -236,6 +236,7 @@ import {
   turbovecStatus,
 } from "./turbovec.mjs";
 import { hentUrl, laerOm, sokWeb } from "./laering.mjs";
+import { hentVaer, vaerTekst } from "./vaer.mjs";
 
 const json = (req, res, status, body) => {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", ...corsHeaders(req) });
@@ -436,6 +437,17 @@ export async function handleApi(req, res, route, url, deps = {}) {
     if (path === "/auth/me") return json(req, res, 200, { user });
 
     // ---- lokale verktøy på samme Jetson som backend-en -------------------
+    if (path === "/verktoy/vaer" && method === "POST") {
+      const b = await readBody(req);
+      const v = await hentVaer({
+        sted: String(b.sted ?? b.sted_navn ?? "").trim(),
+        lat: b.lat ?? null,
+        lon: b.lon ?? null,
+        timer: Number(b.timer) || 12,
+      });
+      return json(req, res, 200, { ...v, tekst: vaerTekst(v) });
+    }
+
     if (path === "/verktoy/ping" && method === "POST") {
       const b = await readBody(req);
       const host = str(b.host || "", "Host", { maks: 200, min: 1 });
