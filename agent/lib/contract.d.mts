@@ -261,6 +261,7 @@ export const ROUTES: {
   learning: string;
   learningToggle: string;
   learningTopic: string;
+  learningGoals: string;
   learningSelftest: string;
   learningConsolidate: string;
   improve: string;

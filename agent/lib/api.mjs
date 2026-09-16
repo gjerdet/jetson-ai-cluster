@@ -144,6 +144,7 @@ import {
   konsoliderLaering,
   laeringStatus,
   planleggLaering,
+  foreslaMal,
   settPa as settSelvlaering,
 } from "./selvlaering.mjs";
 import {
@@ -1888,6 +1889,9 @@ export async function handleApi(req, res, route, url, deps = {}) {
       const r = await laerTema(tema, { antall: Number(b.antall) || 3 });
       return json(req, res, 200, r);
     }
+
+    if (path === "/laering/mal" && method === "POST")
+      return json(req, res, 200, await foreslaMal());
 
     if (path === "/laering/selvtest" && method === "POST")
       return json(req, res, 200, await selvQuiz());
