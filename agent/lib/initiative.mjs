@@ -350,6 +350,18 @@ async function utforJobb(jobb) {
         });
       return r.antall ? `${r.antall} egne mål: ${r.mal.join("; ")}` : "fant ingen nye mål";
     }
+    if (jobb.type === "verktoy-ovelse") {
+      const r = await kjorOvelse(jobb.data?.navn || "vaer");
+      loggRevisjon({
+        hva: `Verktøyøvelse: ${r.tittel || r.navn}`,
+        hvorfor: "Trener på egne verktøy hver dag så de virker når brukeren spør",
+        type: "verktoy",
+        ref: r.navn,
+        resultat: r.ok ? `virker – ${r.resultat}` : `feilet: ${r.feil}`,
+      });
+      if (r.ok) return `${r.navn} virker${r.laerte ? " etter at han leste seg opp og prøvde igjen" : ""} – ${r.resultat}`;
+      return `${r.navn} feilet etter ${r.forsok} forsøk: ${r.feil}`;
+    }
     if (jobb.type === "selvtest") {
       const r = await selvQuiz();
       if (r.hoppet) return r.hoppet;
