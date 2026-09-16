@@ -1834,6 +1834,32 @@ export async function handleApi(req, res, route, url, deps = {}) {
       return json(req, res, 200, { evaluering: ev });
     }
 
+    // ---- selvlæring --------------------------------------------------------
+    if (path === "/laering" && method === "GET")
+      return json(req, res, 200, { status: laeringStatus(), hull: listHull(30), okter: listOkter(20) });
+
+    if (path === "/laering/av-pa" && method === "POST") {
+      const b = await readBody(req);
+      return json(req, res, 200, settSelvlaering(b.aktiv !== false));
+    }
+
+    if (path === "/laering/tema" && method === "POST") {
+      const b = await readBody(req);
+      const tema = str(b.tema, "Tema", { maks: 200, min: 2 });
+      if (b.straks === false) {
+        registrerHull(tema, "lagt inn manuelt");
+        return json(req, res, 200, { kø: true, tema });
+      }
+      const r = await laerTema(tema, { antall: Number(b.antall) || 3 });
+      return json(req, res, 200, r);
+    }
+
+    if (path === "/laering/selvtest" && method === "POST")
+      return json(req, res, 200, await selvQuiz());
+
+    if (path === "/laering/konsolider" && method === "POST")
+      return json(req, res, 200, await konsoliderLaering());
+
     if (path === "/oppgave/planlegg" && method === "POST") {
       const b = await readBody(req);
       const mål = str(b.mål ?? b.oppgave ?? "", "Mål", { maks: 1000, min: 1 });
