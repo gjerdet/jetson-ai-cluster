@@ -365,13 +365,47 @@ function sensorSnapshot() {
   return out;
 }
 
+/** Utboks: motorprosessen har ikke Telegram/MQTT selv – backenden sender for den. */
+function leggIUtboks(handling, tekst) {
+  const d = doc("motor-utboks", { ko: [] });
+  d.ko = [...(d.ko || []), { tid: Date.now(), handling, tekst: String(tekst || "").slice(0, 1000) }].slice(-100);
+  saveDoc("motor-utboks", d);
+  return "lagt i utboks";
+}
+
+/** Backenden tømmer utboksen og sender meldingene videre. */
+export async function tommUtboks({ publish, notify } = {}) {
+  const d = doc("motor-utboks", { ko: [] });
+  const ko = d.ko || [];
+  if (!ko.length) return 0;
+  saveDoc("motor-utboks", { ko: [] });
+  let sendt = 0;
+  for (const post of ko) {
+    try {
+      const h = post.handling || {};
+      if (h.type === "telegram" && notify) {
+        await notify(String(h.payload || post.tekst).slice(0, 1000));
+        sendt++;
+      } else if (h.type === "mqtt" && publish && h.emne) {
+        await publish(String(h.emne), String(h.payload ?? ""));
+        sendt++;
+      }
+    } catch (e) {
+      console.error("[initiativ] utboks-feil:", e?.message || e);
+    }
+  }
+  return sendt;
+}
+
 async function execute(handling, tekst) {
   try {
-    if (handling.type === "telegram" && deps.notify) {
+    if (handling.type === "telegram") {
+      if (!deps.notify) return leggIUtboks(handling, tekst);
       await deps.notify(String(handling.payload || tekst).slice(0, 1000));
       return "telegram-sendt";
     }
-    if (handling.type === "mqtt" && deps.publish && handling.emne) {
+    if (handling.type === "mqtt" && handling.emne) {
+      if (!deps.publish) return leggIUtboks(handling, tekst);
       await deps.publish(String(handling.emne), String(handling.payload ?? ""));
       return "mqtt-publisert";
     }
