@@ -47,6 +47,7 @@ import {
   parseToolCalls,
   korrigerVerktoyvalg,
   redningsKall,
+  krevesFerskeData,
   runTool,
   stripToolCalls,
   TOOL_PROMPT,
@@ -79,7 +80,7 @@ const UNNVIKELSE =
   /(ingen enheter|har ikke tilgang|ikke mulighet|kan ikke se|jeg mangler|ingen registrerte|vi kan sammen|ønsker du at jeg|tar jeg gjerne imot|si ifra hvis)/i;
 /** Svar der modellen gir opp uten å ha prøvd et eneste verktøy. */
 const GIR_OPP =
-  /(har (jeg )?ingen tilgang|har ikke tilgang|ikke tilgang til|kan ikke (kjøre|bruke|hente|søke|sjekke)|som en (virtuell |virtual )?assistent|som en ai|jeg er en (språkmodell|ai)|anbefaler (jeg )?(deg )?å (søke|sjekke|prøve)|du kan (selv )?(søke|sjekke)|sanntid|i sanntid|aktuelle data|oppdaterte data)/i;
+  /(har (jeg )?ingen tilgang|har ikke tilgang|ikke tilgang til|kan ikke (kjøre|bruke|hente|søke|sjekke|svare|si)|som en (virtuell |virtual )?assistent|som en ai|jeg er en (språkmodell|ai)|anbefaler (jeg )?(deg )?å (søke|sjekke|prøve)|du kan (selv )?(søke|sjekke)|sanntid|i sanntid|aktuelle data|oppdaterte data|må (jeg )?(spørre|søke|slå opp|sjekke)|jeg (vet|finner) ikke|usikker på|trenger (jeg )?(å søke|mer informasjon)|kunne (jeg )?(ha )?(søkt|sjekket))/i;
 const VERKTOYFEIL =
   /^(?:Feil:|Ukjent |Klarte ikke|Kan ikke|Mangler |Ingen .*tilgjengelig|.*\bfeilet\b)/i;
 
@@ -477,15 +478,18 @@ export function ChatPanel({
         let calls = korrigerVerktoyvalg(parseToolCalls(raw, customToolNames(config)), text);
         // Gir modellen opp uten å ha prøvd noe? Da velger vi verktøyet selv og
         // kjører det, i stedet for å sende en bortforklaring til brukeren.
-        if (!calls.length && !runs.length && !smaaprat && GIR_OPP.test(raw)) {
+        const maaHaFerskeData = !smaaprat && krevesFerskeData(text);
+        if (!calls.length && !runs.length && !smaaprat && (GIR_OPP.test(raw) || maaHaFerskeData)) {
           const redning = redningsKall(text);
           if (redning) {
             calls = [redning];
             trace({
               turId,
               kind: "dult",
-              title: `modellen ga opp – kjører ${redning.name} selv`,
-              why: "svaret sa at den ikke hadde tilgang, uten at et eneste verktøy var kjørt",
+              title: `svarte uten verktøy – kjører ${redning.name} selv`,
+              why: maaHaFerskeData
+                ? "spørsmålet krever ferske data utenfra, men ingen verktøy var kjørt"
+                : "svaret sa at den ikke hadde tilgang, uten at et eneste verktøy var kjørt",
               detail: raw,
             });
           }

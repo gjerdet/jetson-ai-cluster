@@ -394,10 +394,36 @@ export function nettstedIMelding(tekst: string): string {
 const VAER_SPM = /\b(vær|været|vaeret|temperatur|regn|snø|vind|yr\.no|nedbør|meldinga?\s+for)\b/i;
 const HANDLINGSOPPGAVE =
   /\b(skann|sjekk|finn|hent|mål|test|kjør|start|restart|feilsøk|diagnos|overvåk|lag|bygg|sett opp|installer|fiks|rett|analyser|konverter|beregn|sammenlign|send|les|undersøk)\b/i;
-/** Plukker ut stedsnavnet i et værspørsmål. */
-function stedIVaerSporsmal(tekst: string): string {
-  const m = /\b(?:i|på|for)\s+([A-ZÆØÅ][\wÆØÅæøå-]+(?:\s+[A-ZÆØÅ][\wÆØÅæøå-]+)?)/.exec(String(tekst ?? ""));
-  return m?.[1]?.trim() ?? "";
+/** Ord som aldri er stedsnavn, selv om de står etter «i/på/for». */
+const IKKE_STED =
+  /^(dag|dagen|morgen|morgon|kveld|natt|natta|helga|helgen|morgen(?:en)?|uka|uken|går|fjor|sanntid|norge|dag\b)$/i;
+
+/**
+ * Plukker ut stedsnavnet i et værspørsmål. Godtar også småbokstaver
+ * («kommer det mer regn i åsmarka i dag?»).
+ */
+export function stedIVaerSporsmal(tekst: string): string {
+  const t = String(tekst ?? "");
+  const re = /\b(?:i|på|for)\s+([\wÆØÅæøå-]+(?:\s+[A-ZÆØÅ][\wÆØÅæøå-]+)?)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(t))) {
+    const kandidat = (m[1] ?? "").trim();
+    if (!kandidat || IKKE_STED.test(kandidat)) continue;
+    return kandidat;
+  }
+  return "";
+}
+
+/**
+ * Spørsmål som krever ferske data utenfra – disse skal alltid løses med verktøy,
+ * uansett hvordan modellen ordlegger seg.
+ */
+export function krevesFerskeData(sporsmal: string): boolean {
+  const t = String(sporsmal ?? "");
+  if (!t.trim()) return false;
+  if (VAER_SPM.test(t)) return true;
+  if (nettstedIMelding(t)) return true;
+  return /\b(i dag|idag|nå|akkurat nå|i kveld|i morgen|imorgen|siste|nyeste|aktuelle?|kurs|pris|status)\b/i.test(t);
 }
 
 /**
