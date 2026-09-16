@@ -206,6 +206,9 @@ async function planleggForbedringer() {
   leggIKo({ type: "kollega-test", tekst: "Test kollega-koblinger (Hermes m.fl.)", prioritet: 6 });
   leggIKo({ type: "evaluer-svar", tekst: "Evaluer egne svar fra siste døgn og lær av dem", prioritet: 5 });
   leggIKo({ type: "kartlegg", tekst: "Oppdater maskin-ID-kort og nettbilde", prioritet: 4 });
+
+  // Selvlæring: tett kunnskapshull, test seg selv og oppsummer ny kunnskap.
+  for (const jobb of planleggLaering()) leggIKo(jobb);
 }
 
 async function utforJobb(jobb) {
@@ -259,6 +262,27 @@ async function utforJobb(jobb) {
       let lagt = 0;
       for (const r of (parsed.regler || []).slice(0, 3)) if (laerRegel(r, "Fra egen evaluering av svake svar")) lagt++;
       return `${lagt} nye adferdsregler`;
+    }
+    if (jobb.type === "laer-om") {
+      const tema = String(jobb.data?.tema || jobb.tekst);
+      const r = await laerTema(tema);
+      loggRevisjon({
+        hva: `Lærte om «${tema}»`,
+        hvorfor: "Kunnskapshull oppdaget i egne svar",
+        type: "kunnskap",
+        ref: tema,
+        resultat: r.ok ? `${r.kilder} kilder lagret lokalt` : "fant ingen brukbare kilder",
+      });
+      return r.ok ? `lærte fra ${r.kilder} kilder` : "fant ingen kilder";
+    }
+    if (jobb.type === "selvtest") {
+      const r = await selvQuiz();
+      if (r.hoppet) return r.hoppet;
+      return `selvtest ${r.score ?? "?"} /10${r.svakt ? " – nytt læringsbehov notert" : ""}`;
+    }
+    if (jobb.type === "konsolider-laering") {
+      const r = await konsoliderLaering();
+      return r.hoppet || `${r.notater} nye varige notater`;
     }
     return "ukjent jobbtype";
   } finally {
