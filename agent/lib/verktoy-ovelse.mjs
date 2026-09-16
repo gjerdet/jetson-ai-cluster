@@ -47,12 +47,6 @@ export function settOvelseSted(sted) {
   return { sted: d.sted || "(roterer)" };
 }
 
-function roterSted() {
-  const d = db();
-  d.indeks = (Number(d.indeks || 0) + 1) % STEDER.length;
-  persist(d);
-}
-
 /** Alle øvelser han kan trene på. */
 export function ovelser() {
   const sted = ovelseSted();
