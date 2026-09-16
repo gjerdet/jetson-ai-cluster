@@ -93,6 +93,9 @@ export async function callNode(
   const feil: string[] = [];
   for (const url of endepunkter) {
     const ollama = /\/api\/chat$/i.test(url);
+    // Jarvis-agentens eget endepunkt bruker norske feltnavn.
+    const agent = /\/api\/ai\/chat$/i.test(url);
+    const meldinger = messages.map((m) => ({ role: m.role, content: m.content }));
     let res: Response;
     try {
       res = await fetch(url, {
@@ -102,13 +105,14 @@ export async function callNode(
           "Content-Type": "application/json",
           ...(nokkel ? { Authorization: `Bearer ${nokkel}` } : {}),
         },
-        body: JSON.stringify({
-          model: node.model,
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
-          stream: false,
-        }),
+        body: JSON.stringify(
+          agent
+            ? { model: node.model, meldinger, ...(nokkel ? { apiKey: nokkel } : {}) }
+            : { model: node.model, messages: meldinger, stream: false },
+        ),
       });
     } catch (e) {
+
       if (signal?.aborted) throw e;
       feil.push(`${url}: ${(e as Error).message}`);
       continue;
