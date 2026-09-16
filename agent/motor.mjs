@@ -8,12 +8,15 @@
  * Deler data med backenden gjennom AGENT_DATA (JSON-dokumenter + kunnskap.db).
  * Av/på-bryteren i GUI-et skrives til data/motor.json og leses her hvert minutt.
  *
- * Start:  JARVIS_MOTOR_PROSESS=1 node motor.mjs
+ * Start:  node motor.mjs
  */
-process.env.JARVIS_MOTOR_PROSESS = "1";
 
-import { initStore, warmLatest, flushNow } from "./lib/store.mjs";
-import { start as startInitiative, stop as stopInitiative, isActive } from "./lib/initiative.mjs";
+// Må settes før modulene lastes – derfor dynamiske importer under.
+process.env.JARVIS_MOTOR_PROSESS = "1";
+process.env.JARVIS_EGEN_MOTOR = "1";
+
+const { initStore, warmLatest, flushNow } = await import("./lib/store.mjs");
+const { start: startInitiative, stop: stopInitiative, isActive } = await import("./lib/initiative.mjs");
 
 const INTERVALL = Number(process.env.JARVIS_MOTOR_INTERVALL_MS || 60_000);
 
