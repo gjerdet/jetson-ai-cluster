@@ -133,7 +133,8 @@ export async function retrospektiv({ maksJobber = 5 } = {}) {
       `Åpne kunnskapshull: ${JSON.stringify(hull)}\n\n` +
       `Velg maks ${maksJobber} konkrete tiltak som gjør deg bedre i morgen.\n` +
       `Svar KUN med JSON:\n` +
-      `{"vurdering":"kort setning","jobber":[{"type":"laer-om|bygg-verktoy|reparer-verktoy|selvtest|kodeforbedring","tekst":"...","hvorfor":"...","prioritet":1-10,"fil":"lib/xxx.mjs (kun for kodeforbedring)"}]}`,
+      `Ett av tiltakene SKAL være «verktoy-ovelse» – å øve på et ekte verktøykall (f.eks. vær) og lære av feil.\n` +
+      `{"vurdering":"kort setning","jobber":[{"type":"laer-om|bygg-verktoy|reparer-verktoy|verktoy-ovelse|selvtest|kodeforbedring","tekst":"...","hvorfor":"...","prioritet":1-10,"fil":"lib/xxx.mjs (kun for kodeforbedring)","navn":"vaer (kun for verktoy-ovelse)"}]}`,
     { timeoutMs: 120_000 },
   ).catch(() => ({ vurdering: "", jobber: [] }));
 
