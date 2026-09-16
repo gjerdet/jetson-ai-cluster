@@ -66,6 +66,8 @@ export type {
   LearningGap,
   LearningSession,
   LearningStatus,
+  LearningPlanItem,
+  LearningEngine,
   TrainingEpoch,
   TrainingNode,
   TrainingNodes,
