@@ -113,6 +113,8 @@ function loggOvelse(post) {
   const d = db();
   d.logg = [post, ...(d.logg || [])].slice(0, 100);
   d.sisteKjoring = post.tid;
+  // Neste øvelse får et nytt sted (med mindre brukeren har valgt et fast).
+  if (!d.sted) d.indeks = (Number(d.indeks || 0) + 1) % STEDER.length;
   persist(d);
 }
 
