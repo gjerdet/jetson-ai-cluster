@@ -72,6 +72,9 @@ import {
 } from "@/lib/contract";
 
 export type {
+  ImproveDay,
+  ImproveStatus,
+  CodeProposal,
   LearningGap,
   LearningSession,
   LearningStatus,
