@@ -790,6 +790,13 @@ export const backend = {
       { method: "POST", body: JSON.stringify(v) },
       { timeoutMs: 30_000, retries: 0 },
     ),
+  /** Lager ferdig stemmefil fra siste checkpoint – uten å trene på nytt. */
+  eksporterStemme: (v: { mappe?: string; jobbId?: string }) =>
+    call<{ jobb: TrainingJob }>(
+      ROUTES.ttsTrainingExport!,
+      { method: "POST", body: JSON.stringify(v) },
+      { timeoutMs: 30_000, retries: 0 },
+    ),
   publiserTrening: (id: string, modell?: string) =>
     call<{ modell: string }>(
       `${ROUTES.ttsTraining}/${encodeURIComponent(id)}/publiser`,

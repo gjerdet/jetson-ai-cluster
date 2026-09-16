@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, RefreshCw, Sparkles, Volume2 } from "lucide-react";
+import { Check, Download, RefreshCw, Sparkles, Volume2 } from "lucide-react";
 import { backend, safe, type TrainedVoice } from "@/lib/backend";
 
 /**
@@ -32,6 +32,15 @@ export function TrainedVoices({ onValgt }: { onValgt?: (fil: string) => void } =
     onValgt?.(s.fil);
     setStatus(`${s.navn} er nå aktiv stemme på noden`);
     void last();
+  };
+
+  const eksporter = async (s: TrainedVoice) => {
+    setStatus(`lager ferdig stemmefil av ${s.navn}…`);
+    const { data, error } = await safe(() => backend.eksporterStemme({ mappe: s.mappe }));
+    if (error) return setStatus(error.message);
+    setStatus(
+      `${data.jobb.navn} lagt i kø – ingen ny trening, bare uthenting av stemmefila. Trykk OPPDATER om et par minutter.`,
+    );
   };
 
   const trenMer = async (s: TrainedVoice) => {
@@ -82,6 +91,14 @@ export function TrainedVoices({ onValgt }: { onValgt?: (fil: string) => void } =
                   className="flex shrink-0 items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-primary hover:bg-primary/10"
                 >
                   <Check className="size-3" /> BRUK
+                </button>
+              ) : null}
+              {s.kanTreneMer && !s.fil ? (
+                <button
+                  onClick={() => void eksporter(s)}
+                  className="flex shrink-0 items-center gap-1 rounded-full border border-primary/40 px-2 py-0.5 text-primary hover:bg-primary/10"
+                >
+                  <Download className="size-3" /> LAG STEMMEFIL
                 </button>
               ) : null}
               {s.kanTreneMer ? (

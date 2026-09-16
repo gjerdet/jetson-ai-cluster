@@ -107,6 +107,7 @@ export const ROUTES = {
   ttsTrainedVoices: "/tts/stemmer/trente",
   ttsTrainedActivate: "/tts/stemmer/trente/aktiver",
   ttsTrainingContinue: "/tts/trening/fortsett",
+  ttsTrainingExport: "/tts/trening/eksporter",
   airllmStatus: "/airllm/status",
   airllmConfig: "/airllm/config",
   airllmInstall: "/airllm/installer",

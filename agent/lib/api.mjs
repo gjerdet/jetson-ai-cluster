@@ -75,6 +75,7 @@ import {
   lokaleStemmer,
   aktiverStemme,
   fortsettTrening,
+  eksporterStemme,
 } from "./trening.mjs";
 
 import {
@@ -1223,6 +1224,15 @@ export async function handleApi(req, res, route, url, deps = {}) {
         return json(req, res, 200, {
           jobb: await fortsettTrening({ mappe: b?.mappe, jobbId: b?.jobbId, epoker: b?.epoker, batch: b?.batch }),
         });
+      } catch (e) {
+        return json(req, res, 400, { error: String(e?.message || e) });
+      }
+    }
+
+    if (path === "/tts/trening/eksporter" && method === "POST") {
+      const b = await readBody(req);
+      try {
+        return json(req, res, 200, { jobb: await eksporterStemme({ mappe: b?.mappe, jobbId: b?.jobbId }) });
       } catch (e) {
         return json(req, res, 400, { error: String(e?.message || e) });
       }
