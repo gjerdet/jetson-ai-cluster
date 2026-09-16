@@ -66,6 +66,9 @@ import {
   type GeneratedTool,
   type InitiativeStatus,
   type MemoryStats,
+  type ImproveDay,
+  type ImproveStatus,
+  type CodeProposal,
 } from "@/lib/contract";
 
 export type {
