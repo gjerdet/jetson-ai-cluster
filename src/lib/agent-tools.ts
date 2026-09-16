@@ -91,14 +91,16 @@ export const TOOL_CATALOG: ToolSpec[] = [
   {
     name: "world_brief",
     category: "verden",
-    summary: "Topp hendelser fra World Monitor.",
+    summary:
+      "Topp hendelser fra den interne World Monitor-strømmen. IKKE en nettside – kan ikke lese tek.no, vg.no eller andre nettsteder.",
     args: '{"antall": 10}',
     builtin: true,
   },
   {
     name: "world_sok",
     category: "verden",
-    summary: "Søker i World Monitor-hendelsene på fritekst og lag.",
+    summary:
+      "Søker i de interne World Monitor-hendelsene. Gjelder ikke innhold på eksterne nettsteder – bruk les_url til det.",
     args: '{"sok": "ukraina", "lag": "war", "antall": 10}',
     builtin: true,
   },
@@ -148,7 +150,8 @@ export const TOOL_CATALOG: ToolSpec[] = [
   {
     name: "les_url",
     category: "minne",
-    summary: "Henter og leser en nettside eller dokumentasjonsside som ren tekst.",
+    summary:
+      "Henter og leser en hvilken som helst nettside som ren tekst – forsiden av et nettsted, en artikkel eller dokumentasjon. Bruk dette når brukeren nevner et nettsted ved navn.",
     args: '{"url": "https://www.truenas.com/docs/api/"}',
     builtin: true,
   },
@@ -352,6 +355,43 @@ export const TOOL_CATALOG: ToolSpec[] = [
 
 export const TOOL_NAMES = TOOL_CATALOG.map((t) => t.name);
 
+/** Toppdomener vi regner som «brukeren nevnte et nettsted». */
+const TLD = "no|com|net|org|io|dev|se|dk|fi|uk|eu|info|tv|me|ai";
+const NETTSTED = new RegExp(`\\b((?:[a-z0-9-]+\\.)+(?:${TLD}))(/[^\\s)]*)?`, "i");
+
+/** Gjør «tek.no» eller «www.tek.no/artikkel» om til en fullstendig adresse. */
+export function normaliserUrl(raw: string): string {
+  const t = String(raw ?? "").trim().replace(/^[<("']+|[>)"'.,]+$/g, "");
+  if (!t) return "";
+  if (/^https?:\/\//i.test(t)) return t;
+  if (NETTSTED.test(t)) return `https://${t.replace(/^\/+/, "")}`;
+  return t;
+}
+
+/** Nettstedet brukeren nevnte i meldingen, som full adresse – ellers tom streng. */
+export function nettstedIMelding(tekst: string): string {
+  const m = NETTSTED.exec(String(tekst ?? ""));
+  if (!m) return "";
+  return normaliserUrl(m[0]);
+}
+
+/**
+ * Modellene velger ofte World Monitor når brukeren spør om nyheter på et navngitt
+ * nettsted. World Monitor er vår egen interne hendelsesstrøm og kan ikke lese
+ * nettsteder, så slike kall rutes om til les_url mot siden brukeren faktisk nevnte.
+ */
+export function korrigerVerktoyvalg(calls: ToolCall[], sporsmal: string): ToolCall[] {
+  const url = nettstedIMelding(sporsmal);
+  if (!url) return calls;
+  let brukt = false;
+  return calls.map((c) => {
+    if (!/^world_(brief|sok|lag)$/.test(c.name) || brukt) return c;
+    brukt = true;
+    const args = { url };
+    return { name: "les_url", args, raw: `VERKTØY: les_url ${JSON.stringify(args)}` };
+  });
+}
+
 export const TOOL_PROMPT = `Du har verktøy du kan bruke for å hente ekte data før du svarer.
 Skriv verktøykall på egen linje, nøyaktig slik:
 VERKTØY: navn {"felt": "verdi"}
@@ -362,7 +402,7 @@ Tilgjengelige verktøy:
 - enheter {} – alle registrerte ESP32/Pi-enheter med emner og evner.
 - noder {} – status og svartid for alle AI-noder.
 - system_hent {"navn": "TrueNAS", "sti": "/pool/dataset"} – henter data fra et tilkoblet lokalt system.
-- world_brief {"antall": 10} – topp hendelser fra World Monitor.
+- world_brief {"antall": 10} – topp hendelser fra den INTERNE World Monitor-strømmen. Kan ikke lese nettsteder.
 - world_sok {"sok": "ukraina", "lag": "war", "antall": 10} – søk i World Monitor-hendelsene.
 - world_lag {"lag": "cyber"} – status per lag i World Monitor (uten «lag»: alle lag) og DEFCON/Pentagon Pizza.
 - maskin_kort {"frisk": true} – ferskt maskin-ID-kort: modell, OS, CPU/GPU, IP, subnett, lokale modeller, klyngenoder.
@@ -372,7 +412,8 @@ Tilgjengelige verktøy:
   leser kildene og lagrer dem varig i den lokale kunnskapsbasen. Du kan også gi {"urler": ["https://..."]}.
 - web_sok {"sok": "TrueNAS API pools", "antall": 5} – finn kilder: tittel, URL og et kort utdrag fra hver
   kilde. Treffene vises som et eget søkekort i chatten der brukeren kan lagre en kilde i kunnskapsbasen.
-- les_url {"url": "https://..."} – les én side/dokumentasjon som ren tekst.
+- les_url {"url": "https://www.tek.no"} – les en hvilken som helst nettside som ren tekst: forsiden av et
+  nettsted, en artikkel eller dokumentasjon. Dette er verktøyet for «hva står på <nettsted> nå».
 - minne_lagre {"tekst": "..."} – lagrer et varig faktum.
 - utstyr_liste {} eller {"sok": "truenas"} – slå opp i utstyrsregisteret: kjente enheter med IP, type, rolle og fakta.
 - utstyr_lagre {"navn": "TrueNAS", "ip": "192.168.1.20", "type": "truenas", "faktum": "..."} – opprett/oppdater en enhetsprofil.
@@ -455,6 +496,13 @@ R12. KUNNSKAPSHULL = LÆR, IKKE UNNSKYLD. Vet du ikke nok om et emne (produkt, A
     les_url når brukeren allerede har gitt deg lenken. Alt du lærer havner i den lokale
     kunnskapsbasen og hentes automatisk neste gang – si kort i svaret hva du lærte deg og hvorfra.
     Er lærdommen om HVORDAN du skal jobbe, lagre den i tillegg med laer_regel (R11).
+
+R17. EKSTERNE NETTSTEDER LESES MED les_url. Nevner brukeren et nettsted ved navn eller adresse
+    (tek.no, vg.no, nrk.no, en produsentside, en dokumentasjonsside), skal du hente den siden med
+    les_url – aldri med world_brief, world_sok eller world_lag. World Monitor er din egen interne
+    hendelsesstrøm og vet ingenting om innholdet på andre nettsteder. Vet du ikke adressen, finn
+    den først med web_sok. Etter les_url oppsummerer du det som faktisk står på siden, med tittel
+    og URL som kilde. Skal innholdet huskes, bruk laer_om i tillegg.
 
 R13. UTSTYRSREGISTERET ER FASITEN. Gjelder spørsmålet en enhet hos brukeren (TrueNAS, Proxmox,
     UniFi, Homey, Juniper, en Jetson-node, en server), slå den opp med utstyr_liste FØR du skanner
@@ -1012,7 +1060,7 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
   }
 
   if (call.name === "les_url") {
-    const url = str(call.args["url"] ?? call.args["adresse"]).trim();
+    const url = normaliserUrl(str(call.args["url"] ?? call.args["adresse"] ?? call.args["nettsted"]));
     if (!url) return "Mangler «url».";
     try {
       const r = await backend.hentNettsideTilKunnskap(url);
