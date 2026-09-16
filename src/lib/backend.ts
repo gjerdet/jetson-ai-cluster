@@ -80,6 +80,8 @@ export type {
   LearningGap,
   LearningSession,
   LearningStatus,
+  LearningPlanItem,
+  LearningEngine,
   VoiceClipStats,
   VoiceClipVerify,
   TrainingJob,
