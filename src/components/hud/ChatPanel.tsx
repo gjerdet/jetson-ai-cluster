@@ -47,6 +47,7 @@ import {
   parseToolCalls,
   korrigerVerktoyvalg,
   redningsKall,
+  krevesFerskeData,
   runTool,
   stripToolCalls,
   TOOL_PROMPT,
