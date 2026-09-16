@@ -837,6 +837,13 @@ export const backend = {
       { method: "POST", body: JSON.stringify({ tema, straks }) },
       { timeoutMs: 180_000, retries: 0 },
     ),
+  /** Ber ham finne egne læringsmål nå. */
+  foreslaMal: () =>
+    call<{ mal: string[]; antall: number }>(
+      ROUTES.learningGoals!,
+      { method: "POST" },
+      { timeoutMs: 180_000, retries: 0 },
+    ),
   /** Kjører en selvtest mot egen kunnskapsbase. */
   kjorSelvtest: () =>
     call<{ sporsmal?: string; score?: number | null; svakt?: boolean; hoppet?: string }>(

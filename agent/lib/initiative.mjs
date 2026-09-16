@@ -13,7 +13,7 @@ import { maskinKort, selvtest } from "./identitet.mjs";
 import { byggVerktoy, rollbackTool, verktoyMedProblemer } from "./toolgen.mjs";
 import { diagnoserAlle } from "./kollega.mjs";
 import { gpuStatus } from "./gpu.mjs";
-import { planleggLaering, laerTema, selvQuiz, konsoliderLaering } from "./selvlaering.mjs";
+import { planleggLaering, laerTema, selvQuiz, konsoliderLaering, foreslaMal } from "./selvlaering.mjs";
 import {
   dagsRapport,
   retrospektiv,
@@ -333,6 +333,18 @@ async function utforJobb(jobb) {
         resultat: r.ok ? `${r.kilder} kilder lagret lokalt` : "fant ingen brukbare kilder",
       });
       return r.ok ? `lærte fra ${r.kilder} kilder` : "fant ingen kilder";
+    }
+    if (jobb.type === "finn-mal") {
+      const r = await foreslaMal();
+      if (r.antall)
+        loggRevisjon({
+          hva: `Satte seg ${r.antall} egne læringsmål`,
+          hvorfor: "Ingen åpne kunnskapshull – valgte selv hva han skulle bli bedre på",
+          type: "kunnskap",
+          ref: r.mal.join("; ").slice(0, 200),
+          resultat: r.mal.join("; ").slice(0, 200),
+        });
+      return r.antall ? `${r.antall} egne mål: ${r.mal.join("; ")}` : "fant ingen nye mål";
     }
     if (jobb.type === "selvtest") {
       const r = await selvQuiz();

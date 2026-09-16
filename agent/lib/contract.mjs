@@ -165,6 +165,7 @@ export const ROUTES = {
   learning: "/laering",
   learningToggle: "/laering/av-pa",
   learningTopic: "/laering/tema",
+  learningGoals: "/laering/mal",
   learningSelftest: "/laering/selvtest",
   learningConsolidate: "/laering/konsolider",
 

@@ -78,6 +78,16 @@ export function SelvlaeringSection() {
           <button className={btnCls} onClick={() => void last()} disabled={!!jobber}>
             <RefreshCw className="h-3 w-3" /> OPPDATER
           </button>
+          <button
+            className={btnCls}
+            onClick={() => void kjor("egne mål", async () => {
+              const r = await backend.foreslaMal();
+              return r.antall ? `Satte seg ${r.antall} egne mål: ${r.mal.join(", ")}` : "Fant ingen nye mål denne gangen.";
+            })}
+            disabled={!!jobber}
+          >
+            FINN EGNE MÅL
+          </button>
           <button className={btnCls} onClick={() => void kjor("selvtest", async () => {
             const r = await backend.kjorSelvtest();
             if (r.hoppet) return r.hoppet;
