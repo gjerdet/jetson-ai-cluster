@@ -6,6 +6,7 @@
 import { addDocument, search } from "./rag.mjs";
 
 const UA = "JarvisAgent/1.0 (lokal kunnskapsbase)";
+const BLOKKERT = /enable javascript|javascript is required|access denied|verify you are human|checking your browser|captcha|robot check|du må aktivere javascript/i;
 
 const avkod = (s) =>
   String(s || "")
@@ -89,35 +90,130 @@ export function overskrifterFraHtml(html, baseUrl = "") {
   return funn.slice(0, 20);
 }
 
-/** Henter en nettside og returnerer tittel + ren tekst (med toppsaker først). */
-export async function hentUrl(url, { timeoutMs = 20_000, maksTegn = 200_000 } = {}) {
-  const u = sjekkUrl(url);
+/** Nyheter fra JSON-LD fungerer også på sider der artiklene bygges med JavaScript. */
+export function strukturerteSakerFraHtml(html, baseUrl = "") {
+  const funn = [];
+  const sett = new Set();
+  const legg = (node) => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) return node.forEach(legg);
+    const type = String(node["@type"] || "");
+    const tittel = String(node.headline || node.name || "").replace(/\s+/g, " ").trim();
+    if (/NewsArticle|Article|BlogPosting/i.test(type) && tittel.length >= 12 && !sett.has(tittel.toLowerCase())) {
+      let url = String(node.url || node.mainEntityOfPage?.["@id"] || node.mainEntityOfPage || "");
+      try { url = url ? new URL(url, baseUrl || undefined).toString() : ""; } catch { url = ""; }
+      sett.add(tittel.toLowerCase());
+      funn.push({ tittel, url, publisert: String(node.datePublished || node.dateModified || "") });
+    }
+    Object.values(node).forEach(legg);
+  };
+  const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = re.exec(String(html || "")))) {
+    try { legg(JSON.parse(avkod(m[1]).trim())); } catch { /* ugyldig JSON-LD */ }
+  }
+  return funn.slice(0, 20);
+}
+
+export function rssSaker(xml, baseUrl = "") {
+  const funn = [];
+  const sett = new Set();
+  const blokker = String(xml || "").match(/<(?:item|entry)\b[\s\S]*?<\/(?:item|entry)>/gi) || [];
+  for (const blokk of blokker) {
+    const hent = (tag) => avkod(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i").exec(blokk)?.[1] || "")
+      .replace(/<!\[CDATA\[|\]\]>/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const tittel = hent("title");
+    if (tittel.length < 8 || sett.has(tittel.toLowerCase())) continue;
+    let url = hent("link") || /<link[^>]+href=["']([^"']+)/i.exec(blokk)?.[1] || hent("guid");
+    try { url = url ? new URL(url, baseUrl || undefined).toString() : ""; } catch { url = ""; }
+    sett.add(tittel.toLowerCase());
+    funn.push({ tittel, url, publisert: hent("pubDate") || hent("published") || hent("updated") });
+  }
+  return funn.slice(0, 20);
+}
+
+function rssLenkerFraHtml(html, baseUrl) {
+  const ut = [];
+  const re = /<link[^>]+type=["']application\/(?:rss|atom)\+xml["'][^>]+href=["']([^"']+)/gi;
+  let m;
+  while ((m = re.exec(String(html || "")))) {
+    try { ut.push(new URL(avkod(m[1]), baseUrl).toString()); } catch { /* ignorer */ }
+  }
+  return ut;
+}
+
+async function hentTekst(url, timeoutMs) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const r = await fetch(u, { headers: { "user-agent": UA, accept: "text/html,text/plain,*/*" }, signal: ctrl.signal });
+    const r = await fetch(url, {
+      headers: { "user-agent": UA, accept: "text/html,application/xhtml+xml,application/rss+xml,application/atom+xml,text/plain;q=0.8,*/*;q=0.2" },
+      signal: ctrl.signal,
+      redirect: "follow",
+    });
     if (!r.ok) throw new Error(`Kilden svarte ${r.status}`);
-    const raa = await r.text();
-    const type = String(r.headers.get("content-type") || "");
+    return { raa: await r.text(), type: String(r.headers.get("content-type") || ""), url: r.url || String(url) };
+  } finally { clearTimeout(timer); }
+}
+
+/** Henter en nettside og returnerer tittel + ren tekst (med toppsaker først). */
+export async function hentUrl(url, { timeoutMs = 20_000, maksTegn = 200_000, sporsmal = "" } = {}) {
+  const u = sjekkUrl(url);
+  try {
+    const { raa, type, url: sluttUrl } = await hentTekst(u, timeoutMs);
     const erHtml = !/json|text\/plain|markdown/i.test(type);
     const brodtekst = erHtml ? tekstFraHtml(fjernRamme(raa)) || tekstFraHtml(raa) : raa.trim();
-    const overskrifter = erHtml ? overskrifterFraHtml(raa, u.toString()) : [];
+    const strukturerte = erHtml ? strukturerteSakerFraHtml(raa, sluttUrl) : [];
+    let overskrifter = erHtml ? [...strukturerte, ...overskrifterFraHtml(raa, sluttUrl)] : [];
+    overskrifter = overskrifter.filter((sak, i, alle) => alle.findIndex((x) => x.tittel.toLowerCase() === sak.tittel.toLowerCase()) === i);
+    let metode = strukturerte.length ? "JSON-LD + HTML" : "HTML";
+
+    // Tynne/JavaScript-baserte forsider får en reservevei via nettstedets feed.
+    if (erHtml && (overskrifter.length < 2 || BLOKKERT.test(brodtekst))) {
+      const kandidater = [
+        ...rssLenkerFraHtml(raa, sluttUrl),
+        new URL("/feed/", sluttUrl).toString(),
+        new URL("/rss", sluttUrl).toString(),
+        new URL("/rss.xml", sluttUrl).toString(),
+        new URL("/feed.xml", sluttUrl).toString(),
+      ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 5);
+      for (const feedUrl of kandidater) {
+        try {
+          const feed = await hentTekst(feedUrl, Math.min(timeoutMs, 8_000));
+          const saker = rssSaker(feed.raa, feed.url);
+          if (saker.length) { overskrifter = saker; metode = "RSS/Atom"; break; }
+        } catch { /* prøv neste feed */ }
+      }
+    }
+
+    // Siste reservevei: målrettet søk i domenet. Gir ekte kilder selv ved bot-sperre.
+    if (overskrifter.length < 2 || BLOKKERT.test(brodtekst)) {
+      try {
+        const hensikt = String(sporsmal || "nyeste nyheter").replace(/\bhttps?:\/\/\S+/gi, "").trim();
+        const sok = await sokWeb(`site:${u.hostname} ${hensikt || "nyeste nyheter"}`, 8);
+        if (sok.treff.length) {
+          overskrifter = sok.treff.map((t) => ({ tittel: t.tittel, url: t.url, publisert: "" }));
+          metode = "målrettet nettsøk";
+        }
+      } catch { /* den direkte teksten kan fortsatt være nyttig */ }
+    }
     const topp = overskrifter.length
-      ? `TOPPSAKER PÅ SIDEN (nyeste øverst):\n${overskrifter
-          .map((o, i) => `${i + 1}. ${o.tittel}${o.url ? `\n   ${o.url}` : ""}`)
+      ? `TOPPSAKER/KILDER (${metode}; rekkefølgen er kildens, ikke gjett publiseringstid):\n${overskrifter
+          .map((o, i) => `${i + 1}. ${o.tittel}${o.publisert ? ` (${o.publisert})` : ""}${o.url ? `\n   ${o.url}` : ""}`)
           .join("\n")}\n\n`
       : "";
     const tekst = `${topp}${brodtekst}`.trim();
     const tittel = avkod(/<title[^>]*>([\s\S]*?)<\/title>/i.exec(raa)?.[1] || "").trim() || u.hostname + u.pathname;
-    if (!tekst) throw new Error("Fant ingen lesbar tekst på siden.");
+    if (!tekst || (BLOKKERT.test(tekst) && !overskrifter.length)) throw new Error("Siden blokkerte lesing, og reservekildene ga ingen treff.");
     return {
-      url: u.toString(),
+      url: sluttUrl,
       tittel: tittel.slice(0, 300),
       tekst: tekst.slice(0, maksTegn),
       overskrifter,
+      metode,
     };
-  } finally {
-    clearTimeout(timer);
+  } catch (e) {
+    throw new Error(`Klarte ikke hente ${u.hostname}: ${String(e?.message || e)}`);
   }
 }
 

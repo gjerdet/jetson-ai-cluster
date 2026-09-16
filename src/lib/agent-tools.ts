@@ -443,7 +443,7 @@ export function redningsKall(sporsmal: string): ToolCall | null {
   }
   const url = nettstedIMelding(tekst);
   if (url) {
-    const args = { url };
+    const args = { url, sporsmal: tekst.slice(0, 500) };
     return { name: "les_url", args, raw: `VERKTØY: les_url ${JSON.stringify(args)}` };
   }
   if (HANDLINGSOPPGAVE.test(tekst)) {
@@ -465,7 +465,7 @@ export function korrigerVerktoyvalg(calls: ToolCall[], sporsmal: string): ToolCa
   return calls.map((c) => {
     if (!/^world_(brief|sok|lag)$/.test(c.name) || brukt) return c;
     brukt = true;
-    const args = { url };
+    const args = { url, sporsmal: String(sporsmal ?? "").slice(0, 500) };
     return { name: "les_url", args, raw: `VERKTØY: les_url ${JSON.stringify(args)}` };
   });
 }
@@ -1181,10 +1181,11 @@ export async function runTool(call: ToolCall, ctx: ToolContext): Promise<string>
 
   if (call.name === "les_url") {
     const url = normaliserUrl(str(call.args["url"] ?? call.args["adresse"] ?? call.args["nettsted"]));
+    const sporsmal = str(call.args["sporsmal"] ?? call.args["hensikt"] ?? "");
     if (!url) return "Mangler «url».";
     try {
-      const r = await backend.hentNettsideTilKunnskap(url);
-      return `${r.tittel} (${r.url}):\n${r.tekst.slice(0, 8000)}`;
+      const r = await backend.hentNettsideTilKunnskap(url, sporsmal);
+      return `${r.tittel} (${r.url})${r.metode ? ` · hentet med ${r.metode}` : ""}:\n${r.tekst.slice(0, 12000)}\n\nKILDEKRAV: Svar bare med opplysninger som står over. Ta med URL-en. Hvis rekkefølge eller dato ikke er bekreftet, si det tydelig i stedet for å gjette.`;
     } catch (e) {
       return `Klarte ikke lese siden: ${e instanceof Error ? e.message : String(e)}`;
     }

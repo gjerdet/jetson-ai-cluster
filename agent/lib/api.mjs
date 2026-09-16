@@ -1174,7 +1174,9 @@ export async function handleApi(req, res, route, url, deps = {}) {
 
     if (path === "/kunnskap/hent-url" && method === "POST") {
       const b = await readBody(req);
-      return json(req, res, 200, await hentUrl(str(b.url, "URL", { maks: 800, min: 1 })));
+      return json(req, res, 200, await hentUrl(str(b.url, "URL", { maks: 800, min: 1 }), {
+        sporsmal: str(b.sporsmal, "Spørsmål", { maks: 500 }),
+      }));
     }
 
     if (path === "/kunnskap/laer" && method === "POST") {

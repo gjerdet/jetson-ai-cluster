@@ -659,10 +659,10 @@ export const backend = {
       { method: "POST", body: JSON.stringify({ sporsmal, antall }) },
       { timeoutMs: 30_000, retries: 0 },
     ),
-  hentNettsideTilKunnskap: (url: string) =>
-    call<{ url: string; tittel: string; tekst: string }>(
+  hentNettsideTilKunnskap: (url: string, sporsmal = "") =>
+    call<{ url: string; tittel: string; tekst: string; metode?: string; overskrifter?: { tittel: string; url?: string; publisert?: string }[] }>(
       ROUTES.knowledgeFetchUrl!,
-      { method: "POST", body: JSON.stringify({ url }) },
+      { method: "POST", body: JSON.stringify({ url, sporsmal }) },
       { timeoutMs: 40_000, retries: 0 },
     ),
   laerOm: (tema: string, o: { urler?: string[]; antall?: number } = {}) =>
