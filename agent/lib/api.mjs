@@ -127,7 +127,24 @@ import {
   oppdaterSteg,
   resumePlan,
 } from "./planner.mjs";
-import { evaluate as evaluateReply, evaluateChatReply, evaluationStats, listEvaluations } from "./evaluator.mjs";
+import {
+  evaluate as evaluateReply,
+  evaluateChatReply,
+  evaluateChatReplyInBackground,
+  evaluationStats,
+  listEvaluations,
+} from "./evaluator.mjs";
+import {
+  registrerSamtale,
+  registrerHull,
+  listHull,
+  listOkter,
+  laerTema,
+  selvQuiz,
+  konsoliderLaering,
+  laeringStatus,
+  settPa as settSelvlaering,
+} from "./selvlaering.mjs";
 import {
   approveSuggestion,
   initiativeStatus,
