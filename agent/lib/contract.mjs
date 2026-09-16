@@ -161,6 +161,12 @@ export const ROUTES = {
   initiativeRollback: "/initiativ/tilbake",
   initiativeLearn: "/initiativ/regel",
 
+  // selvlæring
+  learning: "/laering",
+  learningToggle: "/laering/av-pa",
+  learningTopic: "/laering/tema",
+  learningSelftest: "/laering/selvtest",
+  learningConsolidate: "/laering/konsolider",
 };
 
 
