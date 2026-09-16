@@ -472,7 +472,13 @@ async function tikk() {
 
 export function start(intervalMs = 60 * 1000) {
   stop();
-  if (ER_MOTOR) settMotor({ hjerteslag: Date.now(), pid: process.pid });
+  if (ER_MOTOR) {
+    // Etter omstart skal motoren bruke brukerens siste aktivitet, ikke starttidspunktet –
+    // ellers ville hver omstart utsette bakgrunnsarbeidet med ti nye minutter.
+    const lagret = Number(motorDb().sisteAktivitet || 0);
+    if (lagret) sisteChat = lagret;
+    settMotor({ hjerteslag: Date.now(), pid: process.pid });
+  }
   timer = setInterval(() => {
     tikk().catch((e) => console.error("[initiativ] feil:", e));
   }, intervalMs);
