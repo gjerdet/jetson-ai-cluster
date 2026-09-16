@@ -141,12 +141,27 @@ export async function retrospektiv({ maksJobber = 5 } = {}) {
   const jobber = (parsed.jobber || [])
     .slice(0, maksJobber)
     .map((j) => ({
-      type: ["laer-om", "bygg-verktoy", "reparer-verktoy", "selvtest", "kodeforbedring"].includes(String(j.type)) ? String(j.type) : "laer-om",
+      type: ["laer-om", "bygg-verktoy", "reparer-verktoy", "verktoy-ovelse", "selvtest", "kodeforbedring"].includes(String(j.type)) ? String(j.type) : "laer-om",
       tekst: String(j.tekst || "").slice(0, 300),
       prioritet: Math.min(10, Math.max(1, Number(j.prioritet) || 5)),
-      data: { tema: String(j.tekst || "").slice(0, 120), hvorfor: String(j.hvorfor || "").slice(0, 200), fil: String(j.fil || "").slice(0, 120), beskrivelse: String(j.tekst || "").slice(0, 300) },
+      data: {
+        tema: String(j.tekst || "").slice(0, 120),
+        hvorfor: String(j.hvorfor || "").slice(0, 200),
+        fil: String(j.fil || "").slice(0, 120),
+        navn: String(j.navn || "vaer").slice(0, 60),
+        beskrivelse: String(j.tekst || "").slice(0, 300),
+      },
     }))
     .filter((j) => j.tekst);
+
+  // Verktøyøvelsen står alltid på dagsplanen, uansett hva modellen foreslo.
+  if (!jobber.some((j) => j.type === "verktoy-ovelse"))
+    jobber.unshift({
+      type: "verktoy-ovelse",
+      tekst: "Øv på værverktøyet: hent ekte varsel, lær av feil og prøv igjen",
+      prioritet: 6,
+      data: { navn: "vaer", tema: "MET Norway (Yr) locationforecast API", hvorfor: "Verktøyene skal virke når brukeren spør" },
+    });
 
   const d = db();
   d.sisteRetro = Date.now();
