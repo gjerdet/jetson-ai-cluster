@@ -49,6 +49,9 @@ import {
   type TrainingPlan,
   type TrainingResult,
   type TrainedVoice,
+  type LearningGap,
+  type LearningSession,
+  type LearningStatus,
   type TrainingNodes,
   type TrainingDistribution,
   type PiperSelftest,
@@ -66,6 +69,9 @@ import {
 } from "@/lib/contract";
 
 export type {
+  LearningGap,
+  LearningSession,
+  LearningStatus,
   VoiceClipStats,
   VoiceClipVerify,
   TrainingJob,
