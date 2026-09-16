@@ -355,6 +355,43 @@ export const TOOL_CATALOG: ToolSpec[] = [
 
 export const TOOL_NAMES = TOOL_CATALOG.map((t) => t.name);
 
+/** Toppdomener vi regner som «brukeren nevnte et nettsted». */
+const TLD = "no|com|net|org|io|dev|se|dk|fi|uk|eu|info|tv|me|ai";
+const NETTSTED = new RegExp(`\\b((?:[a-z0-9-]+\\.)+(?:${TLD}))(/[^\\s)]*)?`, "i");
+
+/** Gjør «tek.no» eller «www.tek.no/artikkel» om til en fullstendig adresse. */
+export function normaliserUrl(raw: string): string {
+  const t = String(raw ?? "").trim().replace(/^[<("']+|[>)"'.,]+$/g, "");
+  if (!t) return "";
+  if (/^https?:\/\//i.test(t)) return t;
+  if (NETTSTED.test(t)) return `https://${t.replace(/^\/+/, "")}`;
+  return t;
+}
+
+/** Nettstedet brukeren nevnte i meldingen, som full adresse – ellers tom streng. */
+export function nettstedIMelding(tekst: string): string {
+  const m = NETTSTED.exec(String(tekst ?? ""));
+  if (!m) return "";
+  return normaliserUrl(m[0]);
+}
+
+/**
+ * Modellene velger ofte World Monitor når brukeren spør om nyheter på et navngitt
+ * nettsted. World Monitor er vår egen interne hendelsesstrøm og kan ikke lese
+ * nettsteder, så slike kall rutes om til les_url mot siden brukeren faktisk nevnte.
+ */
+export function korrigerVerktoyvalg(calls: ToolCall[], sporsmal: string): ToolCall[] {
+  const url = nettstedIMelding(sporsmal);
+  if (!url) return calls;
+  let brukt = false;
+  return calls.map((c) => {
+    if (!/^world_(brief|sok|lag)$/.test(c.name) || brukt) return c;
+    brukt = true;
+    const args = { url };
+    return { name: "les_url", args, raw: `VERKTØY: les_url ${JSON.stringify(args)}` };
+  });
+}
+
 export const TOOL_PROMPT = `Du har verktøy du kan bruke for å hente ekte data før du svarer.
 Skriv verktøykall på egen linje, nøyaktig slik:
 VERKTØY: navn {"felt": "verdi"}

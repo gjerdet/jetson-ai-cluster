@@ -45,6 +45,7 @@ import { briefingText, refreshFeed, snapshot, startFeedWarmup } from "@/lib/worl
 import { learnedRulesPrompt, refreshLearnedRules } from "@/lib/learned-rules";
 import {
   parseToolCalls,
+  korrigerVerktoyvalg,
   runTool,
   stripToolCalls,
   TOOL_PROMPT,
@@ -467,7 +468,7 @@ export function ChatPanel({
         const raw = call.text;
         answeredBy = call.node.name;
         svarModell = (call as { modell?: string }).modell ?? call.node?.model ?? "";
-        const calls = parseToolCalls(raw, customToolNames(config));
+        const calls = korrigerVerktoyvalg(parseToolCalls(raw, customToolNames(config)), text);
         trace({
           turId,
           kind: "runde",
