@@ -80,7 +80,7 @@ const UNNVIKELSE =
   /(ingen enheter|har ikke tilgang|ikke mulighet|kan ikke se|jeg mangler|ingen registrerte|vi kan sammen|ønsker du at jeg|tar jeg gjerne imot|si ifra hvis)/i;
 /** Svar der modellen gir opp uten å ha prøvd et eneste verktøy. */
 const GIR_OPP =
-  /(har (jeg )?ingen tilgang|har ikke tilgang|ikke tilgang til|kan ikke (kjøre|bruke|hente|søke|sjekke)|som en (virtuell |virtual )?assistent|som en ai|jeg er en (språkmodell|ai)|anbefaler (jeg )?(deg )?å (søke|sjekke|prøve)|du kan (selv )?(søke|sjekke)|sanntid|i sanntid|aktuelle data|oppdaterte data)/i;
+  /(har (jeg )?ingen tilgang|har ikke tilgang|ikke tilgang til|kan ikke (kjøre|bruke|hente|søke|sjekke|svare|si)|som en (virtuell |virtual )?assistent|som en ai|jeg er en (språkmodell|ai)|anbefaler (jeg )?(deg )?å (søke|sjekke|prøve)|du kan (selv )?(søke|sjekke)|sanntid|i sanntid|aktuelle data|oppdaterte data|må (jeg )?(spørre|søke|slå opp|sjekke)|jeg (vet|finner) ikke|usikker på|trenger (jeg )?(å søke|mer informasjon)|kunne (jeg )?(ha )?(søkt|sjekket))/i;
 const VERKTOYFEIL =
   /^(?:Feil:|Ukjent |Klarte ikke|Kan ikke|Mangler |Ingen .*tilgjengelig|.*\bfeilet\b)/i;
 
