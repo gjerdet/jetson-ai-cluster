@@ -22,6 +22,8 @@ export function SelvlaeringSection() {
   const [status, setStatus] = useState<LearningStatus | null>(null);
   const [hull, setHull] = useState<LearningGap[]>([]);
   const [okter, setOkter] = useState<LearningSession[]>([]);
+  const [plan, setPlan] = useState<LearningPlanItem[]>([]);
+  const [motor, setMotor] = useState<LearningEngine | null>(null);
   const [tema, setTema] = useState("");
   const [jobber, setJobber] = useState("");
   const [melding, setMelding] = useState<string | null>(null);
@@ -34,10 +36,15 @@ export function SelvlaeringSection() {
     setStatus(data.status);
     setHull(data.hull);
     setOkter(data.okter);
+    setPlan(data.plan ?? []);
+    setMotor(data.motor ?? null);
   };
 
   useEffect(() => {
     void last();
+    // Livebilde: hent status hvert 10. sekund så man ser at han faktisk jobber.
+    const t = setInterval(() => void last(), 10_000);
+    return () => clearInterval(t);
   }, []);
 
   const kjor = async (navn: string, fn: () => Promise<string>) => {
