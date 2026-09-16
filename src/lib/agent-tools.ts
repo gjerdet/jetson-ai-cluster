@@ -143,9 +143,10 @@ export const TOOL_CATALOG: ToolSpec[] = [
   {
     name: "vaer",
     category: "verden",
-    description:
-      "Værvarsel for et hvilket som helst sted: nå, min/maks og time for time. Henter ekte data fra MET Norway (Yr).",
+    summary:
+      "Værvarsel for et hvilket som helst sted: nå, min/maks og time for time. Ekte data fra MET Norway (Yr).",
     args: '{"sted": "Åsmarka", "timer": 12}',
+    builtin: true,
   },
   {
     name: "web_sok",
