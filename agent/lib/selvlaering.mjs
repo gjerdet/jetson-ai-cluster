@@ -233,10 +233,41 @@ export async function konsoliderLaering() {
   return { notater: lagt };
 }
 
+/**
+ * Finner egne læringsmål når ingen hull er notert: ser på hva samtalene har
+ * handlet om og hva kunnskapsbasen allerede dekker, og velger selv temaer å
+ * bli bedre på. Temaene legges inn som åpne hull med grunn «eget mål».
+ */
+export async function foreslaMal({ antall = 3 } = {}) {
+  const d = db();
+  const samtaler = (d.samtaler || []).slice(0, 15).map((s) => s.sporsmal).filter(Boolean);
+  const dokumenter = listDocuments().slice(0, 20).map((x) => x.tittel).filter(Boolean);
+  const alt = new Set((d.hull || []).map((h) => h.tema.toLowerCase()));
+  const parsed = await askJson(
+    `Du er en lokal AI-agent som skal bli bedre for hver dag.\n` +
+      `Dette har brukeren spurt om i det siste:\n${samtaler.join("\n").slice(0, 1200) || "(ingenting ennå)"}\n\n` +
+      `Dette dekker kunnskapsbasen allerede:\n${dokumenter.join("; ").slice(0, 1200) || "(tom)"}\n\n` +
+      `Velg ${antall} konkrete temaer du bør lære deg for å hjelpe brukeren bedre. ` +
+      `Hvert tema skal være kort (maks 8 ord) og søkbart. Svar KUN med JSON på norsk bokmål: {"mal":[{"tema":"...","hvorfor":"..."}]}`,
+    { timeoutMs: 90_000 },
+  ).catch(() => ({ mal: [] }));
+
+  const lagt = [];
+  for (const m of (parsed.mal || []).slice(0, antall)) {
+    const tema = String(m?.tema || "").trim().slice(0, 120);
+    if (!tema || alt.has(tema.toLowerCase())) continue;
+    const hull = registrerHull(tema, `eget mål: ${String(m?.hvorfor || "vil bli bedre").slice(0, 120)}`);
+    if (hull) lagt.push(tema);
+  }
+  loggOkt({ type: "egne-mal", tema: lagt.join("; ").slice(0, 200), antall: lagt.length, ok: lagt.length > 0 });
+  return { mal: lagt, antall: lagt.length };
+}
+
 /** Jobber selvlæringen ønsker å kjøre når maskinen er ledig. */
 export function planleggLaering() {
   if (!erPa()) return [];
-  const jobber = apneHull(3).map((h) => ({
+  const apne = apneHull(3);
+  const jobber = apne.map((h) => ({
     type: "laer-om",
     tekst: `Lær om «${h.tema}» (${h.antall} gang${h.antall > 1 ? "er" : ""} uten svar)`,
     prioritet: Math.min(9, 6 + (h.antall || 1)),
