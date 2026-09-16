@@ -483,7 +483,12 @@ export function AgiPanel() {
           </>
         ) : null}
 
-        {tab === "utvikling" ? <UtviklingSection /> : null}
+        {tab === "utvikling" ? (
+          <>
+            <SelvforbedringSection />
+            <UtviklingSection />
+          </>
+        ) : null}
 
         {tab === "verktoy" ? (
           <>
