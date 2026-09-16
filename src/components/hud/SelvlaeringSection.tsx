@@ -114,6 +114,61 @@ export function SelvlaeringSection() {
         </p>
       ) : null}
 
+      <div className="rounded-lg border border-primary/20 bg-primary/[0.04] px-2.5 py-2">
+        <p className="flex items-center gap-2 text-[11px]">
+          <span
+            className={`h-2 w-2 rounded-full ${
+              motor?.jobberNa ? "animate-pulse bg-primary" : motor?.lever ? "bg-primary/50" : "bg-muted-foreground/40"
+            }`}
+          />
+          {motor?.jobberNa ? (
+            <span className="text-primary/90">LÆRER NÅ: {motor.jobberNa}</span>
+          ) : motor?.lever ? (
+            <span className="text-muted-foreground">
+              {motor.aktiv
+                ? motor.ledig
+                  ? "Motoren er i gang – venter på neste jobb."
+                  : "Motoren venter til du er ferdig med å bruke ham."
+                : "Motoren er slått av."}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Fikk ikke livstegn fra bakgrunnsmotoren.</span>
+          )}
+        </p>
+        {motor?.sisteJobb ? (
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Sist: {motor.sisteJobb.jobb}
+            {motor.sisteJobb.resultat ? ` → ${motor.sisteJobb.resultat}` : ""} · {klokke(motor.sisteJobb.tid)}
+          </p>
+        ) : null}
+        {motor?.hjerteslag ? (
+          <p className="mt-0.5 text-[10px] text-muted-foreground/70">
+            Livstegn {klokke(motor.hjerteslag)} · {motor.ko} jobber i kø
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <p className="hud-title mb-1 flex items-center gap-1.5 text-[9px] text-muted-foreground">
+          <Target className="h-3 w-3" /> MÅL HAN JOBBER MOT
+        </p>
+        {plan.length ? (
+          <ul className="space-y-1">
+            {plan.slice(0, 6).map((p, i) => (
+              <li
+                key={`${p.type}-${i}`}
+                className="flex items-center justify-between gap-2 rounded-lg border border-primary/15 px-2 py-1 text-[11px]"
+              >
+                <span className="truncate">{p.tekst}</span>
+                <span className="shrink-0 text-muted-foreground">prioritet {p.prioritet}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">Ingen mål i planen akkurat nå.</p>
+        )}
+      </div>
+
       <div className="flex gap-2">
         <input
           className={inputCls}
