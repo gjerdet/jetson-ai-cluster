@@ -35,6 +35,8 @@ beforeAll(async () => {
       AGENT_PORT: String(PORT),
       AGENT_HOST: "127.0.0.1",
       AGENT_TOKEN: TOKEN,
+      // Sikkerhetstestene under gjelder oppsettet med innlogging på.
+      AGENT_KREV_INNLOGGING: "1",
       AGENT_DATA: path.join(rot, "data"),
       AGENT_SANDBOX: path.join(rot, "sandbox"),
       AGENT_INSECURE: "1",
