@@ -6,7 +6,7 @@
 import { addDocument, search } from "./rag.mjs";
 
 const UA = "JarvisAgent/1.0 (lokal kunnskapsbase)";
-const BLOKKERT = /enable javascript|javascript is required|access denied|verify you are human|checking your browser|captcha|robot check|du må aktivere javascript/i;
+const BLOKKERT = /enable javascript|javascript is (disabled|required|not enabled)|please turn on javascript|access denied|verify you are human|checking your browser|captcha|robot check|du må aktivere javascript|javascript er (deaktivert|slått av)/i;
 
 const avkod = (s) =>
   String(s || "")
