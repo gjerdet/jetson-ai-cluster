@@ -176,7 +176,10 @@ export async function hentUrl(url, { timeoutMs = 20_000, maksTegn = 200_000, spo
         new URL("/rss", sluttUrl).toString(),
         new URL("/rss.xml", sluttUrl).toString(),
         new URL("/feed.xml", sluttUrl).toString(),
-      ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 5);
+        new URL("/nyheter/rss", sluttUrl).toString(),
+        // Google Nyheter har egen strøm per nettsted – virker også for JavaScript-sider.
+        `https://news.google.com/rss/search?q=site:${encodeURIComponent(u.hostname)}&hl=no&gl=NO&ceid=NO:no`,
+      ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 8);
       for (const feedUrl of kandidater) {
         try {
           const feed = await hentTekst(feedUrl, Math.min(timeoutMs, 8_000));
