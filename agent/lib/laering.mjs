@@ -6,7 +6,7 @@
 import { addDocument, search } from "./rag.mjs";
 
 const UA = "JarvisAgent/1.0 (lokal kunnskapsbase)";
-const BLOKKERT = /enable javascript|javascript is required|access denied|verify you are human|checking your browser|captcha|robot check|du må aktivere javascript/i;
+const BLOKKERT = /enable javascript|javascript is (disabled|required|not enabled)|please turn on javascript|access denied|verify you are human|checking your browser|captcha|robot check|du må aktivere javascript|javascript er (deaktivert|slått av)/i;
 
 const avkod = (s) =>
   String(s || "")
@@ -176,7 +176,10 @@ export async function hentUrl(url, { timeoutMs = 20_000, maksTegn = 200_000, spo
         new URL("/rss", sluttUrl).toString(),
         new URL("/rss.xml", sluttUrl).toString(),
         new URL("/feed.xml", sluttUrl).toString(),
-      ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 5);
+        new URL("/nyheter/rss", sluttUrl).toString(),
+        // Google Nyheter har egen strøm per nettsted – virker også for JavaScript-sider.
+        `https://news.google.com/rss/search?q=site:${encodeURIComponent(u.hostname)}&hl=no&gl=NO&ceid=NO:no`,
+      ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 8);
       for (const feedUrl of kandidater) {
         try {
           const feed = await hentTekst(feedUrl, Math.min(timeoutMs, 8_000));
@@ -226,42 +229,101 @@ function utdragEtter(html, fra) {
   return tekstFraHtml(m[1]).replace(/\s+/g, " ").trim().slice(0, 320);
 }
 
-/** Fritekstsøk på nettet via DuckDuckGo (ingen API-nøkkel). */
+/** Plukker treff ut av en HTML-treffliste. */
+function treffFraHtml(html, grense, egetDomene) {
+  const treff = [];
+  const sett = new Set();
+  const re = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let m;
+  while ((m = re.exec(html)) && treff.length < grense) {
+    let href = avkod(m[1]);
+    const uddg = /[?&](?:uddg|u|url)=(https?%3A[^&"]+)/.exec(href);
+    if (uddg) href = decodeURIComponent(uddg[1]);
+    if (!/^https?:\/\//i.test(href)) continue;
+    if (egetDomene.test(href)) continue;
+    const tittel = tekstFraHtml(m[2]).replace(/\s+/g, " ").trim().slice(0, 200);
+    if (tittel.length < 8 || sett.has(href)) continue;
+    sett.add(href);
+    treff.push({ tittel, url: href, utdrag: utdragEtter(html, m.index + m[0].length) });
+  }
+  return treff;
+}
+
+/** Søkemotorer uten API-nøkkel, i prøverekkefølge. */
+const SOKEMOTORER = [
+  {
+    navn: "DuckDuckGo",
+    kjor: async (q, grense, signal) => {
+      const r = await fetch("https://lite.duckduckgo.com/lite/", {
+        method: "POST",
+        headers: { "user-agent": UA, "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ q }).toString(),
+        signal,
+      });
+      if (!r.ok) throw new Error(`svarte ${r.status}`);
+      return treffFraHtml(await r.text(), grense, /duckduckgo\.com/i);
+    },
+  },
+  {
+    navn: "Google Nyheter",
+    kjor: async (q, grense, signal) => {
+      const r = await fetch(
+        `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=no&gl=NO&ceid=NO:no`,
+        { headers: { "user-agent": UA }, signal },
+      );
+      if (!r.ok) throw new Error(`svarte ${r.status}`);
+      return rssSaker(await r.text())
+        .slice(0, grense)
+        .map((s) => ({ tittel: s.tittel, url: s.url, utdrag: s.publisert ? `Publisert ${s.publisert}` : "" }));
+    },
+  },
+  {
+    navn: "Bing",
+    kjor: async (q, grense, signal) => {
+      const r = await fetch(`https://www.bing.com/search?q=${encodeURIComponent(q)}&setlang=nb`, {
+        headers: { "user-agent": UA, accept: "text/html" },
+        signal,
+      });
+      if (!r.ok) throw new Error(`svarte ${r.status}`);
+      return treffFraHtml(await r.text(), grense, /bing\.com|microsoft\.com|msn\.com/i);
+    },
+  },
+  {
+    navn: "Marginalia",
+    kjor: async (q, grense, signal) => {
+      const r = await fetch(`https://search.marginalia.nu/search?query=${encodeURIComponent(q)}`, {
+        headers: { "user-agent": UA, accept: "text/html" },
+        signal,
+      });
+      if (!r.ok) throw new Error(`svarte ${r.status}`);
+      return treffFraHtml(await r.text(), grense, /marginalia\.nu/i);
+    },
+  },
+];
+
+/**
+ * Fritekstsøk på nettet uten API-nøkkel. Prøver flere søkemotorer etter tur,
+ * slik at ett blokkert eller tomt svar ikke stopper Jarvis.
+ */
 export async function sokWeb(sporsmal, antall = 5) {
   const q = String(sporsmal || "").trim();
   if (!q) throw new Error("Mangler søketekst.");
   const grense = Math.max(1, Math.min(Number(antall) || 5, 10));
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 20_000);
-  try {
-    const r = await fetch("https://lite.duckduckgo.com/lite/", {
-      method: "POST",
-      headers: { "user-agent": UA, "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ q }).toString(),
-      signal: ctrl.signal,
-    });
-    if (!r.ok) throw new Error(`Søkemotoren svarte ${r.status}`);
-    const html = await r.text();
-    const treff = [];
-    const sett = new Set();
-    const re = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-    let m;
-    while ((m = re.exec(html)) && treff.length < grense) {
-      let href = avkod(m[1]);
-      const uddg = /[?&]uddg=([^&"]+)/.exec(href);
-      if (uddg) href = decodeURIComponent(uddg[1]);
-      if (!/^https?:\/\//i.test(href)) continue;
-      if (/duckduckgo\.com/i.test(href)) continue;
-      const tittel = tekstFraHtml(m[2]).slice(0, 200);
-      if (!tittel || sett.has(href)) continue;
-      sett.add(href);
-      treff.push({ tittel, url: href, utdrag: utdragEtter(html, m.index + m[0].length) });
+  const feil = [];
+  for (const motor of SOKEMOTORER) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15_000);
+    try {
+      const treff = await motor.kjor(q, grense, ctrl.signal);
+      if (treff.length) return { sporsmal: q, treff, motor: motor.navn };
+      feil.push(`${motor.navn}: ingen treff`);
+    } catch (e) {
+      feil.push(`${motor.navn}: ${String(e?.message || e)}`);
+    } finally {
+      clearTimeout(timer);
     }
-    if (!treff.length) throw new Error("Fant ingen treff. Prøv andre søkeord.");
-    return { sporsmal: q, treff };
-  } finally {
-    clearTimeout(timer);
   }
+  throw new Error(`Fant ingen treff (${feil.join("; ")}). Prøv andre søkeord.`);
 }
 
 /**
