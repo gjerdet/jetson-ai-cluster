@@ -486,12 +486,18 @@ export function korrigerVerktoyvalg(calls: ToolCall[], sporsmal: string): ToolCa
     ? /^world_(brief|sok|lag)$/
     : /^(world_(brief|sok|lag)|nett_sjekk|nett_skann|identifiser)$/;
   let brukt = false;
-  return calls.map((c) => {
-    if (!feilValg.test(c.name) || brukt) return c;
+  const ut: ToolCall[] = [];
+  for (const c of calls) {
+    if (!feilValg.test(c.name)) {
+      ut.push(c);
+      continue;
+    }
+    if (brukt) continue; // dropp flere feilvalgte kall om samme nettsted
     brukt = true;
     const args = { url, sporsmal: String(sporsmal ?? "").slice(0, 500) };
-    return { name: "les_url", args, raw: `VERKTØY: les_url ${JSON.stringify(args)}` };
-  });
+    ut.push({ name: "les_url", args, raw: `VERKTØY: les_url ${JSON.stringify(args)}` });
+  }
+  return ut;
 }
 
 export const TOOL_PROMPT = `Du har verktøy du kan bruke for å hente ekte data før du svarer.
