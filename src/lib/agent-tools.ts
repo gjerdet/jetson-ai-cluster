@@ -383,11 +383,31 @@ export function normaliserUrl(raw: string): string {
   return t;
 }
 
+/** Ord som ser ut som navn, men aldri er et nettsted. */
+const IKKE_NETTSTED =
+  /^(nettet|nettsiden|siden|dag|dagen|morgen|kveld|natt|norge|verden|deg|meg|min|mitt|denne|det|dette|jarvis|lokalt|hjemme|nyhetene?|avisa|avisen)$/i;
+
+/** Nyhetsspørsmål der et enkelt navn nesten alltid er et nettsted («siste nytt fra fjuken»). */
+const NYHETSSPM = /\b(nyhet|nyheter|nytt|forside|toppsak|saker|overskrift|artikkel|avis)\w*/i;
+
+/**
+ * Navn uten toppdomene, f.eks. «siste nyhet fra fjuken» → fjuken.no.
+ * Brukes bare i nyhetsspørsmål, slik at vanlige setninger ikke tolkes som adresser.
+ */
+function bartNavnSomNettsted(tekst: string): string {
+  const t = String(tekst ?? "");
+  if (!NYHETSSPM.test(t)) return "";
+  const m = /\b(?:fra|hos|på|i)\s+([a-zæøå][a-zæøå0-9-]{2,})\b/i.exec(t);
+  const navn = (m?.[1] ?? "").toLowerCase();
+  if (!navn || IKKE_NETTSTED.test(navn)) return "";
+  return `https://${navn}.no`;
+}
+
 /** Nettstedet brukeren nevnte i meldingen, som full adresse – ellers tom streng. */
 export function nettstedIMelding(tekst: string): string {
   const m = NETTSTED.exec(String(tekst ?? ""));
-  if (!m) return "";
-  return normaliserUrl(m[0]);
+  if (m) return normaliserUrl(m[0]);
+  return bartNavnSomNettsted(tekst);
 }
 
 /** Steder/vær: «hvordan blir været i Åsmarka i dag?» */
@@ -461,13 +481,23 @@ export function redningsKall(sporsmal: string): ToolCall | null {
 export function korrigerVerktoyvalg(calls: ToolCall[], sporsmal: string): ToolCall[] {
   const url = nettstedIMelding(sporsmal);
   if (!url) return calls;
+  const nettverksSpm = /\b(subnett|nettverk|lan|ip-adresse|arp|skann|enheter|gateway|dns|port)\w*/i.test(sporsmal);
+  const feilValg = nettverksSpm
+    ? /^world_(brief|sok|lag)$/
+    : /^(world_(brief|sok|lag)|nett_sjekk|nett_skann|identifiser)$/;
   let brukt = false;
-  return calls.map((c) => {
-    if (!/^world_(brief|sok|lag)$/.test(c.name) || brukt) return c;
+  const ut: ToolCall[] = [];
+  for (const c of calls) {
+    if (!feilValg.test(c.name)) {
+      ut.push(c);
+      continue;
+    }
+    if (brukt) continue; // dropp flere feilvalgte kall om samme nettsted
     brukt = true;
     const args = { url, sporsmal: String(sporsmal ?? "").slice(0, 500) };
-    return { name: "les_url", args, raw: `VERKTØY: les_url ${JSON.stringify(args)}` };
-  });
+    ut.push({ name: "les_url", args, raw: `VERKTØY: les_url ${JSON.stringify(args)}` });
+  }
+  return ut;
 }
 
 export const TOOL_PROMPT = `Du har verktøy du kan bruke for å hente ekte data før du svarer.
