@@ -49,4 +49,14 @@ describe("navn uten toppdomene", () => {
     expect(kall).toHaveLength(1);
     expect(kall[0]?.name).toBe("les_url");
   });
+
+  it("ruter generelt nettsøk til nettsidelesing når et nettsted er nevnt", () => {
+    const kall = korrigerVerktoyvalg(
+      [{ name: "web_sok", args: { sok: "fjuken" }, raw: "" }],
+      "siste nyhet fra fjuken",
+    );
+    expect(kall).toHaveLength(1);
+    expect(kall[0]?.name).toBe("les_url");
+    expect(kall[0]?.args).toMatchObject({ url: "https://fjuken.no" });
+  });
 });
