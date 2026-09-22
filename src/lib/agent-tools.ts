@@ -383,11 +383,31 @@ export function normaliserUrl(raw: string): string {
   return t;
 }
 
+/** Ord som ser ut som navn, men aldri er et nettsted. */
+const IKKE_NETTSTED =
+  /^(nettet|nettsiden|siden|dag|dagen|morgen|kveld|natt|norge|verden|deg|meg|min|mitt|denne|det|dette|jarvis|lokalt|hjemme|nyhetene?|avisa|avisen)$/i;
+
+/** Nyhetsspørsmål der et enkelt navn nesten alltid er et nettsted («siste nytt fra fjuken»). */
+const NYHETSSPM = /\b(nyhet|nyheter|nytt|forside|toppsak|saker|overskrift|artikkel|avis)\w*/i;
+
+/**
+ * Navn uten toppdomene, f.eks. «siste nyhet fra fjuken» → fjuken.no.
+ * Brukes bare i nyhetsspørsmål, slik at vanlige setninger ikke tolkes som adresser.
+ */
+function bartNavnSomNettsted(tekst: string): string {
+  const t = String(tekst ?? "");
+  if (!NYHETSSPM.test(t)) return "";
+  const m = /\b(?:fra|hos|på|i)\s+([a-zæøå][a-zæøå0-9-]{2,})\b/i.exec(t);
+  const navn = (m?.[1] ?? "").toLowerCase();
+  if (!navn || IKKE_NETTSTED.test(navn)) return "";
+  return `https://${navn}.no`;
+}
+
 /** Nettstedet brukeren nevnte i meldingen, som full adresse – ellers tom streng. */
 export function nettstedIMelding(tekst: string): string {
   const m = NETTSTED.exec(String(tekst ?? ""));
-  if (!m) return "";
-  return normaliserUrl(m[0]);
+  if (m) return normaliserUrl(m[0]);
+  return bartNavnSomNettsted(tekst);
 }
 
 /** Steder/vær: «hvordan blir været i Åsmarka i dag?» */
