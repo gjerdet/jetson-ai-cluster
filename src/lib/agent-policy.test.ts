@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { requiresFreshLocalEvidence } from "./agent-policy";
-import { redningsKall, krevesFerskeData } from "./agent-tools";
+import { redningsKall, krevesFerskeData, nettstedIMelding, korrigerVerktoyvalg } from "./agent-tools";
 
 describe("agentens evidensport", () => {
   it("krever måling for spørsmål om den lokale installasjonen", () => {
