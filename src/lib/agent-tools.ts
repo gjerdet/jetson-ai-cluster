@@ -481,9 +481,13 @@ export function redningsKall(sporsmal: string): ToolCall | null {
 export function korrigerVerktoyvalg(calls: ToolCall[], sporsmal: string): ToolCall[] {
   const url = nettstedIMelding(sporsmal);
   if (!url) return calls;
+  const nettverksSpm = /\b(subnett|nettverk|lan|ip-adresse|arp|skann|enheter|gateway|dns|port)\w*/i.test(sporsmal);
+  const feilValg = nettverksSpm
+    ? /^world_(brief|sok|lag)$/
+    : /^(world_(brief|sok|lag)|nett_sjekk|nett_skann|identifiser)$/;
   let brukt = false;
   return calls.map((c) => {
-    if (!/^world_(brief|sok|lag)$/.test(c.name) || brukt) return c;
+    if (!feilValg.test(c.name) || brukt) return c;
     brukt = true;
     const args = { url, sporsmal: String(sporsmal ?? "").slice(0, 500) };
     return { name: "les_url", args, raw: `VERKTØY: les_url ${JSON.stringify(args)}` };
