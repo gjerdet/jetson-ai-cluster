@@ -34,3 +34,19 @@ describe("værspørsmål med små bokstaver", () => {
     expect(k?.args).toMatchObject({ url: "https://fjuken.no", sporsmal: "hva er nyeste nyheten hos fjuken.no?" });
   });
 });
+
+describe("navn uten toppdomene", () => {
+  it("tolker «siste nyhet fra fjuken» som fjuken.no", () => {
+    expect(nettstedIMelding("siste nyhet fra fjuken")).toBe("https://fjuken.no");
+    expect(redningsKall("siste nyhet fra fjuken")?.name).toBe("les_url");
+  });
+
+  it("ruter nettverksverktøy til nettsidelesing i nyhetsspørsmål", () => {
+    const kall = korrigerVerktoyvalg(
+      [{ name: "nett_sjekk", args: {}, raw: "" }, { name: "nett_skann", args: {}, raw: "" }],
+      "siste nyhet fra fjuken",
+    );
+    expect(kall).toHaveLength(1);
+    expect(kall[0]?.name).toBe("les_url");
+  });
+});
