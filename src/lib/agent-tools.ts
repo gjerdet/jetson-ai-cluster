@@ -474,9 +474,11 @@ export function redningsKall(sporsmal: string): ToolCall | null {
 }
 
 /**
- * Modellene velger ofte World Monitor når brukeren spør om nyheter på et navngitt
- * nettsted. World Monitor er vår egen interne hendelsesstrøm og kan ikke lese
- * nettsteder, så slike kall rutes om til les_url mot siden brukeren faktisk nevnte.
+ * Modellene velger ofte World Monitor eller generelle verktøy når brukeren spør
+ * om nyheter på et navngitt nettsted. World Monitor er vår egen interne
+ * hendelsesstrøm og kan ikke lese nettsteder, og et generelt søk gir bare
+ * lenkelister – ikke det som faktisk står på siden. Slike kall rutes derfor om
+ * til les_url mot siden brukeren faktisk nevnte.
  */
 export function korrigerVerktoyvalg(calls: ToolCall[], sporsmal: string): ToolCall[] {
   const url = nettstedIMelding(sporsmal);
@@ -484,7 +486,7 @@ export function korrigerVerktoyvalg(calls: ToolCall[], sporsmal: string): ToolCa
   const nettverksSpm = /\b(subnett|nettverk|lan|ip-adresse|arp|skann|enheter|gateway|dns|port)\w*/i.test(sporsmal);
   const feilValg = nettverksSpm
     ? /^world_(brief|sok|lag)$/
-    : /^(world_(brief|sok|lag)|nett_sjekk|nett_skann|identifiser)$/;
+    : /^(world_(brief|sok|lag)|nett_sjekk|nett_skann|identifiser|web_sok|nett_sok|laer_om)$/;
   let brukt = false;
   const ut: ToolCall[] = [];
   for (const c of calls) {
